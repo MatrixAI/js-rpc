@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "experimentalDecorators": true,
     "outDir": "./dist",
     "tsBuildInfoFile": "./dist/tsbuildinfo",
     "incremental": true,
