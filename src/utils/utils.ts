@@ -11,15 +11,15 @@ import type {
   JSONRPCResponseResult,
   PromiseDeconstructed,
 } from '../types';
-import type { JSONValue } from '../types';
+import type { JSONValue, IdGen } from '../types';
 import type { Timer } from '@matrixai/timer';
 import { TransformStream } from 'stream/web';
 import { JSONParser } from '@streamparser/json';
 import { AbstractError } from '@matrixai/errors';
-import * as rpcErrors from '../errors/errors';
-import * as errors from '../errors/errors';
-import { ErrorRPCRemote } from '../errors/errors';
-import { ErrorRPC } from '../errors/errors';
+import * as rpcErrors from '../errors';
+import * as errors from '../errors';
+import { ErrorRPCRemote } from '../errors';
+import { ErrorRPC } from '../errors';
 
 // Importing PK funcs and utils which are essential for RPC
 function isObject(o: unknown): o is object {
@@ -223,45 +223,6 @@ function parseJSONRPCMessage<T extends JSONValue>(
  * Polykey errors are handled by their inbuilt `toJSON` method , so this only
  * serialises other errors
  */
-function replacer(key: string, value: any): any {
-  if (value instanceof AggregateError) {
-    // AggregateError has an `errors` property
-    return {
-      type: value.constructor.name,
-      data: {
-        errors: value.errors,
-        message: value.message,
-        stack: value.stack,
-      },
-    };
-  } else if (value instanceof Error) {
-    // If it's some other type of error then only serialise the message and
-    // stack (and the type of the error)
-    return {
-      type: value.name,
-      data: {
-        message: value.message,
-        stack: value.stack,
-      },
-    };
-  } else {
-    // If it's not an error then just leave as is
-    return value;
-  }
-}
-
-/**
- * The same as `replacer`, however this will additionally filter out any
- * sensitive data that should not be sent over the network when sending to an
- * agent (as opposed to a client)
- */
-function sensitiveReplacer(key: string, value: any) {
-  if (key === 'stack') {
-    return;
-  } else {
-    return replacer(key, value);
-  }
-}
 
 /**
  * Serializes Error instances into RPC errors
@@ -270,12 +231,23 @@ function sensitiveReplacer(key: string, value: any) {
  * If sending to an agent (rather than a client), set sensitive to true to
  * prevent sensitive information from being sent over the network
  */
-function fromError(error: Error, sensitive: boolean = false) {
-  if (sensitive) {
-    return JSON.stringify(error, sensitiveReplacer);
-  } else {
-    return JSON.stringify(error, replacer);
+function fromError(error: ErrorRPC<any>, id?: any): JSONValue {
+  const data: { [key: string]: JSONValue } = {
+    message: error.message,
+    description: error.description,
+    data: error.data,
+  };
+  if (error.code !== undefined) {
+    data.code = error.code;
   }
+  return {
+    jsonrpc: '2.0',
+    error: {
+      type: error.name,
+      ...data,
+    },
+    id: id !== undefined ? id : null,
+  };
 }
 
 /**
@@ -292,7 +264,43 @@ const standardErrors = {
   URIError,
   AggregateError,
   AbstractError,
+  ErrorRPCRemote,
+  ErrorRPC,
 };
+const createReplacer = () => {
+  return (keyToRemove) => {
+    return (key, value) => {
+      if (key === keyToRemove) {
+        return undefined;
+      }
+
+      if (key !== 'code') {
+        if (value instanceof ErrorRPC) {
+          return {
+            code: value.code,
+            message: value.message,
+            data: value.data,
+            type: value.constructor.name,
+          };
+        }
+
+        if (value instanceof AggregateError) {
+          return {
+            type: value.constructor.name,
+            data: {
+              errors: value.errors,
+              message: value.message,
+              stack: value.stack,
+            },
+          };
+        }
+      }
+
+      return value;
+    };
+  };
+};
+const replacer = createReplacer();
 
 /**
  * Reviver function for deserialising errors sent over RPC (used by
@@ -361,18 +369,28 @@ function reviver(key: string, value: any): any {
   }
 }
 
-function toError(errorData, metadata?: JSONValue): ErrorRPCRemote<unknown> {
-  if (errorData == null) {
-    return new ErrorRPCRemote(metadata);
+function toError(errorResponse: any, metadata?: any): ErrorRPCRemote<any> {
+  if (
+    typeof errorResponse !== 'object' ||
+    errorResponse === null ||
+    !('error' in errorResponse) ||
+    !('type' in errorResponse.error) ||
+    !('message' in errorResponse.error)
+  ) {
+    throw new TypeError('Invalid error data object');
   }
-  const error: Error = JSON.parse(errorData, reviver);
-  const remoteError = new ErrorRPCRemote(metadata, error.message, {
-    cause: error,
+
+  const errorData = errorResponse.error;
+  const error = new ErrorRPCRemote(metadata, errorData.message, {
+    cause: errorData.cause,
+    data: errorData.data === undefined ? null : errorData.data,
   });
-  if (error instanceof ErrorRPC) {
-    remoteError.exitCode = error.exitCode as number;
-  }
-  return remoteError;
+  error.message = errorData.message;
+  error.code = errorData.code;
+  error.description = errorData.description;
+  error.data = errorData.data;
+
+  return error;
 }
 
 /**
@@ -511,6 +529,7 @@ export {
   parseJSONRPCResponseError,
   parseJSONRPCResponse,
   parseJSONRPCMessage,
+  replacer,
   fromError,
   toError,
   clientInputTransformStream,

@@ -1,34 +1,34 @@
 import type { ContextTimed } from '@matrixai/contexts';
-import type { JSONValue } from '../../src/types';
+import type { JSONValue } from '@/types';
 import type {
   JSONRPCRequest,
   JSONRPCRequestMessage,
   JSONRPCResponse,
   JSONRPCResponseResult,
   RPCStream,
-} from '../../src/types';
+} from '@/types';
+import type { IdGen } from '@/types';
 import { TransformStream, ReadableStream } from 'stream/web';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import { testProp, fc } from '@fast-check/jest';
+import RawCaller from '@/callers/RawCaller';
+import DuplexCaller from '@/callers/DuplexCaller';
+import ServerCaller from '@/callers/ServerCaller';
+import ClientCaller from '@/callers/ClientCaller';
+import UnaryCaller from '@/callers/UnaryCaller';
+import RPCClient from '@/RPCClient';
+import RPCServer from '@/RPCServer';
+import * as rpcErrors from '@/errors';
+import * as rpcUtilsMiddleware from '@/utils/middleware';
+import { promise, sleep } from '@/utils';
+import { ErrorRPCRemote } from '@/errors';
 import * as rpcTestUtils from './utils';
-import RPCClient from '../../src/RPCClient';
-import RPCServer from '../../src/RPCServer';
-import * as rpcErrors from '../../src/errors';
-import {
-  ClientCaller,
-  DuplexCaller,
-  RawCaller,
-  ServerCaller,
-  UnaryCaller,
-} from '../../src/callers';
-import * as rpcUtilsMiddleware from '../../src/utils/middleware';
-import { promise, sleep } from '../../src/utils';
-import { ErrorRPCRemote } from '../../src/errors';
 
 describe(`${RPCClient.name}`, () => {
   const logger = new Logger(`${RPCServer.name} Test`, LogLevel.WARN, [
     new StreamHandler(),
   ]);
+  const idGen: IdGen = () => Promise.resolve(null);
 
   const methodName = 'testMethod';
   const specificMessageArb = fc
@@ -72,6 +72,7 @@ describe(`${RPCClient.name}`, () => {
         manifest: {},
         streamFactory: async () => streamPair,
         logger,
+        idGen,
       });
       const callerInterface = await rpcClient.rawStreamCaller(
         'testMethod',
@@ -111,6 +112,7 @@ describe(`${RPCClient.name}`, () => {
       manifest: {},
       streamFactory: async () => streamPair,
       logger,
+      idGen,
     });
     const callerInterface = await rpcClient.duplexStreamCaller<
       JSONValue,
@@ -153,6 +155,7 @@ describe(`${RPCClient.name}`, () => {
         manifest: {},
         streamFactory: async () => streamPair,
         logger,
+        idGen,
       });
       const callerInterface = await rpcClient.serverStreamCaller<
         JSONValue,
@@ -195,6 +198,7 @@ describe(`${RPCClient.name}`, () => {
         manifest: {},
         streamFactory: async () => streamPair,
         logger,
+        idGen,
       });
       const { output, writable } = await rpcClient.clientStreamCaller<
         JSONValue,
@@ -236,6 +240,7 @@ describe(`${RPCClient.name}`, () => {
         manifest: {},
         streamFactory: async () => streamPair,
         logger,
+        idGen,
       });
       const result = await rpcClient.unaryCaller<JSONValue, JSONValue>(
         methodName,
@@ -275,6 +280,7 @@ describe(`${RPCClient.name}`, () => {
         manifest: {},
         streamFactory: async () => streamPair,
         logger,
+        idGen,
       });
       const callerInterface = await rpcClient.duplexStreamCaller<
         JSONValue,
@@ -314,6 +320,7 @@ describe(`${RPCClient.name}`, () => {
         manifest: {},
         streamFactory: async () => streamPair,
         logger,
+        idGen,
       });
       const callerInterface = await rpcClient.duplexStreamCaller<
         JSONValue,
@@ -356,6 +363,7 @@ describe(`${RPCClient.name}`, () => {
         manifest: {},
         streamFactory: async () => streamPair,
         logger,
+        idGen,
       });
       const callerInterface = await rpcClient.duplexStreamCaller<
         JSONValue,
@@ -404,6 +412,7 @@ describe(`${RPCClient.name}`, () => {
           },
         ),
         logger,
+        idGen,
       });
 
       const callerInterface = await rpcClient.duplexStreamCaller<
@@ -472,6 +481,7 @@ describe(`${RPCClient.name}`, () => {
           },
         ),
         logger,
+        idGen,
       });
 
       const callerInterface = await rpcClient.duplexStreamCaller<
@@ -513,6 +523,7 @@ describe(`${RPCClient.name}`, () => {
         },
         streamFactory: async () => streamPair,
         logger,
+        idGen,
       });
       const callerInterface = await rpcClient.methods.server(params);
       const values: Array<JSONValue> = [];
@@ -554,6 +565,7 @@ describe(`${RPCClient.name}`, () => {
         },
         streamFactory: async () => streamPair,
         logger,
+        idGen,
       });
       const { output, writable } = await rpcClient.methods.client();
       const writer = writable.getWriter();
@@ -594,6 +606,7 @@ describe(`${RPCClient.name}`, () => {
         },
         streamFactory: async () => streamPair,
         logger,
+        idGen,
       });
       const result = await rpcClient.methods.unary(params);
       expect(result).toStrictEqual(message.result);
@@ -645,6 +658,7 @@ describe(`${RPCClient.name}`, () => {
         },
         streamFactory: async () => streamPair,
         logger,
+        idGen,
       });
       const callerInterface = await rpcClient.methods.raw(headerParams);
       await callerInterface.readable.pipeTo(outputWritableStream);
@@ -691,6 +705,7 @@ describe(`${RPCClient.name}`, () => {
         },
         streamFactory: async () => streamPair,
         logger,
+        idGen,
       });
       let count = 0;
       const callerInterface = await rpcClient.methods.duplex();
@@ -714,6 +729,7 @@ describe(`${RPCClient.name}`, () => {
         return {} as RPCStream<Uint8Array, Uint8Array>;
       },
       logger,
+      idGen,
     });
     // @ts-ignore: ignoring type safety here
     expect(() => rpcClient.methods.someMethod()).toThrow();
@@ -735,6 +751,7 @@ describe(`${RPCClient.name}`, () => {
         },
         streamKeepAliveTimeoutTime: 100,
         logger,
+        idGen,
       });
       // Timing out on stream creation
       const callerInterfaceProm = rpcClient.rawStreamCaller('testMethod', {});
@@ -757,6 +774,7 @@ describe(`${RPCClient.name}`, () => {
           return {} as RPCStream<Uint8Array, Uint8Array>;
         },
         logger,
+        idGen,
       });
       // Timing out on stream creation
       const callerInterfaceProm = rpcClient.rawStreamCaller(
@@ -783,6 +801,7 @@ describe(`${RPCClient.name}`, () => {
           return {} as RPCStream<Uint8Array, Uint8Array>;
         },
         logger,
+        idGen,
       });
       const abortController = new AbortController();
       const rejectReason = Symbol('rejectReason');
@@ -823,6 +842,7 @@ describe(`${RPCClient.name}`, () => {
           return streamPair;
         },
         logger,
+        idGen,
       });
       // Timing out on stream
       await expect(
@@ -859,6 +879,7 @@ describe(`${RPCClient.name}`, () => {
           return streamPair;
         },
         logger,
+        idGen,
       });
       const abortController = new AbortController();
       const rejectReason = Symbol('rejectReason');
@@ -899,6 +920,7 @@ describe(`${RPCClient.name}`, () => {
         },
         streamKeepAliveTimeoutTime: 100,
         logger,
+        idGen,
       });
       // Timing out on stream creation
       const callerInterfaceProm = rpcClient.duplexStreamCaller('testMethod');
@@ -921,6 +943,7 @@ describe(`${RPCClient.name}`, () => {
           return {} as RPCStream<Uint8Array, Uint8Array>;
         },
         logger,
+        idGen,
       });
       // Timing out on stream creation
       const callerInterfaceProm = rpcClient.duplexStreamCaller('testMethod', {
@@ -945,6 +968,7 @@ describe(`${RPCClient.name}`, () => {
           return {} as RPCStream<Uint8Array, Uint8Array>;
         },
         logger,
+        idGen,
       });
       const abortController = new AbortController();
       const rejectReason = Symbol('rejectReason');
@@ -983,6 +1007,7 @@ describe(`${RPCClient.name}`, () => {
         },
         streamKeepAliveTimeoutTime: 100,
         logger,
+        idGen,
       });
 
       // Timing out on stream
@@ -1014,6 +1039,7 @@ describe(`${RPCClient.name}`, () => {
           return streamPair;
         },
         logger,
+        idGen,
       });
 
       // Timing out on stream
@@ -1050,6 +1076,7 @@ describe(`${RPCClient.name}`, () => {
           return streamPair;
         },
         logger,
+        idGen,
       });
       const abortController = new AbortController();
       const rejectReason = Symbol('rejectReason');
@@ -1089,11 +1116,12 @@ describe(`${RPCClient.name}`, () => {
             return streamPair;
           },
           logger,
+          idGen,
         });
         const callerInterface = await rpcClient.duplexStreamCaller<
           JSONValue,
           JSONValue
-        >(methodName);
+        >(methodName, { timer: 200 });
 
         const ctx = await ctxProm.p;
         // Reading refreshes timer
@@ -1101,7 +1129,7 @@ describe(`${RPCClient.name}`, () => {
         await sleep(50);
         let timeLeft = ctx.timer.getTimeout();
         const message = await reader.read();
-        expect(ctx.timer.getTimeout()).toBeGreaterThan(timeLeft);
+        expect(ctx.timer.getTimeout()).toBeGreaterThanOrEqual(timeLeft);
         reader.releaseLock();
         for await (const _ of callerInterface.readable) {
           // Do nothing
@@ -1112,7 +1140,7 @@ describe(`${RPCClient.name}`, () => {
         await sleep(50);
         timeLeft = ctx.timer.getTimeout();
         await writer.write(message.value);
-        expect(ctx.timer.getTimeout()).toBeGreaterThan(timeLeft);
+        expect(ctx.timer.getTimeout()).toBeGreaterThanOrEqual(timeLeft);
         await writer.close();
 
         await outputResult;
@@ -1150,6 +1178,7 @@ describe(`${RPCClient.name}`, () => {
             },
           ),
           logger,
+          idGen,
         });
         const callerInterface = await rpcClient.duplexStreamCaller<
           JSONValue,

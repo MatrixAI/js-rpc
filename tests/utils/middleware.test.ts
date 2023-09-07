@@ -1,10 +1,12 @@
+import type { JSONRPCMessage, JSONValue } from '@/types';
+import { TransformStream } from 'stream/web';
 import { fc, testProp } from '@fast-check/jest';
 import { JSONParser } from '@streamparser/json';
 import { AsyncIterableX as AsyncIterable } from 'ix/asynciterable';
-import * as rpcUtils from '../../../src/utils';
+import * as rpcUtils from '@/utils';
 import 'ix/add/asynciterable-operators/toarray';
-import * as rpcErrors from '../../../src/errors';
-import * as rpcUtilsMiddleware from '../../../src/utils/middleware';
+import * as rpcErrors from '@/errors';
+import * as rpcUtilsMiddleware from '@/utils/middleware';
 import * as rpcTestUtils from '../utils';
 
 describe('Middleware tests', () => {

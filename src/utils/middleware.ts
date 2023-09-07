@@ -9,7 +9,7 @@ import { TransformStream } from 'stream/web';
 import { JSONParser } from '@streamparser/json';
 import * as rpcUtils from './utils';
 import { promise } from './utils';
-import * as rpcErrors from '../errors/errors';
+import * as rpcErrors from '../errors';
 
 /**
  * This function is a factory to create a TransformStream that will

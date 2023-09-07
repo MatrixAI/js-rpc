@@ -1,15 +1,17 @@
 import type { ReadableStream, ReadableWritablePair } from 'stream/web';
 import type { ContextTimed, ContextTimedInput } from '@matrixai/contexts';
-import type { Handler } from './handlers';
-import type {
-  Caller,
-  RawCaller,
-  DuplexCaller,
-  ServerCaller,
-  ClientCaller,
-  UnaryCaller,
-} from './callers';
-import type { Id } from '@matrixai/id';
+import type { Caller } from './callers';
+import type { RawCaller } from './callers';
+import type { DuplexCaller } from './callers';
+import type { ServerCaller } from './callers';
+import type { ClientCaller } from './callers';
+import type { UnaryCaller } from './callers';
+import type Handler from './handlers/Handler';
+
+/**
+ * This is the type for the IdGenFunction. It is used to generate the request
+ */
+type IdGen = () => PromiseLike<string | number | null>;
 
 /**
  * This is the JSON RPC request object. this is the generic message type used for the RPC.
@@ -320,12 +322,13 @@ declare const brand: unique symbol;
 type Opaque<K, T> = T & { readonly [brand]: K };
 
 type JSONValue =
-  | { [key: string]: JSONValue }
+  | { [key: string]: JSONValue | undefined }
   | Array<JSONValue>
   | string
   | number
   | boolean
-  | null;
+  | null
+  | undefined;
 
 type POJO = { [key: string]: any };
 type PromiseDeconstructed<T> = {
@@ -335,6 +338,7 @@ type PromiseDeconstructed<T> = {
 };
 
 export type {
+  IdGen,
   JSONRPCRequestMessage,
   JSONRPCRequestNotification,
   JSONRPCResponseResult,

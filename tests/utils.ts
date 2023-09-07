@@ -1,5 +1,5 @@
 import type { ReadableWritablePair } from 'stream/web';
-import type { JSONValue } from '../../src/types';
+import type { JSONValue } from '@/types';
 import type {
   JSONRPCError,
   JSONRPCMessage,
@@ -9,13 +9,13 @@ import type {
   JSONRPCResponseResult,
   JSONRPCResponse,
   JSONRPCRequest,
-} from '../../src/types';
+} from '@/types';
 import { ReadableStream, WritableStream, TransformStream } from 'stream/web';
 import { fc } from '@fast-check/jest';
-import { IdInternal } from '@matrixai/id';
-import * as utils from '../../src/utils';
-import { fromError } from '../../src/utils';
-import * as rpcErrors from '../../src/errors';
+import * as utils from '@/utils';
+import { fromError } from '@/utils';
+import * as rpcErrors from '@/errors';
+import { ErrorRPC } from '@/errors';
 
 /**
  * This is used to convert regular chunks into randomly sized chunks based on
@@ -143,15 +143,14 @@ const jsonRpcResponseResultArb = (
     })
     .noShrink() as fc.Arbitrary<JSONRPCResponseResult>;
 const jsonRpcErrorArb = (
-  error: fc.Arbitrary<Error> = fc.constant(new Error('test error')),
-  sensitive: boolean = false,
+  error: fc.Arbitrary<ErrorRPC<any>> = fc.constant(new ErrorRPC('test error')),
 ) =>
   fc
     .record(
       {
         code: fc.integer(),
         message: fc.string(),
-        data: error.map((e) => fromError(e, sensitive)),
+        data: error.map((e) => JSON.stringify(fromError(e))),
       },
       {
         requiredKeys: ['code', 'message'],
@@ -160,13 +159,13 @@ const jsonRpcErrorArb = (
     .noShrink() as fc.Arbitrary<JSONRPCError>;
 
 const jsonRpcResponseErrorArb = (
-  error?: fc.Arbitrary<Error>,
+  error?: fc.Arbitrary<ErrorRPC<any>>,
   sensitive: boolean = false,
 ) =>
   fc
     .record({
       jsonrpc: fc.constant('2.0'),
-      error: jsonRpcErrorArb(error, sensitive),
+      error: jsonRpcErrorArb(error),
       id: idArb,
     })
     .noShrink() as fc.Arbitrary<JSONRPCResponseError>;
@@ -261,7 +260,7 @@ const errorArb = (
 ) =>
   cause.chain((cause) =>
     fc.oneof(
-      fc.constant(new rpcErrors.ErrorRPCRemote(undefined)),
+      fc.constant(new rpcErrors.ErrorRPCRemote()),
       fc.constant(new rpcErrors.ErrorRPCMessageLength(undefined)),
       fc.constant(
         new rpcErrors.ErrorRPCRemote(

@@ -1,6 +1,6 @@
 import { testProp, fc } from '@fast-check/jest';
 import { JSONParser } from '@streamparser/json';
-import * as rpcUtils from '../../../src/utils';
+import * as rpcUtils from '@/utils';
 import 'ix/add/asynciterable-operators/toarray';
 import * as rpcTestUtils from '../utils';
 

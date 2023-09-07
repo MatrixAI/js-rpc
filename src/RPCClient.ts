@@ -8,27 +8,45 @@ import type {
   RPCStream,
   JSONRPCResponseResult,
 } from './types';
-import type { JSONValue } from './types';
+import type { JSONValue, IdGen } from './types';
 import type {
   JSONRPCRequest,
   JSONRPCResponse,
   MiddlewareFactory,
   MapCallers,
 } from './types';
+import type { ErrorRPCRemote } from './errors';
 import { CreateDestroy, ready } from '@matrixai/async-init/dist/CreateDestroy';
 import Logger from '@matrixai/logger';
 import { Timer } from '@matrixai/timer';
+import { createDestroy } from '@matrixai/async-init';
 import * as rpcUtilsMiddleware from './utils/middleware';
 import * as rpcErrors from './errors';
 import * as rpcUtils from './utils/utils';
 import { promise } from './utils';
-import { never } from './errors';
+import { ErrorRPCStreamEnded, never } from './errors';
+import * as events from './events';
 
 const timerCleanupReasonSymbol = Symbol('timerCleanUpReasonSymbol');
 
-// eslint-disable-next-line
-interface RPCClient<M extends ClientManifest> extends CreateDestroy {}
-@CreateDestroy()
+/**
+ * Events:
+ * - {@link events.Event}
+ */
+interface RPCClient<M extends ClientManifest>
+  extends createDestroy.CreateDestroy {}
+/**
+ * You must provide an error handler `addEventListener('error')`.
+ * Otherwise, errors will just be ignored.
+ *
+ * Events:
+ * - {@link events.EventRPCClientDestroy}
+ * - {@link events.EventRPCClientDestroyed}
+ */
+@createDestroy.CreateDestroy({
+  eventDestroy: events.EventRPCClientDestroy,
+  eventDestroyed: events.EventRPCClientDestroyed,
+})
 class RPCClient<M extends ClientManifest> {
   /**
    * @param obj
@@ -49,8 +67,9 @@ class RPCClient<M extends ClientManifest> {
     manifest,
     streamFactory,
     middlewareFactory = rpcUtilsMiddleware.defaultClientMiddlewareWrapper(),
-    streamKeepAliveTimeoutTime = 60_000, // 1 minute
+    streamKeepAliveTimeoutTime = Infinity, // 1 minute
     logger = new Logger(this.name),
+    idGen = () => Promise.resolve(null),
   }: {
     manifest: M;
     streamFactory: StreamFactory;
@@ -62,6 +81,8 @@ class RPCClient<M extends ClientManifest> {
     >;
     streamKeepAliveTimeoutTime?: number;
     logger?: Logger;
+    idGen: IdGen;
+    toError?: (errorData, metadata?: JSONValue) => ErrorRPCRemote<unknown>;
   }) {
     logger.info(`Creating ${this.name}`);
     const rpcClient = new this({
@@ -70,11 +91,13 @@ class RPCClient<M extends ClientManifest> {
       middlewareFactory,
       streamKeepAliveTimeoutTime: streamKeepAliveTimeoutTime,
       logger,
+      idGen,
     });
     logger.info(`Created ${this.name}`);
     return rpcClient;
   }
-
+  protected onTimeoutCallback?: () => void;
+  protected idGen: IdGen;
   protected logger: Logger;
   protected streamFactory: StreamFactory;
   protected middlewareFactory: MiddlewareFactory<
@@ -84,6 +107,10 @@ class RPCClient<M extends ClientManifest> {
     Uint8Array
   >;
   protected callerTypes: Record<string, HandlerType>;
+  toError: (errorData: any, metadata?: JSONValue) => Error;
+  public registerOnTimeoutCallback(callback: () => void) {
+    this.onTimeoutCallback = callback;
+  }
   // Method proxies
   public readonly streamKeepAliveTimeoutTime: number;
   public readonly methodsProxy = new Proxy(
@@ -116,6 +143,8 @@ class RPCClient<M extends ClientManifest> {
     middlewareFactory,
     streamKeepAliveTimeoutTime,
     logger,
+    idGen = () => Promise.resolve(null),
+    toError,
   }: {
     manifest: M;
     streamFactory: StreamFactory;
@@ -127,20 +156,39 @@ class RPCClient<M extends ClientManifest> {
     >;
     streamKeepAliveTimeoutTime: number;
     logger: Logger;
+    idGen: IdGen;
+    toError?: (errorData, metadata?: JSONValue) => ErrorRPCRemote<unknown>;
   }) {
+    this.idGen = idGen;
     this.callerTypes = rpcUtils.getHandlerTypes(manifest);
     this.streamFactory = streamFactory;
     this.middlewareFactory = middlewareFactory;
     this.streamKeepAliveTimeoutTime = streamKeepAliveTimeoutTime;
     this.logger = logger;
+    this.toError = toError || rpcUtils.toError;
   }
 
-  public async destroy(): Promise<void> {
+  public async destroy({
+    errorCode = rpcErrors.JSONRPCErrorCode.RPCStopping,
+    errorMessage = '',
+    force = true,
+  }: {
+    errorCode?: number;
+    errorMessage?: string;
+    force?: boolean;
+  } = {}): Promise<void> {
     this.logger.info(`Destroying ${this.constructor.name}`);
+
+    // You can dispatch an event before the actual destruction starts
+    this.dispatchEvent(new events.EventRPCClientDestroy());
+
+    // Dispatch an event after the client has been destroyed
+    this.dispatchEvent(new events.EventRPCClientDestroyed());
+
     this.logger.info(`Destroyed ${this.constructor.name}`);
   }
 
-  @ready(new rpcErrors.ErrorRPCDestroyed())
+  @ready(new rpcErrors.ErrorRPCCallerFailed())
   public get methods(): MapCallers<M> {
     return this.methodsProxy as MapCallers<M>;
   }
@@ -154,7 +202,7 @@ class RPCClient<M extends ClientManifest> {
    * the provided I type.
    * @param ctx - ContextTimed used for timeouts and cancellation.
    */
-  @ready(new rpcErrors.ErrorRPCDestroyed())
+  @ready(new rpcErrors.ErrorMissingCaller())
   public async unaryCaller<I extends JSONValue, O extends JSONValue>(
     method: string,
     parameters: I,
@@ -167,7 +215,9 @@ class RPCClient<M extends ClientManifest> {
       await writer.write(parameters);
       const output = await reader.read();
       if (output.done) {
-        throw new rpcErrors.ErrorRPCMissingResponse();
+        throw new rpcErrors.ErrorMissingCaller('Missing response', {
+          cause: ctx.signal?.reason,
+        });
       }
       await reader.cancel();
       await writer.close();
@@ -189,7 +239,7 @@ class RPCClient<M extends ClientManifest> {
    * the provided I type.
    * @param ctx - ContextTimed used for timeouts and cancellation.
    */
-  @ready(new rpcErrors.ErrorRPCDestroyed())
+  @ready(new rpcErrors.ErrorRPCCallerFailed())
   public async serverStreamCaller<I extends JSONValue, O extends JSONValue>(
     method: string,
     parameters: I,
@@ -218,7 +268,7 @@ class RPCClient<M extends ClientManifest> {
    * @param method - Method name of the RPC call
    * @param ctx - ContextTimed used for timeouts and cancellation.
    */
-  @ready(new rpcErrors.ErrorRPCDestroyed())
+  @ready(new rpcErrors.ErrorRPCCallerFailed())
   public async clientStreamCaller<I extends JSONValue, O extends JSONValue>(
     method: string,
     ctx: Partial<ContextTimedInput> = {},
@@ -230,7 +280,9 @@ class RPCClient<M extends ClientManifest> {
     const reader = callerInterface.readable.getReader();
     const output = reader.read().then(({ value, done }) => {
       if (done) {
-        throw new rpcErrors.ErrorRPCMissingResponse();
+        throw new rpcErrors.ErrorMissingCaller('Missing response', {
+          cause: ctx.signal?.reason,
+        });
       }
       return value;
     });
@@ -251,7 +303,7 @@ class RPCClient<M extends ClientManifest> {
    * @param method - Method name of the RPC call
    * @param ctx - ContextTimed used for timeouts and cancellation.
    */
-  @ready(new rpcErrors.ErrorRPCDestroyed())
+  @ready(new rpcErrors.ErrorRPCCallerFailed())
   public async duplexStreamCaller<I extends JSONValue, O extends JSONValue>(
     method: string,
     ctx: Partial<ContextTimedInput> = {},
@@ -294,10 +346,16 @@ class RPCClient<M extends ClientManifest> {
       signal.addEventListener('abort', abortRacePromHandler);
     };
     // Setting up abort events for timeout
-    const timeoutError = new rpcErrors.ErrorRPCTimedOut();
+    const timeoutError = new rpcErrors.ErrorRPCTimedOut(
+      'Error RPC has timed out',
+      { cause: ctx.signal?.reason },
+    );
     void timer.then(
       () => {
         abortController.abort(timeoutError);
+        if (this.onTimeoutCallback) {
+          this.onTimeoutCallback();
+        }
       },
       () => {}, // Ignore cancellation error
     );
@@ -310,13 +368,17 @@ class RPCClient<M extends ClientManifest> {
     } catch (e) {
       cleanUp();
       void streamFactoryProm.then((stream) =>
-        stream.cancel(Error('TMP stream timed out early')),
+        stream.cancel(ErrorRPCStreamEnded),
       );
       throw e;
     }
     void timer.then(
       () => {
-        rpcStream.cancel(new rpcErrors.ErrorRPCTimedOut());
+        rpcStream.cancel(
+          new rpcErrors.ErrorRPCTimedOut('RPC has timed out', {
+            cause: ctx.signal?.reason,
+          }),
+        );
       },
       () => {}, // Ignore cancellation error
     );
@@ -379,8 +441,9 @@ class RPCClient<M extends ClientManifest> {
    * single RPC message that is sent to specify the method for the RPC call.
    * Any metadata of extra parameters is provided here.
    * @param ctx - ContextTimed used for timeouts and cancellation.
+   * @param id - Id is generated only once, and used throughout the stream for the rest of the communication
    */
-  @ready(new rpcErrors.ErrorRPCDestroyed())
+  @ready(new rpcErrors.ErrorRPCCallerFailed())
   public async rawStreamCaller(
     method: string,
     headerParams: JSONValue,
@@ -430,7 +493,9 @@ class RPCClient<M extends ClientManifest> {
       signal.addEventListener('abort', abortRacePromHandler);
     };
     // Setting up abort events for timeout
-    const timeoutError = new rpcErrors.ErrorRPCTimedOut();
+    const timeoutError = new rpcErrors.ErrorRPCTimedOut('RPC has timed out', {
+      cause: ctx.signal?.reason,
+    });
     void timer.then(
       () => {
         abortController.abort(timeoutError);
@@ -457,11 +522,12 @@ class RPCClient<M extends ClientManifest> {
         abortProm.p,
       ]);
       const tempWriter = rpcStream.writable.getWriter();
+      const id = await this.idGen();
       const header: JSONRPCRequestMessage = {
         jsonrpc: '2.0',
         method,
         params: headerParams,
-        id: null,
+        id,
       };
       await tempWriter.write(Buffer.from(JSON.stringify(header)));
       tempWriter.releaseLock();
@@ -484,11 +550,13 @@ class RPCClient<M extends ClientManifest> {
             ...(rpcStream.meta ?? {}),
             command: method,
           };
-          throw rpcUtils.toError(messageValue.error.data, metadata);
+          throw this.toError(messageValue.error.data, metadata);
         }
         leadingMessage = messageValue;
       } catch (e) {
-        rpcStream.cancel(Error('TMP received error in leading response'));
+        rpcStream.cancel(
+          new ErrorRPCStreamEnded('RPC Stream Ended', { cause: e }),
+        );
         throw e;
       }
       tempReader.releaseLock();
