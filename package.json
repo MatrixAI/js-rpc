@@ -53,16 +53,6 @@
     "ts-node": "^10.9.1",
     "tsconfig-paths": "^3.9.0",
     "typedoc": "^0.23.21",
-    "typescript": "^4.9.3",
-    "@fast-check/jest": "^1.1.0"
-  },
-  "dependencies": {
-    "@matrixai/async-init": "^1.9.4",
-    "@matrixai/contexts": "^1.2.0",
-    "@matrixai/logger": "^3.1.0",
-    "@matrixai/errors": "^1.2.0",
-    "@matrixai/events": "^3.2.0",
-    "@streamparser/json": "^0.0.17",
-    "ix": "^5.0.0"
+    "typescript": "^4.9.3"
   }
 }
