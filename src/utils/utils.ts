@@ -216,20 +216,11 @@ function parseJSONRPCMessage<T extends JSONValue>(
     'Message structure did not match a `JSONRPCMessage`',
   );
 }
-
 /**
- * Replacer function for serialising errors over RPC (used by `JSON.stringify`
- * in `fromError`)
- * Polykey errors are handled by their inbuilt `toJSON` method , so this only
- * serialises other errors
- */
-
-/**
- * Serializes Error instances into RPC errors
- * Use this on the sending side to send exceptions
- * Do not send exceptions to clients you do not trust
- * If sending to an agent (rather than a client), set sensitive to true to
- * prevent sensitive information from being sent over the network
+ * Serializes an ErrorRPC instance into a JSONValue object suitable for RPC.
+ * @param {ErrorRPC<any>} error - The ErrorRPC instance to serialize.
+ * @param {any} [id] - Optional id for the error object in the RPC response.
+ * @returns {JSONValue} The serialized ErrorRPC instance.
  */
 function fromError(error: ErrorRPC<any>, id?: any): JSONValue {
   const data: { [key: string]: JSONValue } = {
@@ -267,6 +258,10 @@ const standardErrors = {
   ErrorRPCRemote,
   ErrorRPC,
 };
+/**
+ * Creates a replacer function that omits a specific key during serialization.
+ * @returns {Function} The replacer function.
+ */
 const createReplacer = () => {
   return (keyToRemove) => {
     return (key, value) => {
@@ -300,14 +295,16 @@ const createReplacer = () => {
     };
   };
 };
+/**
+ * The replacer function to customize the serialization process.
+ */
 const replacer = createReplacer();
 
 /**
- * Reviver function for deserialising errors sent over RPC (used by
- * `JSON.parse` in `toError`)
- * The final result returned will always be an error - if the deserialised
- * data is of an unknown type then this will be wrapped as an
- * `ErrorPolykeyUnknown`
+ * Reviver function for deserializing errors sent over RPC.
+ * @param {string} key - The key in the JSON object.
+ * @param {any} value - The value corresponding to the key in the JSON object.
+ * @returns {any} The reconstructed error object or the original value.
  */
 function reviver(key: string, value: any): any {
   // If the value is an error then reconstruct it
@@ -368,7 +365,13 @@ function reviver(key: string, value: any): any {
     return value;
   }
 }
-
+/**
+ * Deserializes an error response object into an ErrorRPCRemote instance.
+ * @param {any} errorResponse - The error response object.
+ * @param {any} [metadata] - Optional metadata for the deserialized error.
+ * @returns {ErrorRPCRemote<any>} The deserialized ErrorRPCRemote instance.
+ * @throws {TypeError} If the errorResponse object is invalid.
+ */
 function toError(errorResponse: any, metadata?: any): ErrorRPCRemote<any> {
   if (
     typeof errorResponse !== 'object' ||
