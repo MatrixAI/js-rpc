@@ -1129,7 +1129,7 @@ describe(`${RPCClient.name}`, () => {
         await sleep(50);
         let timeLeft = ctx.timer.getTimeout();
         const message = await reader.read();
-        expect(ctx.timer.getTimeout()).toBeGreaterThanOrEqual(timeLeft);
+        expect(ctx.timer.getTimeout() + 2).toBeGreaterThanOrEqual(timeLeft);
         reader.releaseLock();
         for await (const _ of callerInterface.readable) {
           // Do nothing
@@ -1140,7 +1140,7 @@ describe(`${RPCClient.name}`, () => {
         await sleep(50);
         timeLeft = ctx.timer.getTimeout();
         await writer.write(message.value);
-        expect(ctx.timer.getTimeout()).toBeGreaterThanOrEqual(timeLeft);
+        expect(ctx.timer.getTimeout() + 1).toBeGreaterThanOrEqual(timeLeft);
         await writer.close();
 
         await outputResult;

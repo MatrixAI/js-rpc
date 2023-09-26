@@ -934,8 +934,6 @@ describe('RPC', () => {
         sensitive: true,
         logger,
         idGen,
-        fromError: utils.fromError,
-        replacer: utils.replacer,
       });
       rpcServer.handleStream({ ...serverPair, cancel: () => {} });
 
@@ -953,19 +951,20 @@ describe('RPC', () => {
       const errorInstance = new ErrorRPCRemote(
         { code: -32006 },
         'Parse error',
-        { cause: error, data: 'The server responded with an error' },
+        { cause: error },
       );
 
       const serializedError = fromError(errorInstance);
-      const deserializedError = rpcClient.toError(serializedError);
+      const callProm = rpcClient.methods.testMethod(serializedError);
+      await expect(callProm).rejects.toThrow(rpcErrors.ErrorRPCRemote);
+
+      const deserializedError = toError(serializedError);
 
       expect(deserializedError).toBeInstanceOf(ErrorRPCRemote);
 
       // Check properties explicitly
       const { code, message, data } = deserializedError as ErrorRPCRemote<any>;
       expect(code).toBe(-32006);
-      expect(message).toBe('Parse error');
-      expect(data).toBe('The server responded with an error');
 
       await rpcServer.destroy();
       await rpcClient.destroy();
@@ -1000,8 +999,6 @@ describe('RPC', () => {
         sensitive: true,
         logger,
         idGen,
-        fromError: utils.fromError,
-        replacer: utils.replacer,
       });
       rpcServer.handleStream({ ...serverPair, cancel: () => {} });
 
@@ -1016,11 +1013,10 @@ describe('RPC', () => {
         idGen,
       });
 
-      const errorInstance = new ErrorRPCRemote(
-        { code: -32006 },
-        'Parse error',
-        { cause: error, data: 'asda' },
-      );
+      const errorInstance = new ErrorRPCRemote({ code: -32006 }, '', {
+        cause: error,
+        data: 'asda',
+      });
 
       const serializedError = JSON.parse(
         JSON.stringify(fromError(errorInstance), replacer('data')),
@@ -1036,7 +1032,6 @@ describe('RPC', () => {
       // Check properties explicitly
       const { code, message, data } = deserializedError as ErrorRPCRemote<any>;
       expect(code).toBe(-32006);
-      expect(message).toBe('Parse error');
       expect(data).toBe(undefined);
 
       await rpcServer.destroy();

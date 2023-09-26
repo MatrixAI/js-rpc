@@ -26,6 +26,7 @@ import * as rpcUtils from './utils/utils';
 import { promise } from './utils';
 import { ErrorRPCStreamEnded, never } from './errors';
 import * as events from './events';
+import { toError } from './utils/utils';
 
 const timerCleanupReasonSymbol = Symbol('timerCleanUpReasonSymbol');
 
@@ -82,7 +83,6 @@ class RPCClient<M extends ClientManifest> {
     streamKeepAliveTimeoutTime?: number;
     logger?: Logger;
     idGen: IdGen;
-    toError?: (errorData, metadata?: JSONValue) => ErrorRPCRemote<unknown>;
   }) {
     logger.info(`Creating ${this.name}`);
     const rpcClient = new this({
@@ -107,7 +107,6 @@ class RPCClient<M extends ClientManifest> {
     Uint8Array
   >;
   protected callerTypes: Record<string, HandlerType>;
-  toError: (errorData: any, metadata?: JSONValue) => Error;
   public registerOnTimeoutCallback(callback: () => void) {
     this.onTimeoutCallback = callback;
   }
@@ -144,7 +143,6 @@ class RPCClient<M extends ClientManifest> {
     streamKeepAliveTimeoutTime,
     logger,
     idGen = () => Promise.resolve(null),
-    toError,
   }: {
     manifest: M;
     streamFactory: StreamFactory;
@@ -157,7 +155,6 @@ class RPCClient<M extends ClientManifest> {
     streamKeepAliveTimeoutTime: number;
     logger: Logger;
     idGen: IdGen;
-    toError?: (errorData, metadata?: JSONValue) => ErrorRPCRemote<unknown>;
   }) {
     this.idGen = idGen;
     this.callerTypes = rpcUtils.getHandlerTypes(manifest);
@@ -165,7 +162,6 @@ class RPCClient<M extends ClientManifest> {
     this.middlewareFactory = middlewareFactory;
     this.streamKeepAliveTimeoutTime = streamKeepAliveTimeoutTime;
     this.logger = logger;
-    this.toError = toError || rpcUtils.toError;
   }
 
   public async destroy({
@@ -550,7 +546,7 @@ class RPCClient<M extends ClientManifest> {
             ...(rpcStream.meta ?? {}),
             command: method,
           };
-          throw this.toError(messageValue.error.data, metadata);
+          throw toError(messageValue.error.data, metadata);
         }
         leadingMessage = messageValue;
       } catch (e) {

@@ -352,6 +352,7 @@ class RPCServer extends EventTarget {
               code: e.exitCode ?? JSONRPCErrorCode.InternalError,
               message: e.description ?? '',
               data: JSON.stringify(this.fromError(e), this.replacer),
+              type: e.type,
             };
             const rpcErrorMessage: JSONRPCResponseError = {
               jsonrpc: '2.0',
@@ -616,6 +617,7 @@ class RPCServer extends EventTarget {
           code: e.exitCode ?? JSONRPCErrorCode.InternalError,
           message: e.description ?? '',
           data: JSON.stringify(this.fromError(e), this.replacer),
+          type: e.type,
         };
         const rpcErrorMessage: JSONRPCResponseError = {
           jsonrpc: '2.0',

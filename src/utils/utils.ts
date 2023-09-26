@@ -224,20 +224,15 @@ function parseJSONRPCMessage<T extends JSONValue>(
  */
 function fromError(error: ErrorRPC<any>, id?: any): JSONValue {
   const data: { [key: string]: JSONValue } = {
+    errorCode: error.code,
     message: error.message,
-    description: error.description,
     data: error.data,
+    type: error.constructor.name,
   };
-  if (error.code !== undefined) {
-    data.code = error.code;
-  }
   return {
-    jsonrpc: '2.0',
     error: {
-      type: error.name,
-      ...data,
+      data,
     },
-    id: id !== undefined ? id : null,
   };
 }
 
@@ -376,11 +371,9 @@ function toError(errorResponse: any, metadata?: any): ErrorRPCRemote<any> {
   if (
     typeof errorResponse !== 'object' ||
     errorResponse === null ||
-    !('error' in errorResponse) ||
-    !('type' in errorResponse.error) ||
-    !('message' in errorResponse.error)
+    !('error' in errorResponse)
   ) {
-    throw new TypeError('Invalid error data object');
+    throw new ErrorRPCRemote(metadata);
   }
 
   const errorData = errorResponse.error;
@@ -389,7 +382,6 @@ function toError(errorResponse: any, metadata?: any): ErrorRPCRemote<any> {
     data: errorData.data === undefined ? null : errorData.data,
   });
   error.message = errorData.message;
-  error.code = errorData.code;
   error.description = errorData.description;
   error.data = errorData.data;
 

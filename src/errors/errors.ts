@@ -30,10 +30,12 @@ interface RPCError extends Error {
 }
 class ErrorRPC<T> extends AbstractError<T> implements RPCError {
   private _description: string = 'Generic Error';
+  type: string;
   constructor(message?: string) {
     super(message);
+    this.type = this.constructor.name;
   }
-  code?: number;
+  code: number;
 
   get description(): string {
     return this._description;
@@ -49,6 +51,7 @@ class ErrorRPCDestroyed<T> extends ErrorRPC<T> {
     super(message); // Call the parent constructor
     this.description = 'Rpc is destroyed'; // Set the specific description
     this.code = JSONRPCErrorCode.MethodNotFound;
+    this.type = this.constructor.name;
   }
 }
 
@@ -59,6 +62,7 @@ class ErrorRPCParse<T> extends ErrorRPC<T> {
     super(message); // Call the parent constructor
     this.description = 'Failed to parse Buffer stream'; // Set the specific description
     this.code = JSONRPCErrorCode.ParseError;
+    this.type = this.constructor.name;
   }
 }
 
@@ -67,6 +71,7 @@ class ErrorRPCStopping<T> extends ErrorRPC<T> {
     super(message); // Call the parent constructor
     this.description = 'Rpc is stopping'; // Set the specific description
     this.code = JSONRPCErrorCode.RPCStopping;
+    this.type = this.constructor.name;
   }
 }
 
@@ -78,6 +83,7 @@ class ErrorRPCHandlerFailed<T> extends ErrorRPC<T> {
     super(message); // Call the parent constructor
     this.description = 'Failed to handle stream'; // Set the specific description
     this.code = JSONRPCErrorCode.HandlerNotFound;
+    this.type = this.constructor.name;
   }
 }
 class ErrorRPCCallerFailed<T> extends ErrorRPC<T> {
@@ -85,6 +91,7 @@ class ErrorRPCCallerFailed<T> extends ErrorRPC<T> {
     super(message); // Call the parent constructor
     this.description = 'Failed to call stream'; // Set the specific description
     this.code = JSONRPCErrorCode.MissingCaller;
+    this.type = this.constructor.name;
   }
 }
 class ErrorMissingCaller<T> extends ErrorRPC<T> {
@@ -92,6 +99,7 @@ class ErrorMissingCaller<T> extends ErrorRPC<T> {
     super(message); // Call the parent constructor
     this.description = 'Header information is missing'; // Set the specific description
     this.code = JSONRPCErrorCode.MissingCaller;
+    this.type = this.constructor.name;
   }
 }
 class ErrorMissingHeader<T> extends ErrorRPC<T> {
@@ -99,6 +107,7 @@ class ErrorMissingHeader<T> extends ErrorRPC<T> {
     super(message); // Call the parent constructor
     this.description = 'Header information is missing'; // Set the specific description
     this.code = JSONRPCErrorCode.MissingHeader;
+    this.type = this.constructor.name;
   }
 }
 
@@ -107,11 +116,12 @@ class ErrorHandlerAborted<T> extends ErrorRPC<T> {
     super(message); // Call the parent constructor
     this.description = 'Handler Aborted Stream.'; // Set the specific description
     this.code = JSONRPCErrorCode.HandlerAborted;
+    this.type = this.constructor.name;
   }
 }
 class ErrorRPCMessageLength<T> extends ErrorRPC<T> {
   static description = 'RPC Message exceeds maximum size';
-  code? = JSONRPCErrorCode.RPCMessageLength;
+  code = JSONRPCErrorCode.RPCMessageLength;
 }
 
 class ErrorRPCMissingResponse<T> extends ErrorRPC<T> {
@@ -119,6 +129,7 @@ class ErrorRPCMissingResponse<T> extends ErrorRPC<T> {
     super(message);
     this.description = 'Stream ended before response';
     this.code = JSONRPCErrorCode.RPCMissingResponse;
+    this.type = this.constructor.name;
   }
 }
 
@@ -130,6 +141,7 @@ class ErrorRPCOutputStreamError<T> extends ErrorRPC<T> {
     super(message);
     this.description = 'Output stream failed, unable to send data';
     this.code = JSONRPCErrorCode.RPCOutputStreamError;
+    this.type = this.constructor.name;
   }
 }
 
@@ -143,6 +155,8 @@ class ErrorRPCRemote<T> extends ErrorRPC<T> {
     this.metadata = metadata;
     this.code = JSONRPCErrorCode.RPCRemote;
     this.data = options?.data;
+    this.type = this.constructor.name;
+    this.message = message || ErrorRPCRemote.message;
   }
 
   public static fromJSON<T extends Class<any>>(
@@ -188,6 +202,7 @@ class ErrorRPCStreamEnded<T> extends ErrorRPC<T> {
     super(message);
     this.description = 'Handled stream has ended';
     this.code = JSONRPCErrorCode.RPCStreamEnded;
+    this.type = this.constructor.name;
   }
 }
 
@@ -196,6 +211,7 @@ class ErrorRPCTimedOut<T> extends ErrorRPC<T> {
     super(message);
     this.description = 'RPC handler has timed out';
     this.code = JSONRPCErrorCode.RPCTimedOut;
+    this.type = this.constructor.name;
   }
 }
 
@@ -204,6 +220,7 @@ class ErrorUtilsUndefinedBehaviour<T> extends ErrorRPC<T> {
     super(message);
     this.description = 'You should never see this error';
     this.code = JSONRPCErrorCode.MethodNotFound;
+    this.type = this.constructor.name;
   }
 }
 export function never(): never {
@@ -217,27 +234,28 @@ class ErrorRPCMethodNotImplemented<T> extends ErrorRPC<T> {
     this.description =
       'This abstract method must be implemented in a derived class';
     this.code = JSONRPCErrorCode.MethodNotFound;
+    this.type = this.constructor.name;
   }
 }
 
 class ErrorRPCConnectionLocal<T> extends ErrorRPC<T> {
   static description = 'RPC Connection local error';
-  code? = JSONRPCErrorCode.RPCConnectionLocal;
+  code = JSONRPCErrorCode.RPCConnectionLocal;
 }
 
 class ErrorRPCConnectionPeer<T> extends ErrorRPC<T> {
   static description = 'RPC Connection peer error';
-  code? = JSONRPCErrorCode.RPCConnectionPeer;
+  code = JSONRPCErrorCode.RPCConnectionPeer;
 }
 
 class ErrorRPCConnectionKeepAliveTimeOut<T> extends ErrorRPC<T> {
   static description = 'RPC Connection keep alive timeout';
-  code? = JSONRPCErrorCode.RPCConnectionKeepAliveTimeOut;
+  code = JSONRPCErrorCode.RPCConnectionKeepAliveTimeOut;
 }
 
 class ErrorRPCConnectionInternal<T> extends ErrorRPC<T> {
   static description = 'RPC Connection internal error';
-  code? = JSONRPCErrorCode.RPCConnectionInternal;
+  code = JSONRPCErrorCode.RPCConnectionInternal;
 }
 
 export {

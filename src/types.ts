@@ -7,6 +7,8 @@ import type { ServerCaller } from './callers';
 import type { ClientCaller } from './callers';
 import type { UnaryCaller } from './callers';
 import type Handler from './handlers/Handler';
+import type { ErrorRPC } from '@/errors';
+import { ErrorRPCRemote } from '@/errors';
 
 /**
  * This is the type for the IdGenFunction. It is used to generate the request
@@ -130,6 +132,8 @@ type JSONRPCError = {
    *  The value of this member is defined by the Server (e.g. detailed error information, nested errors etc.).
    */
   data?: JSONValue;
+
+  type: string | ErrorRPC<any>;
 };
 
 /**

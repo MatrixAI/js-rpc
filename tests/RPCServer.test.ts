@@ -796,6 +796,7 @@ describe(`${RPCServer.name}`, () => {
         error: {
           code: 1,
           message: 'failure of some kind',
+          type: 'ErrorRPCRemote',
         },
       };
       rpcServer.handleStream(readWriteStream);
