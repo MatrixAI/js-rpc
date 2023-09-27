@@ -6,3 +6,4 @@ export * as errors from './errors';
 export * as events from './events';
 export * as handlers from './handlers';
 export * as callers from './callers';
+export * as middleware from './middleware';
