@@ -6,16 +6,13 @@ import { ErrorRPCMethodNotImplemented } from '../errors';
 
 abstract class RawHandler<
   Container extends ContainerType = ContainerType,
-  Input extends JSONValue = JSONValue, // Define Input type if needed
-  Output extends JSONValue = JSONValue, // Define Output type if needed
 > extends Handler<Container> {
-  public handle = async function* (
-    input: AsyncIterableIterator<Input>, // Change this based on your specific needs
+  public handle = async (
+    input: [JSONRPCRequest, ReadableStream<Uint8Array>],
     cancel: (reason?: any) => void,
     meta: Record<string, JSONValue> | undefined,
     ctx: ContextTimed,
-  ): AsyncIterableIterator<Output> {
-    // Change return type to AsyncIterableIterator
+  ): Promise<[JSONValue, ReadableStream<Uint8Array>]> => {
     throw new ErrorRPCMethodNotImplemented('This method must be overridden');
   };
 }
