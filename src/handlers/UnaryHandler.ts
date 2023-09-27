@@ -8,12 +8,12 @@ abstract class UnaryHandler<
   Input extends JSONValue = JSONValue,
   Output extends JSONValue = JSONValue,
 > extends Handler<Container, Input, Output> {
-  public handle = async (
+  public handle = async function* (
     input: Input,
     cancel: (reason?: any) => void,
     meta: Record<string, JSONValue> | undefined,
     ctx: ContextTimed,
-  ): Promise<Output> => {
+  ): AsyncIterableIterator<Output> {
     throw new ErrorRPCMethodNotImplemented('This method must be overridden');
   };
 }
