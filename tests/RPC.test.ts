@@ -10,6 +10,7 @@ import DuplexCaller from '@/callers/DuplexCaller';
 import ServerCaller from '@/callers/ServerCaller';
 import ClientCaller from '@/callers/ClientCaller';
 import UnaryCaller from '@/callers/UnaryCaller';
+import { Timer } from '@matrixai/timer';
 import * as rpcUtilsMiddleware from '@/utils/middleware';
 import {
   ErrorRPC,
@@ -38,7 +39,7 @@ describe('RPC', () => {
   testProp(
     'RPC communication with raw stream',
     [rpcTestUtils.rawDataArb],
-    async (inputData) => {
+    async (values) => {
       const [outputResult, outputWriterStream] =
         rpcTestUtils.streamToArray<Uint8Array>();
       const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
@@ -92,7 +93,7 @@ describe('RPC', () => {
       });
       const writer = callerInterface.writable.getWriter();
       const pipeProm = callerInterface.readable.pipeTo(outputWriterStream);
-      for (const value of inputData) {
+      for (const value of values) {
         await writer.write(value);
       }
       await writer.close();
@@ -104,7 +105,7 @@ describe('RPC', () => {
       };
       expect(header).toStrictEqual(expectedHeader);
       expect(callerInterface.meta?.result).toBe('some leading data');
-      expect(await outputResult).toStrictEqual(inputData);
+      expect(await outputResult).toStrictEqual(values);
       await pipeProm;
       await rpcServer.destroy();
       await rpcClient.destroy();
@@ -602,308 +603,322 @@ describe('RPC', () => {
     await expect(rpcServer.destroy(false)).toResolve();
     await rpcClient.destroy();
   });
-  test('RPC client and server timeout concurrently', async () => {
-    let serverTimedOut = false;
-    let clientTimedOut = false;
-    // Generate test data (assuming fc.array generates some mock array)
-    const values = fc.array(rpcTestUtils.safeJsonValueArb, { minLength: 1 });
+  testProp(
+    'RPC client and server timeout concurrently',
+    [rpcTestUtils.safeJsonValueArb],
+    async (inputData) => {
+      let serverTimedOut = false;
+      let clientTimedOut = false;
 
-    // Setup server and client communication pairs
-    const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
-      Uint8Array,
-      Uint8Array
-    >();
+      // Setup server and client communication pairs
+      const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
+        Uint8Array,
+        Uint8Array
+      >();
 
-    const timeout = 1;
-    class TestMethod extends DuplexHandler {
-      public handle = async function* (
-        input: AsyncIterableIterator<JSONValue>,
-        cancel: (reason?: any) => void,
-        meta: Record<string, JSONValue> | undefined,
-        ctx: ContextTimed,
-      ): AsyncIterableIterator<JSONValue> {
-        // Check for abort event
-        ctx.signal.throwIfAborted();
-        const abortProm = utils.promise<never>();
-        ctx.signal.addEventListener('abort', () => {
-          abortProm.rejectP(ctx.signal.reason);
-        });
-        await abortProm.p;
-      };
-    }
-    const testMethodInstance = new TestMethod({});
-    // Set up a client and server with matching timeout settings
-    const rpcServer = await RPCServer.createRPCServer({
-      manifest: {
-        testMethod: testMethodInstance,
-      },
-      logger,
-      idGen,
-      handlerTimeoutTime: timeout,
-    });
-    // Register callback
-    rpcServer.registerOnTimeoutCallback(() => {
-      serverTimedOut = true;
-    });
-    rpcServer.handleStream({
-      ...serverPair,
-      cancel: () => {},
-    });
-
-    const rpcClient = await RPCClient.createRPCClient({
-      manifest: {
-        testMethod: new DuplexCaller(),
-      },
-      streamFactory: async () => {
-        return {
-          ...clientPair,
-          cancel: () => {},
+      const timeout = 1;
+      class TestMethod extends DuplexHandler {
+        public handle = async function* (
+          input: AsyncIterableIterator<JSONValue>,
+          cancel: (reason?: any) => void,
+          meta: Record<string, JSONValue> | undefined,
+          ctx: ContextTimed,
+        ): AsyncIterableIterator<JSONValue> {
+          // Check for abort event
+          ctx.signal.throwIfAborted();
+          const abortProm = utils.promise<never>();
+          ctx.signal.addEventListener('abort', () => {
+            abortProm.rejectP(ctx.signal.reason);
+          });
+          await abortProm.p;
         };
-      },
-      logger,
-      idGen,
-    });
-    const callerInterface = await rpcClient.methods.testMethod({
-      timer: timeout,
-    });
-    // Register callback
-    rpcClient.registerOnTimeoutCallback(() => {
-      clientTimedOut = true;
-    });
-    const writer = callerInterface.writable.getWriter();
-    const reader = callerInterface.readable.getReader();
-    // Wait for server and client to timeout by checking the flag
-    await new Promise<void>((resolve) => {
-      const checkFlag = () => {
-        if (serverTimedOut && clientTimedOut) resolve();
-        else setTimeout(() => checkFlag(), 10);
-      };
-      checkFlag();
-    });
-    // Expect both the client and the server to time out
-    await expect(writer.write(values[0])).rejects.toThrow(
-      'Timed out waiting for header',
-    );
+      }
+      const testMethodInstance = new TestMethod({});
+      // Set up a client and server with matching timeout settings
+      const rpcServer = await RPCServer.createRPCServer({
+        manifest: {
+          testMethod: testMethodInstance,
+        },
+        logger,
+        idGen,
+        handlerTimeoutTime: timeout,
+      });
+      // Register callback
+      rpcServer.registerOnTimeoutCallback(() => {
+        serverTimedOut = true;
+      });
+      rpcServer.handleStream({
+        ...serverPair,
+        cancel: () => {},
+      });
 
-    await expect(reader.read()).rejects.toThrow('Timed out waiting for header');
+      const rpcClient = await RPCClient.createRPCClient({
+        manifest: {
+          testMethod: new DuplexCaller(),
+        },
+        streamFactory: async () => {
+          return {
+            ...clientPair,
+            cancel: () => {},
+          };
+        },
+        logger,
+        idGen,
+      });
+      const callerInterface = await rpcClient.methods.testMethod({
+        timer: timeout,
+      });
+      // Register callback
+      rpcClient.registerOnTimeoutCallback(() => {
+        clientTimedOut = true;
+      });
+      const writer = callerInterface.writable.getWriter();
+      const reader = callerInterface.readable.getReader();
+      // Wait for server and client to timeout by checking the flag
+      await new Promise<void>((resolve) => {
+        const checkFlag = () => {
+          if (serverTimedOut && clientTimedOut) resolve();
+          else setTimeout(() => checkFlag(), 10);
+        };
+        checkFlag();
+      });
+      // Expect both the client and the server to time out
+      await expect(writer.write(inputData)).rejects.toThrow(
+        'Timed out waiting for header',
+      );
 
-    await rpcServer.destroy();
-    await rpcClient.destroy();
-  });
+      await expect(reader.read()).rejects.toThrow('Timed out waiting for header');
+
+      await rpcServer.destroy();
+      await rpcClient.destroy();
+    }
+  );
   // Test description
-  test('RPC server times out before client', async () => {
-    let serverTimedOut = false;
+  testProp(
+    'RPC server times out before client',
+    [rpcTestUtils.safeJsonValueArb],
+    async (inputData) => {
+      let serverTimedOut = false;
 
-    // Generate test data (assuming fc.array generates some mock array)
-    const values = fc.array(rpcTestUtils.safeJsonValueArb, { minLength: 1 });
+      // Setup server and client communication pairs
+      const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
+        Uint8Array,
+        Uint8Array
+      >();
 
-    // Setup server and client communication pairs
-    const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
-      Uint8Array,
-      Uint8Array
-    >();
-
-    // Define the server's method behavior
-    class TestMethod extends DuplexHandler {
-      public handle = async function* (
-        input: AsyncIterableIterator<JSONValue>,
-        cancel: (reason?: any) => void,
-        meta: Record<string, JSONValue> | undefined,
-        ctx: ContextTimed,
-      ) {
-        ctx.signal.throwIfAborted();
-        const abortProm = utils.promise<never>();
-        ctx.signal.addEventListener('abort', () => {
-          abortProm.rejectP(ctx.signal.reason);
-        });
-        await abortProm.p;
-      };
-    }
-
-    // Create an instance of the RPC server with a shorter timeout
-    const rpcServer = await RPCServer.createRPCServer({
-      manifest: { testMethod: new TestMethod({}) },
-      logger,
-      idGen,
-      handlerTimeoutTime: 1,
-    });
-    // Register callback
-    rpcServer.registerOnTimeoutCallback(() => {
-      serverTimedOut = true;
-    });
-    rpcServer.handleStream({ ...serverPair, cancel: () => {} });
-
-    // Create an instance of the RPC client with a longer timeout
-    const rpcClient = await RPCClient.createRPCClient({
-      manifest: { testMethod: new DuplexCaller() },
-      streamFactory: async () => ({ ...clientPair, cancel: () => {} }),
-      logger,
-      idGen,
-    });
-
-    // Get server and client interfaces
-    const callerInterface = await rpcClient.methods.testMethod({
-      timer: 10,
-    });
-    const writer = callerInterface.writable.getWriter();
-    const reader = callerInterface.readable.getReader();
-    // Wait for server to timeout by checking the flag
-    await new Promise<void>((resolve) => {
-      const checkFlag = () => {
-        if (serverTimedOut) resolve();
-        else setTimeout(() => checkFlag(), 10);
-      };
-      checkFlag();
-    });
-
-    // We expect server to timeout before the client
-    await expect(writer.write(values[0])).rejects.toThrow(
-      'Timed out waiting for header',
-    );
-    await expect(reader.read()).rejects.toThrow('Timed out waiting for header');
-
-    // Cleanup
-    await rpcServer.destroy();
-    await rpcClient.destroy();
-  });
-  test('RPC client times out before server', async () => {
-    // Generate test data (assuming fc.array generates some mock array)
-    const values = fc.array(rpcTestUtils.safeJsonValueArb, { minLength: 1 });
-
-    // Setup server and client communication pairs
-    const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
-      Uint8Array,
-      Uint8Array
-    >();
-    class TestMethod extends DuplexHandler {
-      public handle = async function* (
-        input: AsyncIterableIterator<JSONValue>,
-        cancel: (reason?: any) => void,
-        meta: Record<string, JSONValue> | undefined,
-        ctx: ContextTimed,
-      ): AsyncIterableIterator<JSONValue> {
-        ctx.signal.throwIfAborted();
-        const abortProm = utils.promise<never>();
-        ctx.signal.addEventListener('abort', () => {
-          abortProm.rejectP(ctx.signal.reason);
-        });
-        await abortProm.p;
-      };
-    }
-    // Set up a client and server with matching timeout settings
-    const rpcServer = await RPCServer.createRPCServer({
-      manifest: {
-        testMethod: new TestMethod({}),
-      },
-      logger,
-      idGen,
-
-      handlerTimeoutTime: 400,
-    });
-    rpcServer.handleStream({
-      ...serverPair,
-      cancel: () => {},
-    });
-
-    const rpcClient = await RPCClient.createRPCClient({
-      manifest: {
-        testMethod: new DuplexCaller(),
-      },
-      streamFactory: async () => {
-        return {
-          ...clientPair,
-          cancel: () => {},
+      // Define the server's method behavior
+      class TestMethod extends DuplexHandler {
+        public handle = async function* (
+          input: AsyncIterableIterator<JSONValue>,
+          cancel: (reason?: any) => void,
+          meta: Record<string, JSONValue> | undefined,
+          ctx: ContextTimed,
+        ) {
+          ctx.signal.throwIfAborted();
+          const abortProm = utils.promise<never>();
+          ctx.signal.addEventListener('abort', () => {
+            abortProm.rejectP(ctx.signal.reason);
+          });
+          await abortProm.p;
         };
-      },
-      logger,
-      idGen,
-    });
-    const callerInterface = await rpcClient.methods.testMethod({ timer: 300 });
-    const writer = callerInterface.writable.getWriter();
-    const reader = callerInterface.readable.getReader();
-    // Expect the client to time out first
-    await expect(writer.write(values[0])).toResolve();
-    await expect(reader.read()).toReject();
+      }
 
-    await rpcServer.destroy();
-    await rpcClient.destroy();
-  });
-  test('RPC client and server with infinite timeout', async () => {
-    // Set up a client and server with infinite timeout settings
-    const values = fc.array(rpcTestUtils.safeJsonValueArb, { minLength: 3 });
+      // Create an instance of the RPC server with a shorter timeout
+      const rpcServer = await RPCServer.createRPCServer({
+        manifest: { testMethod: new TestMethod({}) },
+        logger,
+        idGen,
+        handlerTimeoutTime: 1,
+      });
+      // Register callback
+      rpcServer.registerOnTimeoutCallback(() => {
+        serverTimedOut = true;
+      });
+      rpcServer.handleStream({ ...serverPair, cancel: () => {} });
 
-    const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
-      Uint8Array,
-      Uint8Array
-    >();
+      // Create an instance of the RPC client with a longer timeout
+      const rpcClient = await RPCClient.createRPCClient({
+        manifest: { testMethod: new DuplexCaller() },
+        streamFactory: async () => ({ ...clientPair, cancel: () => {} }),
+        logger,
+        idGen,
+      });
 
-    class TestMethod extends DuplexHandler {
-      public handle = async function* (
-        input: AsyncIterableIterator<JSONValue>,
-        cancel: (reason?: any) => void,
-        meta: Record<string, JSONValue> | undefined,
-        ctx: ContextTimed,
-      ) {
-        ctx.signal.throwIfAborted();
-        const abortProm = utils.promise<never>();
-        ctx.signal.addEventListener('abort', () => {
-          abortProm.rejectP(ctx.signal.reason);
-        });
-        await abortProm.p;
-      };
-    }
+      // Get server and client interfaces
+      const callerInterface = await rpcClient.methods.testMethod({
+        timer: 10,
+      });
+      const writer = callerInterface.writable.getWriter();
+      const reader = callerInterface.readable.getReader();
+      // Wait for server to timeout by checking the flag
+      await new Promise<void>((resolve) => {
+        const checkFlag = () => {
+          if (serverTimedOut) resolve();
+          else setTimeout(() => checkFlag(), 10);
+        };
+        checkFlag();
+      });
 
-    const rpcServer = await RPCServer.createRPCServer({
-      manifest: { testMethod: new TestMethod({}) },
-      logger,
-      idGen,
-      handlerTimeoutTime: Infinity,
-    });
-    rpcServer.handleStream({ ...serverPair, cancel: () => {} });
+      // We expect server to timeout before the client
+      await expect(writer.write(inputData)).rejects.toThrow(
+        'Timed out waiting for header',
+      );
+      await expect(reader.read()).rejects.toThrow('Timed out waiting for header');
 
-    const rpcClient = await RPCClient.createRPCClient({
-      manifest: { testMethod: new DuplexCaller() },
-      streamFactory: async () => ({ ...clientPair, cancel: () => {} }),
-      logger,
-      idGen,
-    });
+      // Cleanup
+      await rpcServer.destroy();
+      await rpcClient.destroy();
+    },
+    { numRuns: 1 }
+  );
+  testProp(
+    'RPC client times out before server',
+    [rpcTestUtils.safeJsonValueArb],
+    async (value) => {
+      // Setup server and client communication pairs
+      const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
+        Uint8Array,
+        Uint8Array
+      >();
+      class TestMethod extends DuplexHandler {
+        public handle = async function* (
+          input: AsyncIterableIterator<JSONValue>,
+          cancel: (reason?: any) => void,
+          meta: Record<string, JSONValue> | undefined,
+          ctx: ContextTimed,
+        ): AsyncIterableIterator<JSONValue> {
+          ctx.signal.throwIfAborted();
+          const abortProm = utils.promise<never>();
+          ctx.signal.addEventListener('abort', () => {
+            abortProm.rejectP(ctx.signal.reason);
+          });
+          await abortProm.p;
+        };
+      }
+      // Set up a client and server with matching timeout settings
+      const rpcServer = await RPCServer.createRPCServer({
+        manifest: {
+          testMethod: new TestMethod({}),
+        },
+        logger,
+        idGen,
 
-    const callerInterface = await rpcClient.methods.testMethod({
-      timer: Infinity,
-    });
+        handlerTimeoutTime: 400,
+      });
+      rpcServer.handleStream({
+        ...serverPair,
+        cancel: () => {},
+      });
 
-    const writer = callerInterface.writable.getWriter();
-    const reader = callerInterface.readable.getReader();
+      const rpcClient = await RPCClient.createRPCClient({
+        manifest: {
+          testMethod: new DuplexCaller(),
+        },
+        streamFactory: async () => {
+          return {
+            ...clientPair,
+            cancel: () => {},
+          };
+        },
+        logger,
+        idGen,
+      });
+      const callerInterface = await rpcClient.methods.testMethod({ timer: 300 });
+      const writer = callerInterface.writable.getWriter();
+      const reader = callerInterface.readable.getReader();
+      // Expect the client to time out first
+      await expect(writer.write(value)).toResolve();
+      await expect(reader.read()).toReject();
 
-    // Trigger a call that will hang indefinitely or for a long time #TODO
+      await rpcServer.destroy();
+      await rpcClient.destroy();
+    },
+    { numRuns: 1 }
+  );
+  testProp(
+    'RPC client and server with infinite timeout',
+    [rpcTestUtils.safeJsonValueArb],
+    async (inputData) => {
+      // Set up a client and server with infinite timeout settings
 
-    // Write a value to the stream
-    const writePromise = writer.write(values[0]);
+      const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
+        Uint8Array,
+        Uint8Array
+      >();
 
-    // Trigger a read that will hang indefinitely
+      class TestMethod extends DuplexHandler {
+        public handle = async function* (
+          input: AsyncIterableIterator<JSONValue>,
+          cancel: (reason?: any) => void,
+          meta: Record<string, JSONValue> | undefined,
+          ctx: ContextTimed,
+        ) {
+          ctx.signal.throwIfAborted();
+          const abortProm = utils.promise<never>();
+          ctx.signal.addEventListener('abort', () => {
+            abortProm.rejectP(ctx.signal.reason);
+          });
+          await abortProm.p;
+        };
+      }
 
-    const readPromise = reader.read();
-    // Adding a randomized sleep here to check that neither timeout
-    const randomSleepTime = Math.floor(Math.random() * 1000) + 1;
-    // Random time between 1 and 1,000 ms
-    await utils.sleep(randomSleepTime);
-    // At this point, writePromise and readPromise should neither be resolved nor rejected
-    // because the server method is hanging.
+      const rpcServer = await RPCServer.createRPCServer({
+        manifest: { testMethod: new TestMethod({}) },
+        logger,
+        idGen,
+        handlerTimeoutTime: Infinity,
+      });
+      rpcServer.handleStream({ ...serverPair, cancel: () => {} });
 
-    // Check if the promises are neither resolved nor rejected
-    const timeoutPromise = new Promise((resolve) =>
-      setTimeout(() => resolve('timeout'), 1000),
-    );
+      const rpcClient = await RPCClient.createRPCClient({
+        manifest: { testMethod: new DuplexCaller() },
+        streamFactory: async () => ({ ...clientPair, cancel: () => {} }),
+        logger,
+        idGen,
+      });
 
-    const readStatus = await Promise.race([readPromise, timeoutPromise]);
-    // Check if read status is still pending;
+      const callerTimer = new Timer(() => {}, Infinity);
 
-    expect(readStatus).toBe('timeout');
+      const callerInterface = await rpcClient.methods.testMethod({
+        timer: callerTimer,
+      });
 
-    // Expect neither to time out and verify that they can still handle other operations #TODO
-    await rpcServer.destroy();
-    await rpcClient.destroy();
-  });
+      const writer = callerInterface.writable.getWriter();
+      const reader = callerInterface.readable.getReader();
+
+      // Trigger a call that will hang indefinitely or for a long time #TODO
+
+      // Write a value to the stream
+      await writer.write(inputData);
+
+      // Trigger a read that will hang indefinitely
+
+      const readPromise = reader.read();
+      // Adding a randomized sleep here to check that neither timeout
+      const randomSleepTime = Math.floor(Math.random() * 1000) + 1;
+      // Random time between 1 and 1,000 ms
+      await utils.sleep(randomSleepTime);
+      // At this point, writePromise and readPromise should neither be resolved nor rejected
+      // because the server method is hanging.
+
+      // Check if the promises are neither resolved nor rejected
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject("timeout"), 1000),
+      );
+
+      // Check if read status is still pending;
+
+      await expect(Promise.race([readPromise, timeoutPromise])).rejects.toBe('timeout');
+
+      // Cancel caller timer
+      callerTimer.cancel();
+
+      // Expect neither to time out and verify that they can still handle other operations #TODO
+      await rpcServer.destroy(true);
+      await rpcClient.destroy();
+    },
+    { numRuns: 1 }
+  );
 
   testProp(
     'RPC Serializes and Deserializes ErrorRPCRemote',
