@@ -10,16 +10,16 @@ import type {
   JSONRPCResponseError,
   JSONRPCResponseResult,
   PromiseDeconstructed,
-} from '../types';
-import type { JSONValue, IdGen } from '../types';
+} from './types';
+import type { JSONValue, IdGen } from './types';
 import type { Timer } from '@matrixai/timer';
 import { TransformStream } from 'stream/web';
 import { JSONParser } from '@streamparser/json';
 import { AbstractError } from '@matrixai/errors';
-import * as rpcErrors from '../errors';
-import * as errors from '../errors';
-import { ErrorRPCRemote } from '../errors';
-import { ErrorRPC } from '../errors';
+import * as rpcErrors from './errors';
+import * as errors from './errors';
+import { ErrorRPCRemote } from './errors';
+import { ErrorRPC } from './errors';
 
 // Importing PK funcs and utils which are essential for RPC
 function isObject(o: unknown): o is object {

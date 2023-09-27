@@ -16,7 +16,7 @@ import RPCServer from '@/RPCServer';
 import * as rpcErrors from '@/errors/errors';
 import * as rpcUtils from '@/utils';
 import { promise, sleep } from '@/utils';
-import * as rpcUtilsMiddleware from '@/utils/middleware';
+import * as rpcUtilsMiddleware from '@/middleware';
 import ServerHandler from '@/handlers/ServerHandler';
 import DuplexHandler from '@/handlers/DuplexHandler';
 import RawHandler from '@/handlers/RawHandler';

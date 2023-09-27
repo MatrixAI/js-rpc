@@ -19,7 +19,7 @@ import UnaryCaller from '@/callers/UnaryCaller';
 import RPCClient from '@/RPCClient';
 import RPCServer from '@/RPCServer';
 import * as rpcErrors from '@/errors';
-import * as rpcUtilsMiddleware from '@/utils/middleware';
+import * as rpcUtilsMiddleware from '@/middleware';
 import { promise, sleep } from '@/utils';
 import { ErrorRPCRemote } from '@/errors';
 import * as rpcTestUtils from './utils';

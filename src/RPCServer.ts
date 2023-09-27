@@ -30,7 +30,7 @@ import { ClientHandler } from './handlers';
 import * as rpcEvents from './events';
 import * as rpcUtils from './utils';
 import * as rpcErrors from './errors';
-import * as rpcUtilsMiddleware from './utils';
+import * as rpcUtilsMiddleware from './middleware';
 import { ErrorHandlerAborted, JSONRPCErrorCode, never } from './errors';
 import * as events from './events';
 

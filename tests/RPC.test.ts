@@ -5,13 +5,13 @@ import type { ContextTimed } from '@matrixai/contexts';
 import { TransformStream } from 'stream/web';
 import { fc, testProp } from '@fast-check/jest';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
+import { Timer } from '@matrixai/timer';
 import RawCaller from '@/callers/RawCaller';
 import DuplexCaller from '@/callers/DuplexCaller';
 import ServerCaller from '@/callers/ServerCaller';
 import ClientCaller from '@/callers/ClientCaller';
 import UnaryCaller from '@/callers/UnaryCaller';
-import { Timer } from '@matrixai/timer';
-import * as rpcUtilsMiddleware from '@/utils/middleware';
+import * as rpcUtilsMiddleware from '@/middleware';
 import {
   ErrorRPC,
   ErrorRPCHandlerFailed,
@@ -687,11 +687,13 @@ describe('RPC', () => {
         'Timed out waiting for header',
       );
 
-      await expect(reader.read()).rejects.toThrow('Timed out waiting for header');
+      await expect(reader.read()).rejects.toThrow(
+        'Timed out waiting for header',
+      );
 
       await rpcServer.destroy();
       await rpcClient.destroy();
-    }
+    },
   );
   // Test description
   testProp(
@@ -763,13 +765,15 @@ describe('RPC', () => {
       await expect(writer.write(inputData)).rejects.toThrow(
         'Timed out waiting for header',
       );
-      await expect(reader.read()).rejects.toThrow('Timed out waiting for header');
+      await expect(reader.read()).rejects.toThrow(
+        'Timed out waiting for header',
+      );
 
       // Cleanup
       await rpcServer.destroy();
       await rpcClient.destroy();
     },
-    { numRuns: 1 }
+    { numRuns: 1 },
   );
   testProp(
     'RPC client times out before server',
@@ -823,7 +827,9 @@ describe('RPC', () => {
         logger,
         idGen,
       });
-      const callerInterface = await rpcClient.methods.testMethod({ timer: 300 });
+      const callerInterface = await rpcClient.methods.testMethod({
+        timer: 300,
+      });
       const writer = callerInterface.writable.getWriter();
       const reader = callerInterface.readable.getReader();
       // Expect the client to time out first
@@ -833,7 +839,7 @@ describe('RPC', () => {
       await rpcServer.destroy();
       await rpcClient.destroy();
     },
-    { numRuns: 1 }
+    { numRuns: 1 },
   );
   testProp(
     'RPC client and server with infinite timeout',
@@ -903,12 +909,14 @@ describe('RPC', () => {
 
       // Check if the promises are neither resolved nor rejected
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject("timeout"), 1000),
+        setTimeout(() => reject('timeout'), 1000),
       );
 
       // Check if read status is still pending;
 
-      await expect(Promise.race([readPromise, timeoutPromise])).rejects.toBe('timeout');
+      await expect(Promise.race([readPromise, timeoutPromise])).rejects.toBe(
+        'timeout',
+      );
 
       // Cancel caller timer
       callerTimer.cancel();
@@ -917,7 +925,7 @@ describe('RPC', () => {
       await rpcServer.destroy(true);
       await rpcClient.destroy();
     },
-    { numRuns: 1 }
+    { numRuns: 1 },
   );
 
   testProp(

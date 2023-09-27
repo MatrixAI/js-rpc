@@ -20,13 +20,13 @@ import { CreateDestroy, ready } from '@matrixai/async-init/dist/CreateDestroy';
 import Logger from '@matrixai/logger';
 import { Timer } from '@matrixai/timer';
 import { createDestroy } from '@matrixai/async-init';
-import * as rpcUtilsMiddleware from './utils/middleware';
+import * as rpcUtilsMiddleware from './middleware';
 import * as rpcErrors from './errors';
-import * as rpcUtils from './utils/utils';
+import * as rpcUtils from './utils';
 import { promise } from './utils';
 import { ErrorRPCStreamEnded, never } from './errors';
 import * as events from './events';
-import { toError } from './utils/utils';
+import { toError } from './utils';
 
 const timerCleanupReasonSymbol = Symbol('timerCleanUpReasonSymbol');
 
