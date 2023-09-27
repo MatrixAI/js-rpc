@@ -7,7 +7,7 @@ import * as rpcUtils from '@/utils';
 import 'ix/add/asynciterable-operators/toarray';
 import * as rpcErrors from '@/errors';
 import * as rpcUtilsMiddleware from '@/middleware';
-import * as rpcTestUtils from '../utils';
+import * as rpcTestUtils from './utils';
 
 describe('Middleware tests', () => {
   const noiseArb = fc
