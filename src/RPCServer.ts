@@ -16,6 +16,7 @@ import type {
 } from './types';
 import type { JSONValue } from './types';
 import type { IdGen } from './types';
+import type { ErrorRPC, ErrorRPCRemote } from './errors';
 import { ReadableStream, TransformStream } from 'stream/web';
 import { CreateDestroy, ready } from '@matrixai/async-init/dist/CreateDestroy';
 import Logger from '@matrixai/logger';
@@ -67,8 +68,6 @@ class RPCServer extends EventTarget {
    * The middlewareFactory needs to be a function that creates a pair of
    * transform streams that convert `Uint8Array` to `JSONRPCRequest` on the forward
    * path and `JSONRPCResponse` to `Uint8Array` on the reverse path.
-   * @param obj.sensitive - If true, sanitises any rpc error messages of any
-   * sensitive information.
    * @param obj.streamKeepAliveTimeoutTime - Time before a connection is cleaned up due to no activity. This is the
    * value used if the handler doesn't specify its own timeout time. This timeout is advisory and only results in a
    * signal sent to the handler. Stream is forced to end after the timeoutForceCloseTime. Defaults to 60,000
@@ -81,12 +80,12 @@ class RPCServer extends EventTarget {
   public static async createRPCServer({
     manifest,
     middlewareFactory = rpcUtilsMiddleware.defaultServerMiddlewareWrapper(),
-    sensitive = false,
     handlerTimeoutTime = Infinity, // 1 minute
     logger = new Logger(this.name),
     idGen = () => Promise.resolve(null),
     fromError = rpcUtils.fromError,
     replacer = rpcUtils.replacer,
+    toError = rpcUtils.toError,
   }: {
     manifest: ServerManifest;
     middlewareFactory?: MiddlewareFactory<
@@ -95,23 +94,23 @@ class RPCServer extends EventTarget {
       Uint8Array,
       JSONRPCResponse
     >;
-    sensitive?: boolean;
     handlerTimeoutTime?: number;
     logger?: Logger;
     idGen: IdGen;
-    fromError?: (error: Error) => JSONValue;
+    fromError?: (error: ErrorRPC<any>) => JSONValue;
     replacer?: (key: string, value: any) => any;
+    toError?: (errorResponse: any, metadata?: any) => ErrorRPCRemote<any>;
   }): Promise<RPCServer> {
     logger.info(`Creating ${this.name}`);
     const rpcServer = new this({
       manifest,
       middlewareFactory,
-      sensitive,
       handlerTimeoutTime,
       logger,
       idGen,
       fromError,
       replacer,
+      toError,
     });
     logger.info(`Created ${this.name}`);
     return rpcServer;
@@ -123,9 +122,12 @@ class RPCServer extends EventTarget {
   protected defaultTimeoutMap: Map<string, number | undefined> = new Map();
   protected handlerTimeoutTime: number;
   protected activeStreams: Set<PromiseCancellable<void>> = new Set();
-  protected sensitive: boolean;
-  protected fromError: (error: Error, sensitive?: boolean) => JSONValue;
+  protected fromError: (error: ErrorRPC<any>) => JSONValue;
   protected replacer: (key: string, value: any) => any;
+  protected toError: (
+    errorResponse: any,
+    metadata?: any,
+  ) => ErrorRPCRemote<any>;
   protected middlewareFactory: MiddlewareFactory<
     JSONRPCRequest,
     Uint8Array,
@@ -139,12 +141,12 @@ class RPCServer extends EventTarget {
   public constructor({
     manifest,
     middlewareFactory,
-    sensitive,
-    handlerTimeoutTime = Infinity, // 1 minuet
+    handlerTimeoutTime = Infinity,
     logger,
     idGen = () => Promise.resolve(null),
     fromError = rpcUtils.fromError,
     replacer = rpcUtils.replacer,
+    toError = rpcUtils.toError,
   }: {
     manifest: ServerManifest;
 
@@ -155,11 +157,11 @@ class RPCServer extends EventTarget {
       JSONRPCResponseResult
     >;
     handlerTimeoutTime?: number;
-    sensitive: boolean;
     logger: Logger;
     idGen: IdGen;
-    fromError?: (error: Error) => JSONValue;
+    fromError?: (error: ErrorRPC<any>) => JSONValue;
     replacer?: (key: string, value: any) => any;
+    toError?: (errorResponse: any, metadata?: any) => ErrorRPCRemote<any>;
   }) {
     super();
     for (const [key, manifestItem] of Object.entries(manifest)) {
@@ -215,11 +217,11 @@ class RPCServer extends EventTarget {
     }
     this.idGen = idGen;
     this.middlewareFactory = middlewareFactory;
-    this.sensitive = sensitive;
     this.handlerTimeoutTime = handlerTimeoutTime;
     this.logger = logger;
     this.fromError = fromError || rpcUtils.fromError;
     this.replacer = replacer || rpcUtils.replacer;
+    this.toError = toError || rpcUtils.toError;
   }
 
   public async destroy(force: boolean = true): Promise<void> {
