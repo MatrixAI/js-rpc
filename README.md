@@ -8,6 +8,17 @@ master:[![pipeline status](https://gitlab.com/MatrixAI/open-source/js-rpc/badges
 ```sh
 npm install --save @matrixai/rpc
 ```
+
+## Usage
+### Client Streaming
+Duplex ->
+
+```ts
+{readable: ReadableStream<JSONValue>, writable: WritableStream<JSONValue>};
+const reader = readable.getReader();
+const writer = writable.getWriter();
+Output = await reader.read();
+```
 ## Usage Examples
 
 Because decorators are experimental, you must enable: `"experimentalDecorators": true` in your `tsconfig.json` to use this library.
@@ -25,7 +36,7 @@ This example shows how to create an RPC pair and handle streaming integers and s
 import {RPCServer, ClientHandler, ContainerType, RPCClient, ClientCaller} from "./index";
 import {AsyncIterable} from "ix/Ix";
 
-const webSocketServer = awwait
+const webSocketServer = awwait;
 
 class Sum extends ClientHandler<ContainerType, number, number> {
   public handle = async (

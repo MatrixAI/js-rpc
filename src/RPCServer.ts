@@ -85,7 +85,6 @@ class RPCServer extends EventTarget {
     idGen = () => Promise.resolve(null),
     fromError = rpcUtils.fromError,
     filterSensitive = rpcUtils.filterSensitive,
-    toError = rpcUtils.toError,
   }: {
     manifest: ServerManifest;
     middlewareFactory?: MiddlewareFactory<
@@ -99,7 +98,6 @@ class RPCServer extends EventTarget {
     idGen: IdGen;
     fromError?: (error: ErrorRPC<any>) => JSONValue;
     filterSensitive?: (key: string, value: any) => any;
-    toError?: (errorResponse: any, metadata?: any) => ErrorRPCRemote<any>;
   }): Promise<RPCServer> {
     logger.info(`Creating ${this.name}`);
     const rpcServer = new this({
@@ -110,7 +108,6 @@ class RPCServer extends EventTarget {
       idGen,
       fromError,
       filterSensitive,
-      toError,
     });
     logger.info(`Created ${this.name}`);
     return rpcServer;
@@ -124,10 +121,6 @@ class RPCServer extends EventTarget {
   protected activeStreams: Set<PromiseCancellable<void>> = new Set();
   protected fromError: (error: ErrorRPC<any>) => JSONValue;
   protected filterSensitive: (key: string, value: any) => any;
-  protected toError: (
-    errorResponse: any,
-    metadata?: any,
-  ) => ErrorRPCRemote<any>;
   protected middlewareFactory: MiddlewareFactory<
     JSONRPCRequest,
     Uint8Array,
@@ -146,7 +139,6 @@ class RPCServer extends EventTarget {
     idGen = () => Promise.resolve(null),
     fromError = rpcUtils.fromError,
     filterSensitive = rpcUtils.filterSensitive,
-    toError = rpcUtils.toError,
   }: {
     manifest: ServerManifest;
 
@@ -161,7 +153,6 @@ class RPCServer extends EventTarget {
     idGen: IdGen;
     fromError?: (error: ErrorRPC<any>) => JSONValue;
     filterSensitive?: (key: string, value: any) => any;
-    toError?: (errorResponse: any, metadata?: any) => ErrorRPCRemote<any>;
   }) {
     super();
     for (const [key, manifestItem] of Object.entries(manifest)) {
@@ -221,7 +212,6 @@ class RPCServer extends EventTarget {
     this.logger = logger;
     this.fromError = fromError || rpcUtils.fromError;
     this.filterSensitive = filterSensitive || rpcUtils.filterSensitive;
-    this.toError = toError || rpcUtils.toError;
   }
 
   public async destroy(force: boolean = true): Promise<void> {
