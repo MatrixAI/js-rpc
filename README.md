@@ -11,6 +11,7 @@ npm install --save @matrixai/rpc
 
 ## Usage
 ### Client Streaming
+
 Duplex ->
 
 ```ts
