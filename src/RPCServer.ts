@@ -84,7 +84,7 @@ class RPCServer extends EventTarget {
     logger = new Logger(this.name),
     idGen = () => Promise.resolve(null),
     fromError = rpcUtils.fromError,
-    replacer = rpcUtils.replacer,
+    filterSensitive = rpcUtils.filterSensitive,
     toError = rpcUtils.toError,
   }: {
     manifest: ServerManifest;
@@ -98,7 +98,7 @@ class RPCServer extends EventTarget {
     logger?: Logger;
     idGen: IdGen;
     fromError?: (error: ErrorRPC<any>) => JSONValue;
-    replacer?: (key: string, value: any) => any;
+    filterSensitive?: (key: string, value: any) => any;
     toError?: (errorResponse: any, metadata?: any) => ErrorRPCRemote<any>;
   }): Promise<RPCServer> {
     logger.info(`Creating ${this.name}`);
@@ -109,7 +109,7 @@ class RPCServer extends EventTarget {
       logger,
       idGen,
       fromError,
-      replacer,
+      filterSensitive,
       toError,
     });
     logger.info(`Created ${this.name}`);
@@ -123,7 +123,7 @@ class RPCServer extends EventTarget {
   protected handlerTimeoutTime: number;
   protected activeStreams: Set<PromiseCancellable<void>> = new Set();
   protected fromError: (error: ErrorRPC<any>) => JSONValue;
-  protected replacer: (key: string, value: any) => any;
+  protected filterSensitive: (key: string, value: any) => any;
   protected toError: (
     errorResponse: any,
     metadata?: any,
@@ -145,7 +145,7 @@ class RPCServer extends EventTarget {
     logger,
     idGen = () => Promise.resolve(null),
     fromError = rpcUtils.fromError,
-    replacer = rpcUtils.replacer,
+    filterSensitive = rpcUtils.filterSensitive,
     toError = rpcUtils.toError,
   }: {
     manifest: ServerManifest;
@@ -160,7 +160,7 @@ class RPCServer extends EventTarget {
     logger: Logger;
     idGen: IdGen;
     fromError?: (error: ErrorRPC<any>) => JSONValue;
-    replacer?: (key: string, value: any) => any;
+    filterSensitive?: (key: string, value: any) => any;
     toError?: (errorResponse: any, metadata?: any) => ErrorRPCRemote<any>;
   }) {
     super();
@@ -220,7 +220,7 @@ class RPCServer extends EventTarget {
     this.handlerTimeoutTime = handlerTimeoutTime;
     this.logger = logger;
     this.fromError = fromError || rpcUtils.fromError;
-    this.replacer = replacer || rpcUtils.replacer;
+    this.filterSensitive = filterSensitive || rpcUtils.filterSensitive;
     this.toError = toError || rpcUtils.toError;
   }
 
@@ -353,7 +353,7 @@ class RPCServer extends EventTarget {
             const rpcError: JSONRPCError = {
               code: e.exitCode ?? JSONRPCErrorCode.InternalError,
               message: e.description ?? '',
-              data: JSON.stringify(this.fromError(e), this.replacer),
+              data: JSON.stringify(this.fromError(e), this.filterSensitive),
               type: e.type,
             };
             const rpcErrorMessage: JSONRPCResponseError = {
@@ -618,7 +618,7 @@ class RPCServer extends EventTarget {
         const rpcError: JSONRPCError = {
           code: e.exitCode ?? JSONRPCErrorCode.InternalError,
           message: e.description ?? '',
-          data: JSON.stringify(this.fromError(e), this.replacer),
+          data: JSON.stringify(this.fromError(e), this.filterSensitive),
           type: e.type,
         };
         const rpcErrorMessage: JSONRPCResponseError = {

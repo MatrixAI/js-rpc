@@ -293,7 +293,7 @@ const createReplacer = () => {
 /**
  * The replacer function to customize the serialization process.
  */
-const replacer = createReplacer();
+const filterSensitive = createReplacer();
 
 /**
  * Deserializes an error response object into an ErrorRPCRemote instance.
@@ -459,7 +459,7 @@ export {
   parseJSONRPCResponseError,
   parseJSONRPCResponse,
   parseJSONRPCMessage,
-  replacer,
+  filterSensitive,
   fromError,
   toError,
   clientInputTransformStream,

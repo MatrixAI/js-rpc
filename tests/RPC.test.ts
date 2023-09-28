@@ -30,7 +30,7 @@ import ServerHandler from '@/handlers/ServerHandler';
 import UnaryHandler from '@/handlers/UnaryHandler';
 import ClientHandler from '@/handlers/ClientHandler';
 import { RPCStream } from '@/types';
-import { fromError, promise, replacer, toError } from '@/utils';
+import { fromError, promise, filterSensitive, toError } from '@/utils';
 import * as rpcTestUtils from './utils';
 
 describe('RPC', () => {
@@ -504,7 +504,6 @@ describe('RPC', () => {
         manifest: {
           testMethod: new TestMethod({}),
         },
-        sensitive: true,
         logger,
         idGen,
       });
@@ -954,7 +953,6 @@ describe('RPC', () => {
         manifest: {
           testMethod: new TestMethod({}),
         },
-        sensitive: true,
         logger,
         idGen,
       });
@@ -1019,7 +1017,6 @@ describe('RPC', () => {
         manifest: {
           testMethod: new TestMethod({}),
         },
-        sensitive: true,
         logger,
         idGen,
       });
@@ -1042,7 +1039,7 @@ describe('RPC', () => {
       });
 
       const serializedError = JSON.parse(
-        JSON.stringify(fromError(errorInstance), replacer('data')),
+        JSON.stringify(fromError(errorInstance), filterSensitive('data')),
       );
 
       const callProm = rpcClient.methods.testMethod(serializedError);

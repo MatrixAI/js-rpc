@@ -8,6 +8,9 @@ master:[![pipeline status](https://gitlab.com/MatrixAI/open-source/js-rpc/badges
 ```sh
 npm install --save @matrixai/rpc
 ```
+## Usage
+
+Because decorators are experimental, you must enable: `"experimentalDecorators": true` in your `tsconfig.json` to use this library.
 
 ## Development
 

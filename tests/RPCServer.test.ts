@@ -466,7 +466,6 @@ describe(`${RPCServer.name}`, () => {
         manifest: {
           testMethod: new TestMethod({}),
         },
-        sensitive: true,
         logger,
         idGen,
       });
