@@ -26,7 +26,7 @@ const enum JSONRPCErrorCode {
   MissingCaller = -32016,
 }
 interface RPCError extends Error {
-  code?: number;
+  code: number;
 }
 class ErrorRPC<T> extends AbstractError<T> implements RPCError {
   private _description: string = 'Generic Error';
