@@ -10,21 +10,210 @@ npm install --save @matrixai/rpc
 ```
 
 ## Usage
-### Client Streaming
 
-Duplex ->
+### Overview of different streams
+
+#### Duplex Stream ->
+
+##### Client:
+The client initiates a duplex streaming RPC call using a method that returns both a readable and a writable stream. The client can read from the readable stream and write to the writable stream.
 
 ```ts
-{readable: ReadableStream<JSONValue>, writable: WritableStream<JSONValue>};
-const reader = readable.getReader();
-const writer = writable.getWriter();
-Output = await reader.read();
+import { JSONValue } from "./types";
+import Caller from './Caller';
+
+// Initialize the duplex call
+const { ReadableStream, WritableStream } = client.method();
+
+// Get the reader and writer from the streams
+const reader = ReadableStream.getReader();
+const writer = WritableStream.getWriter();
+
+// Read output from the server
+const readResult = await reader.read();
+if (!readResult.done) {
+  const output: JSONValue = readResult.value;
+  console.log("Received from server:", output);
+}
+
+// Write data to the server
+const inputData: JSONValue = { someKey: "someValue" };
+await writer.write(inputData);
+
+// Don't forget to close the writer when you're done
+await writer.close();
+
 ```
-## Usage Examples
+##### Server :
 
-Because decorators are experimental, you must enable: `"experimentalDecorators": true` in your `tsconfig.json` to use this library.
+```ts
+import type { ContainerType, JSONValue } from '../types';
+import type { ContextTimed } from '@matrixai/contexts';
+import Handler from './Handler';
 
-### Client Stream
+// Define the handler as an async generator function
+const handle = async function* (
+  input: AsyncIterableIterator<JSONValue>, // This is a generator.
+  cancel: (reason?: any) => void,
+  meta: Record<string, JSONValue> | undefined,
+  ctx: ContextTimed
+): AsyncIterableIterator<JSONValue> {
+
+  // Loop through the incoming stream of messages
+  for await (const incomingData of input) {
+    console.log("Received from client:", incomingData);
+
+    // Perform some operation on the incoming data
+    const outputData: JSONValue = { responseKey: "responseValue" };
+
+    // Yield data back to the client
+    yield outputData;
+    // We yield since stream can contain multiple messages.
+  }
+};
+
+```
+#### Client Streaming
+
+##### Client
+The client initiates a client streaming RPC call using a method that returns a writable stream and a promise. The client writes to the writable stream and awaits the output promise to get the response.
+
+```ts
+{ output: Promise<JSONValue>, WriteableStream<JSONValue>} = client.method();
+    const writer = WritableStream.getWriter();
+    writer.write();
+    const Output = await output;
+```
+##### Server
+On the server side, the handle function is defined as an asynchronous generator function. It takes an AsyncIterableIterator as input, which represents the stream of incoming messages from the client. It yields output back to the client as needed.
+```ts
+// Initialize the client streaming call
+const { output, writable } = client.method();
+const writer = writable.getWriter();
+
+// Write multiple messages to the server
+const inputData1: JSONValue = { key1: "value1" };
+const inputData2: JSONValue = { key2: "value2" };
+await writer.write(inputData1);
+await writer.write(inputData2);
+
+// Close the writer when done
+await writer.close();
+
+// Wait for the server's response
+const serverOutput: JSONValue = await output;
+console.log("Received from server:", serverOutput);
+```
+
+###### Server
+On the server side, the handle function is an asynchronous function that takes an AsyncIterableIterator as input, representing the stream of incoming messages from the client. It returns a promise that resolves to the output that will be sent back to the client.
+```ts
+import { JSONValue } from "./types";
+import type { ContextTimed } from '@matrixai/contexts';
+
+const handle = async (
+input: AsyncIterableIterator<JSONValue>,
+cancel: (reason?: any) => void,
+meta: Record<string, JSONValue> | undefined,
+ctx: ContextTimed
+): Promise<JSONValue> {
+
+// Aggregate or process the incoming messages from the client
+let aggregateData: any = {};  // Replace 'any' with your specific type
+for await (const incomingData of input) {
+// Perform some aggregation or processing on incomingData
+}
+
+// Generate the response to be sent back to the client
+const outputData: JSONValue = { responseKey: "responseValue" };
+
+return outputData;
+};
+```
+
+#### Server Streaming
+
+##### Client
+
+The client initiates a server streaming RPC call using a method that takes input parameters and returns a readable stream. The client writes a single message and then reads multiple messages from the readable stream.
+```ts
+// Initialize the server streaming call
+const readableStream: ReadableStream<JSONValue> = client.method();
+
+const reader = readableStream.getReader();
+
+// Read multiple messages from the server
+while (true) {
+  const { value, done } = await reader.read();
+  if (done) break;
+
+  console.log("Received from server:", value);
+}
+```
+##### Server
+On the server side, the handle function is an asynchronous generator function that takes a single input parameter from the client. It yields multiple messages that will be sent back to the client through the readable stream.
+```ts
+import { JSONValue } from "./types";
+import type { ContextTimed } from '@matrixai/contexts';
+
+public handle = async function* (
+  input: JSONValue,
+  cancel: (reason?: any) => void,
+  meta: Record<string, JSONValue> | undefined,
+  ctx: ContextTimed
+): AsyncIterableIterator<JSONValue> {
+
+  // Process the input and prepare the data to be sent back to the client
+  const outputData1: JSONValue = { responseKey1: "responseValue1" };
+  const outputData2: JSONValue = { responseKey2: "responseValue2" };
+
+  // Yield multiple messages to be sent to the client
+  yield outputData1;
+};
+```
+
+#### Unary Streaming
+In a unary RPC, the client sends a single request to the server and receives a single response back, much like a regular function call.
+##### Client
+The client initiates a unary RPC call by invoking a method that returns a promise. It passes the required input parameters as arguments to the method. The client then waits for the promise to resolve, receiving the output.
+``` ts
+import type { JSONValue } from '../types';
+import Caller from './Caller';
+
+// Initialize the unary RPC call with input parameters
+const promise: Promise<JSONValue> = client.unaryCaller("methodName", { someParam: "someValue" });
+
+// Wait for the response
+const output: JSONValue = await promise;
+console.log("Received from server:", output);
+
+```
+
+##### Server
+```ts
+import { JSONValue } from "./types";
+import { ContextTimed } from "./contexts";  // Assuming ContextTimed is imported from a module named 'contexts'
+
+public handle = async (
+input: JSONValue,
+cancel: (reason?: any) => void,
+meta: Record<string, JSONValue> | undefined,
+ctx: ContextTimed,
+): Promise<JSONValue> {
+
+// Process the input and prepare the data to be sent back to the client
+const outputData: JSONValue = { responseKey: "responseValue" };
+
+return outputData;
+};
+```
+
+### Usage Examples
+
+Because decorators are experimental, you must enable:
+`"experimentalDecorators": true` in your `tsconfig.json` to use this library.
+
+#### Client Stream
 In a Client Stream, the client can write multiple messages to a single stream,
 while the server reads from that stream and then returns a single response.
 This pattern is useful when the client needs to send a sequence of data to the server,
@@ -34,89 +223,161 @@ This pattern is good for scenarios like file uploads.
 This example shows how to create an RPC pair and handle streaming integers and summing them up.
 
 ```ts
-import {RPCServer, ClientHandler, ContainerType, RPCClient, ClientCaller} from "./index";
-import {AsyncIterable} from "ix/Ix";
+import {
+    ContainerType,
+    JSONValue,
+    IdGen,
+    StreamFactory,
+    MiddlewareFactory, ClientManifest,
+} from "@matrixai/rpc/dist/types";
+import WebSocket = require('ws');
+import {ClientHandler} from "@matrixai/rpc/dist/handlers";
+import type { ContextTimed } from '@matrixai/contexts';
+import RPCServer from '@matrixai/rpc/dist/RPCServer'
+import RPCClient from '@matrixai/rpc/dist/RPCClient'
+import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
+import { createDestroy } from '@matrixai/async-init';
+import {ClientCaller} from "@matrixai/rpc/dist/callers";
+import {ReadableStream, WritableStream} from "stream/web";
+import {ReadableStreamDefaultController} from "stream/web";
 
-const webSocketServer = awwait;
+const logger = new Logger(`RPC Test`, LogLevel.WARN, [new StreamHandler()]);
+
+let streamFactory: StreamFactory;
+let middlewareFactory: MiddlewareFactory<any, any, any, any>;
+let idGen: IdGen;
 
 class Sum extends ClientHandler<ContainerType, number, number> {
-  public handle = async (
-    // handle takes input an AsyncIterable, which is a generator,
-    // would produce numbers input in the Writeable stream
-    input: AsyncIterable<number>,
-    cancel: (reason?: any) => void,
-    meta: Record<string, JSONValue> | undefined,
-    ctx: ContextTimed,
-  ): Promise<number> => {
-    let sum = 0;
-    for await (const num of input) {
-      sum += num;
-    }
-    return acc;
-  };
-};
+    public handle = async (
+        input: AsyncIterable<number>,
+    ): Promise<number> => {
+        let sum = 0;
+        console.log("Entering handle method on server.");
+        for await (const num of input) {
+            console.log(`Received number: ${num}`);
+            sum += num;
+        }
+        console.log(`Returning sum: ${sum}`);
+        return sum;
+    };
 
-// Setting up an instance of RPC Client with Sum as the handler method
-async function startServer() {
-
-  const rpcServer = await RPCServer.createRPCServer({
-    manifest: {
-      Sum: new Sum({}),
-    },
-    logger,
-    idGen,
-    handlerTimeoutTime: 60000,
-  });
-  // Simulating receiving a stream from a client.
-  // Provided by network layer
-  const simulatedStream = sendStreamHere;
-
-  rpcServer.handleStream(simulatedStream);
-  return rpcServer;
 }
 
-async function startClient() {
-  // Simulate client-server pair of streams.
-  // Simulating network stream
-  const clientPair =sendStreamHere /* your logic for creating or obtaining a client-side stream */;
-  const rpcClient = await RPCClient.createRPCClient({
-    manifest: {
-      Sum: new ClientCaller<number, number>(),
-    },
-    streamFactory,
-    middlewareFactory,
-    logger,
-    idGen
-  })
+// Server-side WebSocket setup
+async function startServer() {
+    const wss = new WebSocket.Server({ port: 8080 });
+    const rpcServer = await RPCServer.createRPCServer({
+        manifest: {
+            Sum: new Sum({}),
+        },
+        logger: new Logger('rpc-server'),
+        handlerTimeoutTime: 60000,
+        idGen,
+    });
 
-  return rpcClient;
+    wss.on('connection', (ws) => {
+        const { readable, writable } = wsToStream(ws);
+        rpcServer.handleStream({ readable, writable, cancel: () => {} });
+    });
+    return { rpcServer  };
+}
+type Manifest = {
+    Sum: ClientCaller<number, number>;
+};
+// Client-side WebSocket setup
+async function startClient() {
+    return new Promise<RPCClient<Manifest>>( (resolve, reject) => {
+        const ws = new WebSocket('ws://localhost:8080');
+
+        ws.addEventListener('open', async () => {
+            const { readable, writable } = wsToStream(ws);
+            const rpcClient = await RPCClient.createRPCClient({
+                manifest: {
+                    Sum: new ClientCaller<number, number>(),
+                },
+                streamFactory: async () => ({ readable, writable, cancel: () => {} }),                middlewareFactory,
+                logger,
+                idGen,
+            });
+            resolve(rpcClient);
+        });
+
+        ws.addEventListener('error', (err) => {
+            reject(err);
+        });
+    });
+}
+
+function wsToStream(ws: WebSocket): { readable: ReadableStream, writable: WritableStream } {
+    let readableController: ReadableStreamDefaultController<any> | null = null;
+
+    const readable = new ReadableStream({
+        start(controller) {
+            readableController = controller;
+        },
+        cancel() {
+            ws.close();
+        },
+    });
+
+    ws.on('message', (chunk: any) => {
+        readableController?.enqueue(chunk);
+    });
+
+    ws.on('close', () => {
+        readableController?.close();
+    });
+
+    const writable = new WritableStream({
+        write(chunk) {
+            ws.send(chunk);
+        },
+        close() {
+            ws.close();
+        },
+        abort() {
+            ws.close();
+        },
+    });
+
+    return { readable, writable };
 }
 // Function to execute the Sum RPC call
-async function executeSum(rpcClient: typeof RPCClient){
-    const { output, writable } = await rpcClient.methods.Sum();
-    const writer = writable.getWriter();
-    await writer.write(5);
-    await writer.write(10);
-    await writer.close();
+// Function to execute the Sum RPC call
+async function executeSum(rpcClient: RPCClient<Manifest>) {
+    try {
+        const { output, writable } = await rpcClient.methods.Sum();
+        const writer = writable.getWriter();
+        await writer.write(5);
+        await writer.write(10);
+        await writer.close();
 
-    const ans = await output;
-
-    console.log('Sum is: $(ans)');
+        const ans = await output;
+        console.log(`Received output: ${ans}`);
+        console.log(`Sum is: ${ans}`);
+    } catch (error) {
+        console.error("Error in executeSum:", error);
+    }
 }
+
 // Main function to tie everything together
-async function main(){
-    const rpcServer = await startServer();
-    const rpcClient = await startClient();
+async function main() {
+    try {
+        const serverObject = await startServer();
+        const rpcClient = await startClient();
 
-    await executeSum(rpcClient);
-
-    await rpcServer.destroy();
-    await rpcClient.destroy();
+        await executeSum(rpcClient);
+        await rpcClient.destroy();
+        await serverObject.rpcServer.destroy();
+    } catch (err) {
+        console.error("An error occurred:", err);
+    }
 }
 
 main();
 ```
-### Duplex Stream
+![img.png](images/clientTest.png)
+#### Duplex Stream
 A Duplex Stream enables both the client and the server to read
 and write messages in their respective streams independently of each other.
 Both parties can read and write multiple messages in any order.
@@ -204,7 +465,7 @@ async function main(){
 main();
 
 ```
-### Raw Stream
+#### Raw Stream
 
 Raw Stream is designed for low-level handling of RPC calls, enabling granular control over data streaming.
 Unlike other patterns, Raw Streams allow both the server and client to work directly with raw data,
@@ -213,113 +474,202 @@ This is especially useful when the RPC protocol itself needs customization
 or when handling different types of data streams within the same connection.
 
 In this example, the client sends a sequence of numbers and the server responds with the factorial of each number.
-
 ```ts
-import {RawHandler, JSONRPCRequest, ContextTimed, JSONValue} from '../types';
-import {ContainerType} from "./types";
-import RPCServer from "./RPCServer";  // Assuming these are imported correctly
+import {
+ContainerType,
+JSONValue,
+IdGen,
+StreamFactory,
+MiddlewareFactory, ClientManifest, JSONRPCRequest,
+} from "@matrixai/rpc/dist/types";
+import WebSocket = require('ws');
+import { RawHandler} from "@matrixai/rpc/dist/handlers";
+import type { ContextTimed } from '@matrixai/contexts';
+import RPCServer from '@matrixai/rpc/dist/RPCServer'
+import RPCClient from '@matrixai/rpc/dist/RPCClient'
+import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
+import { createDestroy } from '@matrixai/async-init';
+import {RawCaller} from "@matrixai/rpc/dist/callers";
+import {ReadableStream, WritableStream} from "stream/web";
+import {ReadableStreamDefaultController} from "stream/web";
+
+
+
+const logger = new Logger('RPC Test', LogLevel.WARN, [new StreamHandler()]);
+let streamFactory: StreamFactory;
+let middlewareFactory: MiddlewareFactory<any, any, any, any>;
+let idGen: IdGen;
+
+type Manifest = {
+FactorialStream: RawCaller;
+};
 
 class FactorialStream extends RawHandler<ContainerType> {
-  public async handle(
-    [request, inputStream]: [JSONRPCRequest, ReadableStream<Uint8Array>],
-    cancel: (reason?: any) => void,
-    meta: Record<string, JSONValue> | undefined,
-    ctx: ContextTimed,
-  ): Promise<[JSONValue, ReadableStream<Uint8Array>]> {
+public handle = async (
+[request, inputStream]: [JSONRPCRequest, ReadableStream<Uint8Array>],
+cancel: (reason?: any) => void,
+meta: Record<string, JSONValue> | undefined,
+ctx: ContextTimed
+): Promise<[JSONValue, ReadableStream<Uint8Array>]> => {
+const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
 
-    const {readable, writable} = new TransformStream<Uint8Array, Uint8Array>();
+        (async () => {
+            const reader = inputStream.getReader();
+            const writer = writable.getWriter();
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) {
+                    break;
+                }
 
-    (async () => {
-      const reader = inputStream.getReader();
-      const writer = writable.getWriter();
-      while (true) {
-        const {done, value} = await reader.read();
-        if (done) {
-          break;
-        }
+                const num = parseInt(new TextDecoder().decode(value), 10);
+                const factorial = factorialOf(num).toString();
+                const outputBuffer = new TextEncoder().encode(factorial);
 
-        const num = parseInt(new TextDecoder().decode(value), 10);
-        const factorial = factorialOf(num).toString();
-        const outputBuffer = new TextEncoder().encode(factorial);
+                writer.write(outputBuffer);
+            }
+            writer.close();
+        })();
 
-        writer.write(outputBuffer);
-      }
-      writer.close();
-    })();
-
-    return ["Starting factorial computation", readable];
-  }
+        return ['Starting factorial computation', readable as ReadableStream<Uint8Array>];    }
 }
 
 function factorialOf(n: number): number {
-  return (n === 0) ? 1 : n * factorialOf(n - 1);
+return n === 0 ? 1 : n * factorialOf(n - 1);
 }
 
-async function startSErver() {
-  const rpcServer = await RPCServer.createRPCServer({
-    manifest: {
-      FactorialStream: new FactorialStream({}),
-    },
-    logger,
-    idGen,
-  });
+async function startServer() {
+const wss = new WebSocket.Server({ port: 1221 });
+const rpcServer = await RPCServer.createRPCServer({
+manifest: {
+FactorialStream: new FactorialStream({}),
+},
+handlerTimeoutTime: 200,
+logger,
+idGen,
+});
 
-  const simulatedStream = sendStreamHere/* your logic for creating or obtaining a server-side stream */;
-  rpcServer.handleStream(simulatedStream);
-  return rpcServer;
+    wss.on('connection', (ws) => {
+        const { readable, writable } = wsToStream(ws);
+        rpcServer.handleStream({ readable, writable, cancel: () => {} });
+    });
+    return { rpcServer };
 }
 
 async function startClient() {
-  const rpcClient = await RPCClient.createRPCClient({
-    manifest: {
-      FactorialStream: new RawCaller(),
-    },
-    streamFactory,
-    middlewareFactory,
-    logger,
-    idGen,
-  });
+return new Promise<RPCClient<Manifest>>((resolve, reject) => {
+const ws = new WebSocket('ws://localhost:1221');
 
-  const { readable, writable, meta } = await rpcClient.methods.FactorialRaw({});
+        ws.addEventListener('open', async () => {
+            const { readable, writable } = wsToStream(ws);
+            const rpcClient = await RPCClient.createRPCClient({
+                manifest: {
+                    FactorialStream: new RawCaller(),
+                },
+                streamFactory: async () => ({ readable, writable, cancel: () => {} }),
+                middlewareFactory,
+                logger,
+                idGen,
+            });
+            resolve(rpcClient);
+        });
 
-
-  //Printing 'Starting factorial computation'
-  console.log(meta);
-
-
-  const writer = writable.getWriter();
-
-  const numbers = [1, 2, 3, 4, 5];
-
-  for (const num of numbers){
-      writer.write(new TextEncoder().encode(num.toString()));
-  }
-  writer.close();
-
-
-  const reader = readable.getReader();
-  while (true) {
-      const {done, value} = await reader.read();
-      if (done) {
-        break;
-      }
-      console.log('The factorial is: $(new TextDecoder().decode(value))');
-  }
-  return rpcClient;
+        ws.addEventListener('error', (err) => {
+            reject(err);
+        });
+    });
 }
 
-async function main(){
-  const rpcServer = await startServer();
-  const rpcClient = await startClient();
+function wsToStream(ws: WebSocket): { readable: ReadableStream, writable: WritableStream } {
+let readableController: ReadableStreamDefaultController<any> | null = null;
 
-  await rpcServer.destroy();
-  await rpcClient.destroy();
+    const readable = new ReadableStream({
+        start(controller) {
+            readableController = controller;
+        },
+        cancel() {
+            ws.close();
+        },
+    });
+
+    ws.on('message', (chunk: any) => {
+        readableController?.enqueue(chunk);
+    });
+
+    ws.on('close', () => {
+        readableController?.close();
+    });
+
+    const writable = new WritableStream({
+        write(chunk) {
+            ws.send(chunk);
+        },
+        close() {
+            ws.close();
+        },
+        abort() {
+            ws.close();
+        },
+    });
+
+    return { readable, writable };
 }
 
-// Run the main function to kick off the example
+async function execute(rpcClient: RPCClient<Manifest>){
+try{
+// Initialize the FactorialStream RPC method
+const { readable, writable, meta } = await rpcClient.methods.FactorialStream({timer: 200});
+
+        console.log('Meta:', meta); // Output meta information, should be 'Starting factorial computation'
+
+        // Create a writer for the writable stream
+        const writer = writable.getWriter();
+
+        // Send numbers 4, 5, 6, 8 to the server for factorial computation
+        for (const num of [4, 5, 6, 8]) {
+            const buffer = new TextEncoder().encode(num.toString());
+            await writer.write(buffer);
+        }
+        await writer.close();
+
+        // Create a reader for the readable stream
+        const reader = readable.getReader();
+
+        // Read the computed factorials from the server
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              console.log('Done reading from stream.');
+              process.exit(0);
+              break;
+            }
+            const factorialResult = new TextDecoder().decode(value).trim();  // Added trim() to remove any extra whitespace
+            console.log(`The factorial is: ${factorialResult}`);
+
+        }
+    }catch (error){
+        console.error("Error is :", error);
+
+    }
+}
+
+async function main() {
+try {
+const serverObject = await startServer();
+const rpcClient = await startClient();
+
+        await execute(rpcClient);
+        await rpcClient.destroy();
+        await serverObject.rpcServer.destroy();
+    } catch (err) {
+        console.error("An error occurred:", err);
+    }
+}
+
 main();
 ```
-### Server Stream
+![img.png](images/rawTest.png)
+#### Server Stream
 In Server Stream calls,
 the client sends a single request and receives multiple responses in a read-only stream from the server.
 The server can keep pushing messages as long as it needs, allowing real-time updates from the server to the client.
@@ -401,7 +751,7 @@ async function main(){
 
 main();
 ```
-### Unary Stream
+#### Unary Stream
 
 In a Unary Stream, the client sends a single request to the server and gets a single response back,
 just like HTTP/REST calls but over a connection.
