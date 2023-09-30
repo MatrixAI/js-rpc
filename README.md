@@ -377,6 +377,94 @@ async function main() {
 main();
 ```
 ![img.png](images/clientTest.png)
+#### Duplex Stream
+A Duplex Stream enables both the client and the server to read
+and write messages in their respective streams independently of each other.
+Both parties can read and write multiple messages in any order.
+It's useful in scenarios that require ongoing communication in both directions, like chat applications.
+
+In this example, the client sends a sequence of numbers and the server responds with the squares of those numbers.
+```ts
+import { RPCServer, DuplexHandler, ContainerType } from "./index";
+
+class SquareNumbersDuplex extends DuplexHandler<ContainerType, number, Array<number>> {
+  public handle = async function* (
+    input: AsyncIterableIterator<number>,
+    cancel: (reason?: any) => void,
+    meta: Record<string, JSONValue> | undefined,
+    ctx: ContextTimed,
+  ): AsyncIterableIterator<Array<number>> {
+    for await (const num of input) {
+      const squares: Array<number> = [];
+      for (let i = 1; i <= num; i++) {
+        squares.push(i * i);
+      }
+      yield squares;
+    }
+  };
+}
+
+async function startServer() {
+  const rpcServer = await RPCServer.createRPCServer({
+    manifest: {
+      SquareNumbersDuplex: new SquareNumbersDuplex({}),
+    },
+    logger,
+    idGen,
+  });
+  const simulatedStream = sendStreamHere/* your logic for creating or obtaining a server-side stream */;
+  rpcServer.handleStream(simulatedStream);
+
+  return rpcServer;
+}
+
+// Run the server
+startServer();
+import { RPCClient, DuplexCaller } from "./index";
+
+async function startClient() {
+  const rpcClient = await RPCClient.createRPCClient({
+    manifest: {
+      SquareNumbersDuplex: new DuplexCaller<number, Array<number>>(),
+    },
+    streamFactory,
+    middlewareFactory,
+    logger,
+    idGen,
+  });
+
+  const squareStream = await rpcClient.methods.SquareNumbersDuplex();
+
+  // Write to the server
+  const writer = squareStream.writable.getWriter();
+  writer.write(2);
+  writer.write(3);
+  writer.write(4);
+
+  // Read squared numbers from the server
+  for await (const squares of squareStream.readable) {
+    console.log(`Squares up to n are: ${squares.join(", ")}`);
+  }
+
+  writer.close();
+
+  return rpcClient;
+}
+
+// Run the client
+startClient();
+async function main(){
+  const rpcServer = await startServer();
+  const rpcClient = await startClient();
+
+  await rpcServer.destroy();
+  await rpcClient.destroy();
+}
+
+// Run the main function to kick off the example
+main();
+
+```
 #### Raw Stream
 
 Raw Stream is designed for low-level handling of RPC calls, enabling granular control over data streaming.
@@ -587,315 +675,82 @@ the client sends a single request and receives multiple responses in a read-only
 The server can keep pushing messages as long as it needs, allowing real-time updates from the server to the client.
 This is useful for things like monitoring,
 where the server needs to update the client in real-time based on events or data changes.
+
+
 In this example, the client sends a number and the server responds with the squares of all numbers up to that number.
-
 ```ts
-import Logger, {LogLevel, StreamHandler} from "@matrixai/logger";
-import {ContainerType, IdGen, JSONValue, MiddlewareFactory, StreamFactory} from "@matrixai/rpc/dist/types";
-import {RawCaller, ServerCaller} from "@matrixai/rpc/dist/callers";
-import {ServerHandler} from "@matrixai/rpc/dist/handlers";
-import {ContextTimed} from "@matrixai/contexts";
-import RPCServer from "@matrixai/rpc/dist/RPCServer";
-import WebSocket = require('ws');
-import {ReadableStream, ReadableStreamDefaultController, WritableStream} from "stream/web";
-import RPCClient from "@matrixai/rpc/dist/RPCClient";
+import ServerHandler from "./ServerHandler";
+import {ContainerType} from "./types";
+import {AsyncIterable} from "ix/Ix";
 
-const logger = new Logger('Server Test', LogLevel.WARN, [new StreamHandler()]);
-let streamFactory: StreamFactory;
-let middlewareFactory: MiddlewareFactory<any, any, any, any>;
-let idGen: IdGen;
-
-
-
-
-class SquaredNumbers extends ServerHandler<ContainerType, number, number>{
-public handle = async function* (
-input: number,
-):AsyncGenerator<number>{
-for (let i = 0; i<= input; i++){
-yield i*i;
-}
-};
-}
-type Manifest = {
-SquaredNumbers: ServerCaller<number,number>;
-}
-async function startServer() {
-const wss =
-new WebSocket.Server({ port: 1221 });
-const rpcServer =
-await RPCServer.createRPCServer({
-manifest: {
-SquaredNumbers: new SquaredNumbers({}),
-},
-logger,
-idGen,
-});
-
-    wss.on('connection', (ws) => {
-        const { readable, writable } =
-            wsToStream(ws);
-        rpcServer.handleStream({ readable, writable, cancel: () => {} });
-    });
-    return { rpcServer };
-}
-
-async function startClient() {
-return new Promise<RPCClient<Manifest>>((resolve, reject) => {
-const ws = new WebSocket('ws://localhost:1221');
-
-        ws.addEventListener('open', async () => {
-            const { readable, writable } =
-                wsToStream(ws);
-            const rpcClient =
-                await RPCClient.createRPCClient<Manifest>({
-                    manifest: {
-                        SquaredNumbers: new ServerCaller<number, number>(),
-                    },
-                    streamFactory: async () => ({ readable, writable,
-                        cancel: () => {} }),
-                    middlewareFactory,
-                    logger,
-                    idGen,
-                });
-            resolve(rpcClient);
-        });
-
-        ws.addEventListener('error', (err) => {
-            reject(err);
-        });
-    });
-}
-
-function wsToStream(ws: WebSocket): { readable: ReadableStream, writable: WritableStream } {
-let readableController: ReadableStreamDefaultController<any> | null = null;
-
-    const readable = new ReadableStream({
-        start(controller) {
-            readableController = controller;
-        },
-        cancel() {
-            ws.close();
-        },
-    });
-
-    ws.on('message', (chunk: any) => {
-        readableController?.enqueue(chunk);
-    });
-
-    ws.on('close', () => {
-        readableController?.close();
-    });
-
-    const writable = new WritableStream({
-        write(chunk) {
-            ws.send(chunk);
-        },
-        close() {
-            ws.close();
-        },
-        abort() {
-            ws.close();
-        },
-    });
-
-    return { readable, writable };
-}
-
-
-async function execute(rpcClient: RPCClient<Manifest>) {
-try {
-const squaredStream = await rpcClient.methods.SquaredNumbers(235);
-const outputs: Array<number> = [];
-for await(const num of squaredStream) {
-outputs.push(num);
-}
-console.log(`Squared numbers are: ${outputs.join(', ')}`);
-} catch (error) {
-console.error("Error in execute:", error);
-}
-}
-
-
-async function main() {
-try {
-const serverObject = await startServer();
-const rpcClient = await startClient();
-
-        await execute(rpcClient);
-        await rpcClient.destroy();
-
-        await serverObject.rpcServer.destroy();
-    } catch (err) {
-        console.log('An Error occurred: ', err)
-    }
-}
-
-
-main();
-```
-#### Duplex Stream
-A Duplex Stream enables both the client and the server to read
-and write messages in their respective streams independently of each other.
-Both parties can read and write multiple messages in any order.
-It's useful in scenarios that require ongoing communication in both directions, like chat applications.
-
-In this example, the client sends a sequence of numbers and the server responds with the squares of those numbers.
-```ts
-import Logger, {LogLevel, StreamHandler} from "@matrixai/logger";
-import {ContainerType, IdGen, JSONValue, MiddlewareFactory, StreamFactory} from "@matrixai/rpc/dist/types";
-import {defaultMiddleware} from "@matrixai/rpc/dist/middleware";
-import {ClientCaller, DuplexCaller} from "@matrixai/rpc/dist/callers";
-import {DuplexHandler} from "@matrixai/rpc/dist/handlers";
-import {ContextTimed} from "@matrixai/contexts";
-import RPCServer from "@matrixai/rpc/dist/RPCServer";
-import WebSocket = require('ws');
-import {takeUntil} from "ix/Ix.dom.asynciterable.operators";
-import RPCClient from "@matrixai/rpc/dist/RPCClient";
-import {ReadableStream, ReadableStreamDefaultController, WritableStream} from "stream/web";
-
-
-const logger = new Logger('Duplex Test', LogLevel.WARN, [new StreamHandler()]);
-
-let streamFactory: StreamFactory;
-let middlewareFactory: MiddlewareFactory<any, any, any, any>;
-let idGen: IdGen;
-
-class SquaredDuplex extends DuplexHandler<ContainerType, number, Array<number>>{
-  public handle = async function*(
-    input: AsyncIterableIterator<number>,
+class SquaredNums extends ServerHandler<ContainerType, number, number> {
+  public handle = async function* (
+    input: number,
     cancel: (reason?: any) => void,
     meta: Record<string, JSONValue> | undefined,
     ctx: ContextTimed,
-  ): AsyncIterableIterator<Array<number>>{
-    for await (const num of input){
-      const squares: Array<number> = []
-      for(let i =1; i<=num; i++){
-        squares.push(i*i);
-      }
-      yield squares;
-    }
+  ): AsyncIterable<number>{
+        for (let i = 0; i<= input; i++){
+            yield i*i;
+        }
   };
 }
 
-type Manifest = {
-  SquaredDuplex: DuplexCaller<number, Array<number>>;
-};
-
 async function startServer() {
-  const wss = new WebSocket.Server({ port: 8080 });
+
   const rpcServer = await RPCServer.createRPCServer({
     manifest: {
-      SquaredDuplex: new SquaredDuplex({}),
+      SquaredNums: new SquaredNums({}),
     },
-    logger: new Logger('rpc-server'),
-    handlerTimeoutTime: 1000,
+    logger,
     idGen,
+    handlerTimeoutTime: 60000,
   });
+  // Simulating receiving a stream from a client.
+  // Provided by network layer
+  const simulatedStream =sendStreamHere;
 
-  wss.on('connection', (ws) => {
-    const { readable, writable } = wsToStream(ws);
-    rpcServer.handleStream({ readable, writable, cancel: () => {} });
-  });
-  return { rpcServer  };
+  rpcServer.handleStream(simulatedStream);
+  return rpcServer;
 }
-
 async function startClient() {
-  return new Promise<RPCClient<Manifest>>( (resolve, reject) => {
-    const ws = new WebSocket('ws://localhost:8080');
-
-    ws.addEventListener('open', async () => {
-      const { readable, writable } = wsToStream(ws);
-      const rpcClient = await RPCClient.createRPCClient({
-        manifest: {
-          SquaredDuplex: new DuplexCaller<number, Array<number>>(),
-        },
-        streamFactory: async () => ({ readable, writable, cancel: () => {} }),
-        middlewareFactory,
-        logger,
-        idGen,
-      });
-      resolve(rpcClient);
-    });
-
-    ws.addEventListener('error', (err) => {
-      reject(err);
-    });
-  });
-}
-function wsToStream(ws: WebSocket): { readable: ReadableStream, writable: WritableStream } {
-  let readableController: ReadableStreamDefaultController<any> | null = null;
-
-  const readable = new ReadableStream({
-    start(controller) {
-      readableController = controller;
+  // Simulate client-server pair of streams.
+  // Simulating network stream
+  const clientPair = sendStreamHere/* your logic for creating or obtaining a client-side stream */;
+  const rpcClient = await RPCClient.createRPCClient({
+    manifest: {
+        SquaredNums: new ServerCaller
     },
-    cancel() {
-      ws.close();
-    },
-  });
+    streamFactory,
+    middlewareFactory,
+    logger,
+    idGen
+  })
 
-  ws.on('message', (chunk: any) => {
-    readableController?.enqueue(chunk);
-  });
-
-  ws.on('close', () => {
-    readableController?.close();
-  });
-
-  const writable = new WritableStream({
-    write(chunk) {
-      ws.send(chunk);
-    },
-    close() {
-      ws.close();
-    },
-    abort() {
-      ws.close();
-    },
-  });
-
-  return { readable, writable };
-}
-
-// Client-side duplex caller
-async function executeSquareNumbersDuplex(rpcClient: RPCClient<Manifest>) {
-
-  try{const { readable, writable } = await rpcClient.methods.SquaredDuplex();
-    const writer = writable.getWriter();
-    await writer.write(2);
-    await writer.write(3);
-    await writer.write(4);
-
-    // Read squared numbers from the server
-    for await (const squares of readable) {
-      console.log(`Squares up to n are: ${squares.join(", ")}`);
-    }
-    await writer.close();
-
-  }catch (e){
-    console.log(e)
+  const squaredStream = await rpcClient.methods.SquaredNums(4);
+  // Read squared numbers from the server
+  const outputs: Array<number> = [];
+  for await(const num of squaredStream) {
+      outputs.push(num);
   }
+
+  console.log('Squared numbers are: $(outputs.join(', ')}');
+
+  return
+
+  return rpcClient;
 }
 
-// Main function to tie everything together
-async function main() {
-  try {
-    const serverObject = await startServer();
+async function main(){
+    const rpcServer = await startServer();
     const rpcClient = await startClient();
 
-    await executeSquareNumbersDuplex(rpcClient);  // Add this line to run the duplex caller
-    await serverObject.rpcServer.destroy();
+    await rpcServer.destroy();
     await rpcClient.destroy();
-  } catch (err) {
-    console.error("An error occurred:", err);
-  }
 }
 
 main();
-
 ```
-![img.png](images/duplexTest.png)
 #### Unary Stream
 
 In a Unary Stream, the client sends a single request to the server and gets a single response back,
@@ -905,30 +760,6 @@ It's the go-to choice for straightforward "request and response" interactions.
 
 In this example, the client sends a number and the server responds with the square of that number.
 ```ts
-import {
-  ContainerType,
-  JSONValue,
-  IdGen,
-  StreamFactory,
-  MiddlewareFactory, ClientManifest,
-} from "@matrixai/rpc/dist/types";
-import WebSocket = require('ws');
-import {ClientHandler, UnaryHandler} from "@matrixai/rpc/dist/handlers";
-import type { ContextTimed } from '@matrixai/contexts';
-import RPCServer from '@matrixai/rpc/dist/RPCServer'
-import RPCClient from '@matrixai/rpc/dist/RPCClient'
-import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
-import { createDestroy } from '@matrixai/async-init';
-import {ClientCaller, UnaryCaller} from "@matrixai/rpc/dist/callers";
-import {ReadableStream, WritableStream} from "stream/web";
-import {ReadableStreamDefaultController} from "stream/web";
-
-const logger = new Logger(`RPC Test`, LogLevel.WARN, [new StreamHandler()]);
-
-let streamFactory: StreamFactory;
-let middlewareFactory: MiddlewareFactory<any, any, any, any>;
-let idGen: IdGen;
-
 class SquaredNumberUnary extends UnaryHandler<ContainerType, number, number> {
   public handle = async (
     input: number,
@@ -940,119 +771,47 @@ class SquaredNumberUnary extends UnaryHandler<ContainerType, number, number> {
   };
 }
 
-// Server-side WebSocket setup
 async function startServer() {
-  const wss = new WebSocket.Server({ port: 8080 });
   const rpcServer = await RPCServer.createRPCServer({
     manifest: {
       SquaredNumberUnary: new SquaredNumberUnary({}),
     },
-    logger: new Logger('rpc-server'),
-    handlerTimeoutTime: 1000,
+    logger,
     idGen,
   });
+  const simulatedStream = sendStreamHere/* your logic for creating or obtaining a server-side stream */;
+  rpcServer.handleStream(simulatedStream);
 
-  wss.on('connection', (ws) => {
-    const { readable, writable } = wsToStream(ws);
-    rpcServer.handleStream({ readable, writable, cancel: () => {} });
-  });
-  return { rpcServer  };
+  return rpcServer;
 }
-type Manifest = {
-  SquaredNumberUnary: UnaryCaller<number, number>;
-};
-// Client-side WebSocket setup
+
 async function startClient() {
-  return new Promise<RPCClient<Manifest>>( (resolve, reject) => {
-    const ws = new WebSocket('ws://localhost:8080');
-
-    ws.addEventListener('open', async () => {
-      const { readable, writable } = wsToStream(ws);
-      const rpcClient = await RPCClient.createRPCClient({
-        manifest: {
-          SquaredNumberUnary: new UnaryCaller<number, number>(),
-        },
-        streamFactory: async () => ({ readable, writable, cancel: () => {} }),
-        middlewareFactory,
-        logger,
-        idGen,
-      });
-      resolve(rpcClient);
-    });
-
-    ws.addEventListener('error', (err) => {
-      reject(err);
-    });
+  const rpcClient = await RPCClient.createRPCClient({
+    manifest: {
+      SquaredNumberUnary: new UnaryCaller<number, number>(),
+    },
+    streamFactory,
+    middlewareFactory,
+    logger,
+    idGen,
   });
+  const squaredNumber = await rpcClient.methods.SquaredNumberUnary(4);
+
+  console.log('Squared number is: $(squaredNumber)');
+
+  return rpcClient;
 }
 
-function wsToStream(ws: WebSocket): { readable: ReadableStream, writable: WritableStream } {
-  let readableController: ReadableStreamDefaultController<any> | null = null;
+async function main(){
+  const rpcServer = await startServer();
+  const rpcClient = await startClient();
 
-  const readable = new ReadableStream({
-    start(controller) {
-      readableController = controller;
-    },
-    cancel() {
-      ws.close();
-    },
-  });
-
-  ws.on('message', (chunk: any) => {
-    readableController?.enqueue(chunk);
-  });
-
-  ws.on('close', () => {
-    readableController?.close();
-  });
-
-  const writable = new WritableStream({
-    write(chunk) {
-      ws.send(chunk);
-    },
-    close() {
-      ws.close();
-    },
-    abort() {
-      ws.close();
-    },
-  });
-
-  return { readable, writable };
-}
-// Function to execute the Sum RPC call
-// Function to execute the Sum RPC call
-async function executeSquare(rpcClient: RPCClient<Manifest>) {
-  try {
-    // Sending a number (e.g., 4) to be squared
-    const squaredNumber = await rpcClient.methods.SquaredNumberUnary(4);
-
-    // Log the squared number
-    console.log(`Squared number is: ${squaredNumber}`);
-  } catch (error) {
-    // Handle any errors
-    console.error(`An error occurred while executing SquaredNumberUnary: ${error}`);
-  }
-}
-
-// Main function to tie everything together
-async function main() {
-  try {
-    const serverObject = await startServer();
-    const rpcClient = await startClient();
-
-    await executeSquare(rpcClient);
-    await rpcClient.destroy();
-    await serverObject.rpcServer.destroy();
-  } catch (err) {
-    console.error("An error occurred:", err);
-  }
+  await rpcServer.destroy();
+  await rpcClient.destroy();
 }
 
 main();
-
 ```
-![img.png](images/unaryTest.png)
 ## Development
 
 Run `nix-shell`, and once you're inside, you can use:
