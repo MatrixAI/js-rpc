@@ -41,6 +41,11 @@ class EventRPCServerCreated extends EventRPCServer {}
 class EventRPCServerDestroy extends EventRPCServer {}
 
 class EventRPCServerDestroyed extends EventRPCServer {}
+class EventRPCServerStart extends EventRPCServer {}
+class EventRPCServerStarted extends EventRPCServer {}
+class EventRPCServerStopping extends EventRPCServer {}
+
+class EventRPCServerStopped extends EventRPCServer {}
 
 class EventRPCServerError extends EventRPCServer<Error> {}
 
@@ -82,4 +87,8 @@ export {
   EventRPCServerDestroyed,
   EventRPCServerError,
   EventRPCConnectionError,
+  EventRPCServerStopping,
+  EventRPCServerStopped,
+  EventRPCServerStart,
+  EventRPCServerStarted,
 };

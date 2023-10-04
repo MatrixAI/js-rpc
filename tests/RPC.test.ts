@@ -62,7 +62,7 @@ describe('RPC', () => {
           });
         };
       }
-      const rpcServer = await RPCServer.createRPCServer({
+      const rpcServer = await RPCServer.startRPCServer({
         manifest: {
           testMethod: new TestMethod({}),
         },
@@ -107,7 +107,7 @@ describe('RPC', () => {
       expect(callerInterface.meta?.result).toBe('some leading data');
       expect(await outputResult).toStrictEqual(values);
       await pipeProm;
-      await rpcServer.destroy();
+      await rpcServer.stop();
       await rpcClient.destroy();
     },
   );
@@ -163,7 +163,7 @@ describe('RPC', () => {
       };
     }
 
-    const rpcServer = await RPCServer.createRPCServer({
+    const rpcServer = await RPCServer.startRPCServer({
       manifest: {
         testMethod: new TestMethod({}),
       },
@@ -195,7 +195,7 @@ describe('RPC', () => {
       }),
     ).rejects.toThrow(rpcErrors.ErrorRPCRemote);
 
-    await rpcServer.destroy();
+    await rpcServer.stop();
     await rpcClient.destroy();
   });
   testProp(
@@ -216,7 +216,7 @@ describe('RPC', () => {
           yield* input;
         };
       }
-      const rpcServer = await RPCServer.createRPCServer({
+      const rpcServer = await RPCServer.startRPCServer({
         manifest: {
           testMethod: new TestMethod({}),
         },
@@ -253,7 +253,7 @@ describe('RPC', () => {
       const result = await reader.read();
       expect(result.value).toBeUndefined();
       expect(result.done).toBeTrue();
-      await rpcServer.destroy();
+      await rpcServer.stop();
       await rpcClient.destroy();
     },
   );
@@ -276,7 +276,7 @@ describe('RPC', () => {
         };
       }
 
-      const rpcServer = await RPCServer.createRPCServer({
+      const rpcServer = await RPCServer.startRPCServer({
         manifest: {
           testMethod: new TestMethod({}),
         },
@@ -309,7 +309,7 @@ describe('RPC', () => {
         outputs.push(num);
       }
       expect(outputs.length).toEqual(value);
-      await rpcServer.destroy();
+      await rpcServer.stop();
       await rpcClient.destroy();
     },
   );
@@ -334,7 +334,7 @@ describe('RPC', () => {
         };
       }
 
-      const rpcServer = await RPCServer.createRPCServer({
+      const rpcServer = await RPCServer.startRPCServer({
         manifest: {
           testMethod: new TestMethod({}),
         },
@@ -368,7 +368,7 @@ describe('RPC', () => {
       await writer.close();
       const expectedResult = values.reduce((p, c) => p + c);
       await expect(output).resolves.toEqual(expectedResult);
-      await rpcServer.destroy();
+      await rpcServer.stop();
       await rpcClient.destroy();
     },
   );
@@ -386,7 +386,7 @@ describe('RPC', () => {
           return input;
         };
       }
-      const rpcServer = await RPCServer.createRPCServer({
+      const rpcServer = await RPCServer.startRPCServer({
         manifest: {
           testMethod: new TestMethod({}),
         },
@@ -414,7 +414,7 @@ describe('RPC', () => {
 
       const result = await rpcClient.methods.testMethod(value);
       expect(result).toStrictEqual(value);
-      await rpcServer.destroy();
+      await rpcServer.stop();
       await rpcClient.destroy();
     },
   );
@@ -441,7 +441,7 @@ describe('RPC', () => {
         };
       }
 
-      const rpcServer = await RPCServer.createRPCServer({
+      const rpcServer = await RPCServer.startRPCServer({
         manifest: {
           testMethod: new TestMethod({}),
         },
@@ -472,7 +472,7 @@ describe('RPC', () => {
       expect(rejection).toMatchObject({ code: -32006 });
 
       // Cleanup
-      await rpcServer.destroy();
+      await rpcServer.stop();
       await rpcClient.destroy();
     },
   );
@@ -500,7 +500,7 @@ describe('RPC', () => {
         };
       }
 
-      const rpcServer = await RPCServer.createRPCServer({
+      const rpcServer = await RPCServer.startRPCServer({
         manifest: {
           testMethod: new TestMethod({}),
         },
@@ -526,7 +526,7 @@ describe('RPC', () => {
       await expect(callProm).rejects.toBeInstanceOf(rpcErrors.ErrorRPCRemote);
       await expect(callProm).rejects.not.toHaveProperty('cause.stack');
 
-      await rpcServer.destroy();
+      await rpcServer.stop();
       await rpcClient.destroy();
     },
   );
@@ -562,7 +562,7 @@ describe('RPC', () => {
         }),
       };
     });
-    const rpcServer = await RPCServer.createRPCServer({
+    const rpcServer = await RPCServer.startRPCServer({
       manifest: {
         testMethod: new TestMethod({}),
       },
@@ -599,7 +599,7 @@ describe('RPC', () => {
     await expect(reader.read()).toReject();
     await expect(writer.closed).toReject();
     await expect(reader.closed).toReject();
-    await expect(rpcServer.destroy(false)).toResolve();
+    await expect(rpcServer.stop(false)).toResolve();
     await rpcClient.destroy();
   });
   testProp(
@@ -634,7 +634,7 @@ describe('RPC', () => {
       }
       const testMethodInstance = new TestMethod({});
       // Set up a client and server with matching timeout settings
-      const rpcServer = await RPCServer.createRPCServer({
+      const rpcServer = await RPCServer.startRPCServer({
         manifest: {
           testMethod: testMethodInstance,
         },
@@ -690,7 +690,7 @@ describe('RPC', () => {
         'Timed out waiting for header',
       );
 
-      await rpcServer.destroy();
+      await rpcServer.stop();
       await rpcClient.destroy();
     },
   );
@@ -725,7 +725,7 @@ describe('RPC', () => {
       }
 
       // Create an instance of the RPC server with a shorter timeout
-      const rpcServer = await RPCServer.createRPCServer({
+      const rpcServer = await RPCServer.startRPCServer({
         manifest: { testMethod: new TestMethod({}) },
         logger,
         idGen,
@@ -769,7 +769,7 @@ describe('RPC', () => {
       );
 
       // Cleanup
-      await rpcServer.destroy();
+      await rpcServer.stop();
       await rpcClient.destroy();
     },
     { numRuns: 1 },
@@ -799,7 +799,7 @@ describe('RPC', () => {
         };
       }
       // Set up a client and server with matching timeout settings
-      const rpcServer = await RPCServer.createRPCServer({
+      const rpcServer = await RPCServer.startRPCServer({
         manifest: {
           testMethod: new TestMethod({}),
         },
@@ -835,7 +835,7 @@ describe('RPC', () => {
       await expect(writer.write(value)).toResolve();
       await expect(reader.read()).toReject();
 
-      await rpcServer.destroy();
+      await rpcServer.stop();
       await rpcClient.destroy();
     },
     { numRuns: 1 },
@@ -867,7 +867,7 @@ describe('RPC', () => {
         };
       }
 
-      const rpcServer = await RPCServer.createRPCServer({
+      const rpcServer = await RPCServer.startRPCServer({
         manifest: { testMethod: new TestMethod({}) },
         logger,
         idGen,
@@ -921,7 +921,7 @@ describe('RPC', () => {
       callerTimer.cancel();
 
       // Expect neither to time out and verify that they can still handle other operations #TODO
-      await rpcServer.destroy(true);
+      await rpcServer.stop(true);
       await rpcClient.destroy();
     },
     { numRuns: 1 },
@@ -949,7 +949,7 @@ describe('RPC', () => {
           throw error;
         };
       }
-      const rpcServer = await RPCServer.createRPCServer({
+      const rpcServer = await RPCServer.startRPCServer({
         manifest: {
           testMethod: new TestMethod({}),
         },
@@ -987,7 +987,7 @@ describe('RPC', () => {
       const { code, message, data } = deserializedError as ErrorRPCRemote<any>;
       expect(code).toBe(-32006);
 
-      await rpcServer.destroy();
+      await rpcServer.stop();
       await rpcClient.destroy();
     },
   );
@@ -1013,7 +1013,7 @@ describe('RPC', () => {
           throw error;
         };
       }
-      const rpcServer = await RPCServer.createRPCServer({
+      const rpcServer = await RPCServer.startRPCServer({
         manifest: {
           testMethod: new TestMethod({}),
         },
@@ -1054,7 +1054,7 @@ describe('RPC', () => {
       expect(code).toBe(-32006);
       expect(data).toBe(undefined);
 
-      await rpcServer.destroy();
+      await rpcServer.stop();
       await rpcClient.destroy();
     },
   );

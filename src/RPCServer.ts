@@ -18,11 +18,11 @@ import type { JSONValue } from './types';
 import type { IdGen } from './types';
 import type { ErrorRPC, ErrorRPCRemote } from './errors';
 import { ReadableStream, TransformStream } from 'stream/web';
-import { CreateDestroy, ready } from '@matrixai/async-init/dist/CreateDestroy';
+import { ready } from '@matrixai/async-init/dist/CreateDestroy';
 import Logger from '@matrixai/logger';
 import { PromiseCancellable } from '@matrixai/async-cancellable';
 import { Timer } from '@matrixai/timer';
-import { createDestroy } from '@matrixai/async-init';
+import { startStop } from '@matrixai/async-init';
 import { RawHandler } from './handlers';
 import { DuplexHandler } from './handlers';
 import { ServerHandler } from './handlers';
@@ -44,28 +44,23 @@ const cleanupReason = Symbol('CleanupReason');
  * Events:
  * - error
  */
-interface RPCServer extends createDestroy.CreateDestroy {}
-/**
- * You must provide an error handler `addEventListener('error')`.
- * Otherwise, errors will just be ignored.
- *
- * Events:
- * - {@link events.EventRPCServerDestroy}
- * - {@link events.EventRPCServerDestroyed}
- */
-@createDestroy.CreateDestroy({
-  eventDestroy: events.EventRPCServerDestroy,
-  eventDestroyed: events.EventRPCServerDestroyed,
+interface RPCServer extends startStop.StartStop {}
+
+@startStop.StartStop({
+  eventStart: events.EventRPCServerStart,
+  eventStarted: events.EventRPCServerStarted,
+  eventStop: events.EventRPCServerStopping,
+  eventStopped: events.EventRPCServerStopped,
 })
 class RPCServer extends EventTarget {
   /**
-   * Creates RPC server.
+   * Starts RPC server.
 
    * @param obj
    * @param obj.manifest - Server manifest used to define the rpc method
    * handlers.
    * @param obj.middlewareFactory - Middleware used to process the rpc messages.
-   * The middlewareFactory needs to be a function that creates a pair of
+   * The middlewareFactory needs to be a function that starts a pair of
    * transform streams that convert `Uint8Array` to `JSONRPCRequest` on the forward
    * path and `JSONRPCResponse` to `Uint8Array` on the reverse path.
    * @param obj.streamKeepAliveTimeoutTime - Time before a connection is cleaned up due to no activity. This is the
@@ -77,7 +72,7 @@ class RPCServer extends EventTarget {
    * the handler to handle timeout before it is forced to end. Defaults to 2,000 milliseconds.
    * @param obj.logger
    */
-  public static async createRPCServer({
+  public static async startRPCServer({
     manifest,
     middlewareFactory = rpcUtilsMiddleware.defaultServerMiddlewareWrapper(),
     handlerTimeoutTime = Infinity, // 1 minute
@@ -99,7 +94,7 @@ class RPCServer extends EventTarget {
     fromError?: (error: ErrorRPC<any>) => JSONValue;
     filterSensitive?: (key: string, value: any) => any;
   }): Promise<RPCServer> {
-    logger.info(`Creating ${this.name}`);
+    logger.info(`Starting ${this.name}`);
     const rpcServer = new this({
       manifest,
       middlewareFactory,
@@ -109,7 +104,7 @@ class RPCServer extends EventTarget {
       fromError,
       filterSensitive,
     });
-    logger.info(`Created ${this.name}`);
+    logger.info(`Started ${this.name}`);
     return rpcServer;
   }
   protected onTimeoutCallback?: () => void;
@@ -214,10 +209,10 @@ class RPCServer extends EventTarget {
     this.filterSensitive = filterSensitive || rpcUtils.filterSensitive;
   }
 
-  public async destroy(force: boolean = true): Promise<void> {
+  public async stop(force: boolean = true): Promise<void> {
     // Log and dispatch an event before starting the destruction
-    this.logger.info(`Destroying ${this.constructor.name}`);
-    this.dispatchEvent(new events.EventRPCServerDestroy());
+    this.logger.info(`Stopping ${this.constructor.name}`);
+    this.dispatchEvent(new events.EventRPCServerStopping());
 
     // Your existing logic for stopping active streams and other cleanup
     if (force) {
@@ -231,8 +226,8 @@ class RPCServer extends EventTarget {
     }
 
     // Log and dispatch an event after the destruction has been completed
-    this.dispatchEvent(new events.EventRPCServerDestroyed());
-    this.logger.info(`Destroyed ${this.constructor.name}`);
+    this.dispatchEvent(new events.EventRPCServerStopped());
+    this.logger.info(`Stopped ${this.constructor.name}`);
   }
 
   /**
