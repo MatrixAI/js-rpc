@@ -7,14 +7,14 @@ import { ErrorRPCMethodNotImplemented } from '../errors';
 abstract class RawHandler<
   Container extends ContainerType = ContainerType,
 > extends Handler<Container> {
-  public handle = async (
+  public async handle(
     input: [JSONRPCRequest, ReadableStream<Uint8Array>],
     cancel: (reason?: any) => void,
     meta: Record<string, JSONValue> | undefined,
     ctx: ContextTimed,
-  ): Promise<[JSONValue, ReadableStream<Uint8Array>]> => {
+  ): Promise<[JSONValue, ReadableStream<Uint8Array>]> {
     throw new ErrorRPCMethodNotImplemented('This method must be overridden');
-  };
+  }
 }
 
 export default RawHandler;

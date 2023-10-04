@@ -13,14 +13,14 @@ abstract class DuplexHandler<
    * error. If you need to handle any clean up it should be handled in a
    * `finally` block and check the abort signal for potential errors.
    */
-  public handle = async function* (
+  public async *handle (
     input: AsyncIterableIterator<Input>,
     cancel: (reason?: any) => void,
     meta: Record<string, JSONValue> | undefined,
     ctx: ContextTimed,
   ): AsyncIterableIterator<Output> {
     throw new ErrorRPCMethodNotImplemented('This method must be overwrtitten.');
-  };
+  }
 }
 
 export default DuplexHandler;

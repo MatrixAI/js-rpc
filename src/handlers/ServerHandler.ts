@@ -8,14 +8,14 @@ abstract class ServerHandler<
   Input extends JSONValue = JSONValue,
   Output extends JSONValue = JSONValue,
 > extends Handler<Container, Input, Output> {
-  public handle = async function* (
+  public async *handle(
     input: Input,
     cancel: (reason?: any) => void,
     meta: Record<string, JSONValue> | undefined,
     ctx: ContextTimed,
   ): AsyncIterableIterator<Output> {
     throw new ErrorRPCMethodNotImplemented('This method must be overridden');
-  };
+  }
 }
 
 export default ServerHandler;

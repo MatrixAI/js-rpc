@@ -8,14 +8,14 @@ abstract class ClientHandler<
   Input extends JSONValue = JSONValue,
   Output extends JSONValue = JSONValue,
 > extends Handler<Container, Input, Output> {
-  public handle = async (
+  public async handle(
     input: AsyncIterableIterator<Input>,
     cancel: (reason?: any) => void,
     meta: Record<string, JSONValue> | undefined,
     ctx: ContextTimed,
-  ): Promise<Output> => {
+  ): Promise<Output> {
     throw new ErrorRPCMethodNotImplemented();
-  };
+  }
 }
 
 export default ClientHandler;
