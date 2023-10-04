@@ -34,15 +34,10 @@ class EventRPCClientConnect extends EventRPCClient {}
 
 class EventRPCServerConnection extends EventRPCServer<RPCServer> {}
 
-class EventRPCServerCreate extends EventRPCServer {}
-
-class EventRPCServerCreated extends EventRPCServer {}
-
-class EventRPCServerDestroy extends EventRPCServer {}
-
-class EventRPCServerDestroyed extends EventRPCServer {}
 class EventRPCServerStart extends EventRPCServer {}
+
 class EventRPCServerStarted extends EventRPCServer {}
+
 class EventRPCServerStopping extends EventRPCServer {}
 
 class EventRPCServerStopped extends EventRPCServer {}
@@ -81,10 +76,6 @@ export {
   EventRPCClientError,
   EventRPCClientConnect,
   EventRPCServerConnection,
-  EventRPCServerCreate,
-  EventRPCServerCreated,
-  EventRPCServerDestroy,
-  EventRPCServerDestroyed,
   EventRPCServerError,
   EventRPCConnectionError,
   EventRPCServerStopping,

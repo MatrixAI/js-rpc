@@ -18,7 +18,7 @@ import type { JSONValue } from './types';
 import type { IdGen } from './types';
 import type { ErrorRPC, ErrorRPCRemote } from './errors';
 import { ReadableStream, TransformStream } from 'stream/web';
-import { ready } from '@matrixai/async-init/dist/CreateDestroy';
+import { ready } from '@matrixai/async-init/dist/StartStop';
 import Logger from '@matrixai/logger';
 import { PromiseCancellable } from '@matrixai/async-cancellable';
 import { Timer } from '@matrixai/timer';
@@ -60,7 +60,7 @@ class RPCServer extends EventTarget {
    * @param obj.manifest - Server manifest used to define the rpc method
    * handlers.
    * @param obj.middlewareFactory - Middleware used to process the rpc messages.
-   * The middlewareFactory needs to be a function that starts a pair of
+   * The middlewareFactory needs to be a function that creates a pair of
    * transform streams that convert `Uint8Array` to `JSONRPCRequest` on the forward
    * path and `JSONRPCResponse` to `Uint8Array` on the reverse path.
    * @param obj.streamKeepAliveTimeoutTime - Time before a connection is cleaned up due to no activity. This is the
@@ -72,7 +72,7 @@ class RPCServer extends EventTarget {
    * the handler to handle timeout before it is forced to end. Defaults to 2,000 milliseconds.
    * @param obj.logger
    */
-  public static async startRPCServer({
+  public static async start({
     manifest,
     middlewareFactory = rpcUtilsMiddleware.defaultServerMiddlewareWrapper(),
     handlerTimeoutTime = Infinity, // 1 minute
@@ -209,10 +209,15 @@ class RPCServer extends EventTarget {
     this.filterSensitive = filterSensitive || rpcUtils.filterSensitive;
   }
 
-  public async stop(force: boolean = true): Promise<void> {
-    // Log and dispatch an event before starting the destruction
+  public async stop({
+    force = true,
+    reason = '',
+  }: {
+    force?: boolean;
+    reason?: string;
+  }): Promise<void> {
+    // Log an event before starting the destruction
     this.logger.info(`Stopping ${this.constructor.name}`);
-    this.dispatchEvent(new events.EventRPCServerStopping());
 
     // Your existing logic for stopping active streams and other cleanup
     if (force) {
@@ -225,8 +230,7 @@ class RPCServer extends EventTarget {
       await activeStream;
     }
 
-    // Log and dispatch an event after the destruction has been completed
-    this.dispatchEvent(new events.EventRPCServerStopped());
+    // Log  an event after the destruction has been completed
     this.logger.info(`Stopped ${this.constructor.name}`);
   }
 
@@ -449,7 +453,6 @@ class RPCServer extends EventTarget {
   /**
    * ID is associated with the stream, not individual messages.
    */
-  @ready(new rpcErrors.ErrorRPCHandlerFailed())
   public handleStream(rpcStream: RPCStream<Uint8Array, Uint8Array>) {
     // This will take a buffer stream of json messages and set up service
     //  handling for it.

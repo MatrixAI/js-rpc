@@ -332,11 +332,24 @@ type JSONValue =
   | undefined;
 
 type POJO = { [key: string]: any };
+
 type PromiseDeconstructed<T> = {
   p: Promise<T>;
   resolveP: (value: T | PromiseLike<T>) => void;
   rejectP: (reason?: any) => void;
 };
+
+type HandlerTypes<T> = T extends Handler<
+  infer Container,
+  infer Input,
+  infer Output
+>
+  ? {
+      container: Container;
+      input: Input;
+      output: Output;
+    }
+  : never;
 
 export type {
   IdGen,
@@ -365,4 +378,5 @@ export type {
   JSONValue,
   POJO,
   PromiseDeconstructed,
+  HandlerTypes,
 };

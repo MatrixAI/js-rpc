@@ -16,10 +16,8 @@ import type {
   MapCallers,
 } from './types';
 import type { ErrorRPCRemote } from './errors';
-import { CreateDestroy, ready } from '@matrixai/async-init/dist/CreateDestroy';
 import Logger from '@matrixai/logger';
 import { Timer } from '@matrixai/timer';
-import { createDestroy } from '@matrixai/async-init';
 import * as rpcUtilsMiddleware from './middleware';
 import * as rpcErrors from './errors';
 import * as rpcUtils from './utils';
@@ -30,24 +28,8 @@ import { toError } from './utils';
 
 const timerCleanupReasonSymbol = Symbol('timerCleanUpReasonSymbol');
 
-/**
- * Events:
- * - {@link events.Event}
- */
-interface RPCClient<M extends ClientManifest>
-  extends createDestroy.CreateDestroy {}
-/**
- * You must provide an error handler `addEventListener('error')`.
- * Otherwise, errors will just be ignored.
- *
- * Events:
- * - {@link events.EventRPCClientDestroy}
- * - {@link events.EventRPCClientDestroyed}
- */
-@createDestroy.CreateDestroy({
-  eventDestroy: events.EventRPCClientDestroy,
-  eventDestroyed: events.EventRPCClientDestroyed,
-})
+interface RPCClient<M extends ClientManifest> {}
+
 class RPCClient<M extends ClientManifest> {
   /**
    * @param obj
@@ -175,16 +157,9 @@ class RPCClient<M extends ClientManifest> {
   } = {}): Promise<void> {
     this.logger.info(`Destroying ${this.constructor.name}`);
 
-    // You can dispatch an event before the actual destruction starts
-    this.dispatchEvent(new events.EventRPCClientDestroy());
-
-    // Dispatch an event after the client has been destroyed
-    this.dispatchEvent(new events.EventRPCClientDestroyed());
-
     this.logger.info(`Destroyed ${this.constructor.name}`);
   }
 
-  @ready(new rpcErrors.ErrorRPCCallerFailed())
   public get methods(): MapCallers<M> {
     return this.methodsProxy as MapCallers<M>;
   }
@@ -198,7 +173,6 @@ class RPCClient<M extends ClientManifest> {
    * the provided I type.
    * @param ctx - ContextTimed used for timeouts and cancellation.
    */
-  @ready(new rpcErrors.ErrorMissingCaller())
   public async unaryCaller<I extends JSONValue, O extends JSONValue>(
     method: string,
     parameters: I,
@@ -235,7 +209,6 @@ class RPCClient<M extends ClientManifest> {
    * the provided I type.
    * @param ctx - ContextTimed used for timeouts and cancellation.
    */
-  @ready(new rpcErrors.ErrorRPCCallerFailed())
   public async serverStreamCaller<I extends JSONValue, O extends JSONValue>(
     method: string,
     parameters: I,
@@ -264,7 +237,6 @@ class RPCClient<M extends ClientManifest> {
    * @param method - Method name of the RPC call
    * @param ctx - ContextTimed used for timeouts and cancellation.
    */
-  @ready(new rpcErrors.ErrorRPCCallerFailed())
   public async clientStreamCaller<I extends JSONValue, O extends JSONValue>(
     method: string,
     ctx: Partial<ContextTimedInput> = {},
@@ -299,7 +271,6 @@ class RPCClient<M extends ClientManifest> {
    * @param method - Method name of the RPC call
    * @param ctx - ContextTimed used for timeouts and cancellation.
    */
-  @ready(new rpcErrors.ErrorRPCCallerFailed())
   public async duplexStreamCaller<I extends JSONValue, O extends JSONValue>(
     method: string,
     ctx: Partial<ContextTimedInput> = {},
@@ -439,7 +410,6 @@ class RPCClient<M extends ClientManifest> {
    * @param ctx - ContextTimed used for timeouts and cancellation.
    * @param id - Id is generated only once, and used throughout the stream for the rest of the communication
    */
-  @ready(new rpcErrors.ErrorRPCCallerFailed())
   public async rawStreamCaller(
     method: string,
     headerParams: JSONValue,

@@ -85,7 +85,7 @@ describe(`${RPCServer.name}`, () => {
         };
       }
 
-      const rpcServer = await RPCServer.startRPCServer({
+      const rpcServer = await RPCServer.start({
         manifest: {
           testMethod: new TestHandler({}),
         },
@@ -100,7 +100,7 @@ describe(`${RPCServer.name}`, () => {
       };
       rpcServer.handleStream(readWriteStream);
       await outputResult;
-      await rpcServer.stop();
+      await rpcServer.stop({ force: true });
     },
     { numRuns: 1 },
   );
@@ -122,7 +122,7 @@ describe(`${RPCServer.name}`, () => {
           }
         };
       }
-      const rpcServer = await RPCServer.startRPCServer({
+      const rpcServer = await RPCServer.start({
         manifest: {
           testMethod: new TestMethod({}),
         },
@@ -137,7 +137,7 @@ describe(`${RPCServer.name}`, () => {
       };
       rpcServer.handleStream(readWriteStream);
       await outputResult;
-      await rpcServer.stop();
+      await rpcServer.stop({ force: true });
     },
   );
   testProp(
@@ -159,7 +159,7 @@ describe(`${RPCServer.name}`, () => {
           return count;
         };
       }
-      const rpcServer = await RPCServer.startRPCServer({
+      const rpcServer = await RPCServer.start({
         manifest: {
           testMethod: new TestMethod({}),
         },
@@ -174,7 +174,7 @@ describe(`${RPCServer.name}`, () => {
       };
       rpcServer.handleStream(readWriteStream);
       await outputResult;
-      await rpcServer.stop();
+      await rpcServer.stop({ force: true });
     },
   );
   testProp(
@@ -191,7 +191,7 @@ describe(`${RPCServer.name}`, () => {
           }
         };
       }
-      const rpcServer = await RPCServer.startRPCServer({
+      const rpcServer = await RPCServer.start({
         manifest: {
           testMethod: new TestMethod({}),
         },
@@ -206,7 +206,7 @@ describe(`${RPCServer.name}`, () => {
       };
       rpcServer.handleStream(readWriteStream);
       await outputResult;
-      await rpcServer.stop();
+      await rpcServer.stop({ force: true });
     },
   );
   testProp(
@@ -219,7 +219,7 @@ describe(`${RPCServer.name}`, () => {
           return input;
         };
       }
-      const rpcServer = await RPCServer.startRPCServer({
+      const rpcServer = await RPCServer.start({
         manifest: {
           testMethod: new TestMethod({}),
         },
@@ -234,7 +234,7 @@ describe(`${RPCServer.name}`, () => {
       };
       rpcServer.handleStream(readWriteStream);
       await outputResult;
-      await rpcServer.stop();
+      await rpcServer.stop({ force: true });
     },
   );
   testProp(
@@ -261,7 +261,7 @@ describe(`${RPCServer.name}`, () => {
         };
       }
 
-      const rpcServer = await RPCServer.startRPCServer({
+      const rpcServer = await RPCServer.start({
         manifest: {
           testMethod: new TestMethod(container),
         },
@@ -276,7 +276,7 @@ describe(`${RPCServer.name}`, () => {
       };
       rpcServer.handleStream(readWriteStream);
       await outputResult;
-      await rpcServer.stop();
+      await rpcServer.stop({ force: true });
     },
   );
   testProp(
@@ -305,7 +305,7 @@ describe(`${RPCServer.name}`, () => {
           }
         };
       }
-      const rpcServer = await RPCServer.startRPCServer({
+      const rpcServer = await RPCServer.start({
         manifest: {
           testMethod: new TestMethod({}),
         },
@@ -321,7 +321,7 @@ describe(`${RPCServer.name}`, () => {
       };
       rpcServer.handleStream(readWriteStream);
       await outputResult;
-      await rpcServer.stop();
+      await rpcServer.stop({ force: true });
       expect(handledMeta).toBe(meta);
     },
   );
@@ -340,7 +340,7 @@ describe(`${RPCServer.name}`, () => {
         }
       };
     }
-    const rpcServer = await RPCServer.startRPCServer({
+    const rpcServer = await RPCServer.start({
       manifest: {
         testMethod: new TestMethod({}),
       },
@@ -377,7 +377,7 @@ describe(`${RPCServer.name}`, () => {
     expect(() =>
       rpcUtils.parseJSONRPCResponseError(JSON.parse(lastMessage.toString())),
     ).not.toThrow();
-    await rpcServer.stop();
+    await rpcServer.stop({ force: true });
   });
   testProp('handler yields nothing', [specificMessageArb], async (messages) => {
     const stream = rpcTestUtils.messagesToReadableStream(messages);
@@ -393,7 +393,7 @@ describe(`${RPCServer.name}`, () => {
         }
       };
     }
-    const rpcServer = await RPCServer.startRPCServer({
+    const rpcServer = await RPCServer.start({
       manifest: {
         testMethod: new TestMethod({}),
       },
@@ -409,7 +409,7 @@ describe(`${RPCServer.name}`, () => {
     rpcServer.handleStream(readWriteStream);
     await outputResult;
     // We're just expecting no errors
-    await rpcServer.stop();
+    await rpcServer.stop({ force: true });
   });
   testProp(
     'should send error message',
@@ -421,7 +421,7 @@ describe(`${RPCServer.name}`, () => {
           throw error;
         };
       }
-      const rpcServer = await RPCServer.startRPCServer({
+      const rpcServer = await RPCServer.start({
         manifest: {
           testMethod: new TestMethod({}),
         },
@@ -448,7 +448,7 @@ describe(`${RPCServer.name}`, () => {
       expect(errorMessage.error.message).toEqual(error.description);
       reject();
       await expect(errorProm).toReject();
-      await rpcServer.stop();
+      await rpcServer.stop({ force: true });
     },
   );
   testProp(
@@ -462,7 +462,7 @@ describe(`${RPCServer.name}`, () => {
         };
       }
 
-      const rpcServer = await RPCServer.startRPCServer({
+      const rpcServer = await RPCServer.start({
         manifest: {
           testMethod: new TestMethod({}),
         },
@@ -489,7 +489,7 @@ describe(`${RPCServer.name}`, () => {
       expect(errorMessage.error.message).toEqual(error.description);
       reject();
       await expect(errorProm).toReject();
-      await rpcServer.stop();
+      await rpcServer.stop({ force: true });
     },
   );
   testProp(
@@ -508,7 +508,7 @@ describe(`${RPCServer.name}`, () => {
           }
         };
       }
-      const rpcServer = await RPCServer.startRPCServer({
+      const rpcServer = await RPCServer.start({
         manifest: {
           testMethod: new TestMethod({}),
         },
@@ -542,7 +542,7 @@ describe(`${RPCServer.name}`, () => {
       rpcUtils.parseJSONRPCResponseError(errorMessage);
       // Check that the handler was cleaned up.
       await expect(handlerEndedProm.p).toResolve();
-      await rpcServer.stop();
+      await rpcServer.stop({ force: true });
     },
     { numRuns: 1 },
   );
@@ -568,7 +568,7 @@ describe(`${RPCServer.name}`, () => {
           }
         };
       }
-      const rpcServer = await RPCServer.startRPCServer({
+      const rpcServer = await RPCServer.start({
         manifest: {
           testMethod: new TestMethod({}),
         },
@@ -616,7 +616,7 @@ describe(`${RPCServer.name}`, () => {
       expect(ctx).toBeDefined();
       expect(ctx?.signal.aborted).toBeTrue();
       expect(ctx?.signal.reason).toBe(readerReason);
-      await rpcServer.stop();
+      await rpcServer.stop({ force: true });
     },
     { numRuns: 1 },
   );
@@ -645,7 +645,7 @@ describe(`${RPCServer.name}`, () => {
         };
       },
     );
-    const rpcServer = await RPCServer.startRPCServer({
+    const rpcServer = await RPCServer.start({
       manifest: {
         testMethod: new TestMethod({}),
       },
@@ -670,7 +670,7 @@ describe(`${RPCServer.name}`, () => {
         });
       }),
     );
-    await rpcServer.stop();
+    await rpcServer.stop({ force: true });
   });
   testProp('reverse middlewares', [specificMessageArb], async (messages) => {
     const stream = rpcTestUtils.messagesToReadableStream(messages);
@@ -695,7 +695,7 @@ describe(`${RPCServer.name}`, () => {
         }),
       };
     });
-    const rpcServer = await RPCServer.startRPCServer({
+    const rpcServer = await RPCServer.start({
       manifest: {
         testMethod: new TestMethod({}),
       },
@@ -720,7 +720,7 @@ describe(`${RPCServer.name}`, () => {
         });
       }),
     );
-    await rpcServer.stop();
+    await rpcServer.stop({ force: true });
   });
   testProp(
     'forward middleware authentication',
@@ -769,7 +769,7 @@ describe(`${RPCServer.name}`, () => {
           };
         },
       );
-      const rpcServer = await RPCServer.startRPCServer({
+      const rpcServer = await RPCServer.start({
         manifest: {
           testMethod: new TestMethod({}),
         },
@@ -802,7 +802,7 @@ describe(`${RPCServer.name}`, () => {
       expect((await outputResult).toString()).toEqual(
         JSON.stringify(failureMessage),
       );
-      await rpcServer.stop();
+      await rpcServer.stop({ force: true });
     },
   );
 
@@ -838,7 +838,7 @@ describe(`${RPCServer.name}`, () => {
       };
     }
 
-    const rpcServer = await RPCServer.startRPCServer({
+    const rpcServer = await RPCServer.start({
       manifest: {
         testMethod: new TestHandler({}),
       },
@@ -879,10 +879,10 @@ describe(`${RPCServer.name}`, () => {
 
     await expect(outputResult).toReject();
 
-    await rpcServer.stop();
+    await rpcServer.stop({ force: true });
   });
   test('timeout with default time before handler selected', async () => {
-    const rpcServer = await RPCServer.startRPCServer({
+    const rpcServer = await RPCServer.start({
       manifest: {},
       handlerTimeoutTime: 100,
       logger,
@@ -906,7 +906,7 @@ describe(`${RPCServer.name}`, () => {
     for await (const [prom] of activeStreams.entries()) {
       await prom;
     }
-    await rpcServer.stop();
+    await rpcServer.stop({ force: true });
   });
   test('handler overrides timeout', async () => {
     {
@@ -939,7 +939,7 @@ describe(`${RPCServer.name}`, () => {
           return input;
         };
       }
-      const rpcServer = await RPCServer.startRPCServer({
+      const rpcServer = await RPCServer.start({
         manifest: {
           testShort: new TestMethodShortTimeout({}),
           testLong: new TestMethodLongTimeout({}),
@@ -982,7 +982,7 @@ describe(`${RPCServer.name}`, () => {
       const ctxLong = await ctxLongProm.p;
       expect(ctxLong.timer.delay).toEqual(50);
       waitProm.resolveP();
-      await rpcServer.stop();
+      await rpcServer.stop({ force: true });
     }
   });
   test('duplex handler refreshes timeout when messages are sent', async () => {
@@ -1007,7 +1007,7 @@ describe(`${RPCServer.name}`, () => {
         yield 2;
       };
     }
-    const rpcServer = await RPCServer.startRPCServer({
+    const rpcServer = await RPCServer.start({
       manifest: {
         testMethod: new TestHandler({}),
       },
@@ -1050,7 +1050,7 @@ describe(`${RPCServer.name}`, () => {
     ).toBeGreaterThanOrEqual(25);
     stepProm2.resolveP();
     await outputResult;
-    await rpcServer.stop();
+    await rpcServer.stop({ force: true });
   });
   test('stream ending cleans up timer and abortSignal', async () => {
     const ctxProm = promise<ContextTimed>();
@@ -1077,7 +1077,7 @@ describe(`${RPCServer.name}`, () => {
         });
       };
     }
-    const rpcServer = await RPCServer.startRPCServer({
+    const rpcServer = await RPCServer.start({
       manifest: {
         testMethod: new TestHandler({}),
       },
@@ -1100,12 +1100,12 @@ describe(`${RPCServer.name}`, () => {
     rpcServer.handleStream(readWriteStream);
     const ctx = await ctxProm.p;
     await outputResult;
-    await rpcServer.stop(false);
+    await rpcServer.stop({ force: false });
     expect(ctx.signal.aborted).toBeTrue();
     expect(ctx.signal.reason).toBeInstanceOf(rpcErrors.ErrorRPCStreamEnded);
     // If the timer has already resolved then it was cancelled
     await expect(ctx.timer).toReject();
-    await rpcServer.stop();
+    await rpcServer.stop({ force: true });
   });
   testProp(
     'middleware can update timeout timer',
@@ -1132,7 +1132,7 @@ describe(`${RPCServer.name}`, () => {
             reverse: new TransformStream(),
           };
         });
-      const rpcServer = await RPCServer.startRPCServer({
+      const rpcServer = await RPCServer.start({
         manifest: {
           testMethod: new TestMethod({}),
         },
