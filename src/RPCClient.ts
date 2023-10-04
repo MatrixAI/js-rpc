@@ -82,7 +82,7 @@ class RPCClient<M extends ClientManifest> {
     >;
     streamKeepAliveTimeoutTime?: number;
     logger?: Logger;
-    idGen: IdGen;
+    idGen?: IdGen;
   }) {
     logger.info(`Creating ${this.name}`);
     const rpcClient = new this({

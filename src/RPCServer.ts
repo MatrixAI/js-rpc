@@ -95,7 +95,7 @@ class RPCServer extends EventTarget {
     >;
     handlerTimeoutTime?: number;
     logger?: Logger;
-    idGen: IdGen;
+    idGen?: IdGen;
     fromError?: (error: ErrorRPC<any>) => JSONValue;
     filterSensitive?: (key: string, value: any) => any;
   }): Promise<RPCServer> {
