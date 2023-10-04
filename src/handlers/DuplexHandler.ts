@@ -13,7 +13,7 @@ abstract class DuplexHandler<
    * error. If you need to handle any clean up it should be handled in a
    * `finally` block and check the abort signal for potential errors.
    */
-  public async *handle (
+  public async *handle(
     input: AsyncIterableIterator<Input>,
     cancel: (reason?: any) => void,
     meta: Record<string, JSONValue> | undefined,
