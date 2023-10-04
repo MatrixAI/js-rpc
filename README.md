@@ -264,85 +264,55 @@ class Sum extends ClientHandler<ContainerType, number, number> {
 }
 
 // Server-side WebSocket setup
+// Server-side setup
 async function startServer() {
-    const wss = new WebSocket.Server({ port: 8080 });
-    const rpcServer = await RPCServer.createRPCServer({
-        manifest: {
-            Sum: new Sum({}),
-        },
-        logger: new Logger('rpc-server'),
-        handlerTimeoutTime: 60000,
-        idGen,
-    });
+  const rpcServer = new RPCServer({
+    logger: new Logger('rpc-server'),
+    handlerTimeoutTime: 60000,
+    idGen,
+  });
 
-    wss.on('connection', (ws) => {
-        const { readable, writable } = wsToStream(ws);
-        rpcServer.handleStream({ readable, writable, cancel: () => {} });
-    });
-    return { rpcServer  };
+  await rpcServer.start({
+    manifest: {
+      Sum: new Sum({}),
+    },
+  });
+
+  // Create synthetic streams here
+  const { readable, writable } = createSyntheticStreams();
+  rpcServer.handleStream({ readable, writable, cancel: () => {} });
+
+  return { rpcServer };
 }
+
+// Create synthetic streams
+function createSyntheticStreams() {
+  const readable = new ReadableStream();
+  const writable = new WritableStream();
+
+  return { readable, writable };
+}
+
 type Manifest = {
-    Sum: ClientCaller<number, number>;
+  Sum: ClientCaller<number, number>;
 };
 // Client-side WebSocket setup
+// Client-side setup
 async function startClient() {
-    return new Promise<RPCClient<Manifest>>( (resolve, reject) => {
-        const ws = new WebSocket('ws://localhost:8080');
+  const { readable, writable } = createSyntheticStreams();
+  const rpcClient = new RPCClient({
+    manifest: {
+      Sum: new ClientCaller<number, number>(),
+    },
+    streamFactory: async () => ({ readable, writable, cancel: () => {} }),
+    middlewareFactory,
+    logger,
+    idGen,
+  });
 
-        ws.addEventListener('open', async () => {
-            const { readable, writable } = wsToStream(ws);
-            const rpcClient = await RPCClient.createRPCClient({
-                manifest: {
-                    Sum: new ClientCaller<number, number>(),
-                },
-                streamFactory: async () => ({ readable, writable, cancel: () => {} }),                middlewareFactory,
-                logger,
-                idGen,
-            });
-            resolve(rpcClient);
-        });
-
-        ws.addEventListener('error', (err) => {
-            reject(err);
-        });
-    });
+  return rpcClient;
 }
 
-function wsToStream(ws: WebSocket): { readable: ReadableStream, writable: WritableStream } {
-    let readableController: ReadableStreamDefaultController<any> | null = null;
-
-    const readable = new ReadableStream({
-        start(controller) {
-            readableController = controller;
-        },
-        cancel() {
-            ws.close();
-        },
-    });
-
-    ws.on('message', (chunk: any) => {
-        readableController?.enqueue(chunk);
-    });
-
-    ws.on('close', () => {
-        readableController?.close();
-    });
-
-    const writable = new WritableStream({
-        write(chunk) {
-            ws.send(chunk);
-        },
-        close() {
-            ws.close();
-        },
-        abort() {
-            ws.close();
-        },
-    });
-
-    return { readable, writable };
-}
-// Function to execute the Sum RPC call
 // Function to execute the Sum RPC call
 async function executeSum(rpcClient: RPCClient<Manifest>) {
     try {
@@ -367,8 +337,7 @@ async function main() {
         const rpcClient = await startClient();
 
         await executeSum(rpcClient);
-        await rpcClient.destroy();
-        await serverObject.rpcServer.destroy();
+            await serverObject.rpcServer.destroy();
     } catch (err) {
         console.error("An error occurred:", err);
     }
@@ -417,114 +386,78 @@ FactorialStream: RawCaller;
 };
 
 class FactorialStream extends RawHandler<ContainerType> {
-public handle = async (
-[request, inputStream]: [JSONRPCRequest, ReadableStream<Uint8Array>],
-cancel: (reason?: any) => void,
-meta: Record<string, JSONValue> | undefined,
-ctx: ContextTimed
-): Promise<[JSONValue, ReadableStream<Uint8Array>]> => {
-const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
-
-        (async () => {
-            const reader = inputStream.getReader();
-            const writer = writable.getWriter();
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) {
-                    break;
-                }
-
-                const num = parseInt(new TextDecoder().decode(value), 10);
-                const factorial = factorialOf(num).toString();
-                const outputBuffer = new TextEncoder().encode(factorial);
-
-                writer.write(outputBuffer);
+  public handle = async (
+  [request, inputStream]: [JSONRPCRequest, ReadableStream<Uint8Array>],
+  cancel: (reason?: any) => void,
+  meta: Record<string, JSONValue> | undefined,
+  ctx: ContextTimed
+  ): Promise<[JSONValue, ReadableStream<Uint8Array>]> => {
+  const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+    (async () => {
+        const reader = inputStream.getReader();
+        const writer = writable.getWriter();
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+                break;
             }
-            writer.close();
-        })();
 
-        return ['Starting factorial computation', readable as ReadableStream<Uint8Array>];    }
+            const num = parseInt(new TextDecoder().decode(value), 10);
+            const factorial = factorialOf(num).toString();
+            const outputBuffer = new TextEncoder().encode(factorial);
+
+            writer.write(outputBuffer);
+        }
+        writer.close();
+    })();
+
+    return ['Starting factorial computation', readable as ReadableStream<Uint8Array>];
+  }
 }
 
 function factorialOf(n: number): number {
-return n === 0 ? 1 : n * factorialOf(n - 1);
+  return n === 0 ? 1 : n * factorialOf(n - 1);
 }
 
 async function startServer() {
-const wss = new WebSocket.Server({ port: 1221 });
-const rpcServer = await RPCServer.createRPCServer({
-manifest: {
-FactorialStream: new FactorialStream({}),
-},
-handlerTimeoutTime: 200,
-logger,
-idGen,
-});
+  const rpcServer = new RPCServer({
+    handlerTimeoutTime: 200,
+    logger,
+    idGen,
+  });
 
-    wss.on('connection', (ws) => {
-        const { readable, writable } = wsToStream(ws);
-        rpcServer.handleStream({ readable, writable, cancel: () => {} });
-    });
-    return { rpcServer };
+  await rpcServer.start({
+    manifest: {
+      FactorialStream: new FactorialStream({}),
+    },
+  });
+
+  // Create synthetic streams here
+  const { readable, writable } = createSyntheticStreams();
+  rpcServer.handleStream({ readable, writable, cancel: () => {} });
+
+  return { rpcServer };
+}
+// Create synthetic streams
+function createSyntheticStreams() {
+  const readable = new ReadableStream();
+  const writable = new WritableStream();
+  return { readable, writable };
 }
 
 async function startClient() {
-return new Promise<RPCClient<Manifest>>((resolve, reject) => {
-const ws = new WebSocket('ws://localhost:1221');
+  const { readable, writable } = createSyntheticStreams();
+  const rpcClient = new RPCClient({
+    manifest: {
+      FactorialStream: new RawCaller(),
+    },
+    streamFactory: async () => ({ readable, writable, cancel: () => {} }),
+    middlewareFactory,
+    logger,
+    idGen,
+  });
 
-        ws.addEventListener('open', async () => {
-            const { readable, writable } = wsToStream(ws);
-            const rpcClient = await RPCClient.createRPCClient({
-                manifest: {
-                    FactorialStream: new RawCaller(),
-                },
-                streamFactory: async () => ({ readable, writable, cancel: () => {} }),
-                middlewareFactory,
-                logger,
-                idGen,
-            });
-            resolve(rpcClient);
-        });
-
-        ws.addEventListener('error', (err) => {
-            reject(err);
-        });
-    });
-}
-
-function wsToStream(ws: WebSocket): { readable: ReadableStream, writable: WritableStream } {
-let readableController: ReadableStreamDefaultController<any> | null = null;
-
-    const readable = new ReadableStream({
-        start(controller) {
-            readableController = controller;
-        },
-        cancel() {
-            ws.close();
-        },
-    });
-
-    ws.on('message', (chunk: any) => {
-        readableController?.enqueue(chunk);
-    });
-
-    ws.on('close', () => {
-        readableController?.close();
-    });
-
-    const writable = new WritableStream({
-        write(chunk) {
-            ws.send(chunk);
-        },
-        close() {
-            ws.close();
-        },
-        abort() {
-            ws.close();
-        },
-    });
-
-    return { readable, writable };
+  return rpcClient;
 }
 
 async function execute(rpcClient: RPCClient<Manifest>){
@@ -571,8 +504,7 @@ const serverObject = await startServer();
 const rpcClient = await startClient();
 
         await execute(rpcClient);
-        await rpcClient.destroy();
-        await serverObject.rpcServer.destroy();
+            await serverObject.rpcServer.destroy();
     } catch (err) {
         console.error("An error occurred:", err);
     }
@@ -605,103 +537,57 @@ let streamFactory: StreamFactory;
 let middlewareFactory: MiddlewareFactory<any, any, any, any>;
 let idGen: IdGen;
 
-
-
-
 class SquaredNumbers extends ServerHandler<ContainerType, number, number>{
-public handle = async function* (
-input: number,
-):AsyncGenerator<number>{
-for (let i = 0; i<= input; i++){
-yield i*i;
-}
-};
+  public handle = async function* (
+  input: number,
+  ):AsyncGenerator<number>{
+    for (let i = 0; i<= input; i++){
+      yield i*i;
+    }
+  };
 }
 type Manifest = {
-SquaredNumbers: ServerCaller<number,number>;
+  SquaredNumbers: ServerCaller<number,number>;
 }
-async function startServer() {
-const wss =
-new WebSocket.Server({ port: 1221 });
-const rpcServer =
-await RPCServer.createRPCServer({
-manifest: {
-SquaredNumbers: new SquaredNumbers({}),
-},
-logger,
-idGen,
-});
+// Create synthetic streams
+function createSyntheticStreams() {
+  const readable = new ReadableStream();
+  const writable = new WritableStream();
+  return { readable, writable };
+}
 
-    wss.on('connection', (ws) => {
-        const { readable, writable } =
-            wsToStream(ws);
-        rpcServer.handleStream({ readable, writable, cancel: () => {} });
-    });
-    return { rpcServer };
+async function startServer() {
+  const rpcServer = new RPCServer({
+    logger,
+    idGen,
+  });
+  await rpcServer.start({
+    manifest: {
+      SquaredNumbers: new SquaredNumbers({}),
+    },
+  });
+
+  const { readable, writable } = createSyntheticStreams();
+  rpcServer.handleStream({ readable, writable, cancel: () => {} });
+
+  return { rpcServer };
 }
 
 async function startClient() {
-return new Promise<RPCClient<Manifest>>((resolve, reject) => {
-const ws = new WebSocket('ws://localhost:1221');
-
-        ws.addEventListener('open', async () => {
-            const { readable, writable } =
-                wsToStream(ws);
-            const rpcClient =
-                await RPCClient.createRPCClient<Manifest>({
-                    manifest: {
-                        SquaredNumbers: new ServerCaller<number, number>(),
-                    },
-                    streamFactory: async () => ({ readable, writable,
-                        cancel: () => {} }),
-                    middlewareFactory,
-                    logger,
-                    idGen,
-                });
-            resolve(rpcClient);
-        });
-
-        ws.addEventListener('error', (err) => {
-            reject(err);
-        });
+  return new Promise<RPCClient<Manifest>>((resolve, reject) => {
+    const { readable, writable } = createSyntheticStreams();
+    const rpcClient = new RPCClient<Manifest>({
+      manifest: {
+        SquaredNumbers: new ServerCaller<number, number>(),
+      },
+      streamFactory: async () => ({ readable, writable, cancel: () => {} }),
+      middlewareFactory,
+      logger,
+      idGen,
     });
+    resolve(rpcClient);
+  });
 }
-
-function wsToStream(ws: WebSocket): { readable: ReadableStream, writable: WritableStream } {
-let readableController: ReadableStreamDefaultController<any> | null = null;
-
-    const readable = new ReadableStream({
-        start(controller) {
-            readableController = controller;
-        },
-        cancel() {
-            ws.close();
-        },
-    });
-
-    ws.on('message', (chunk: any) => {
-        readableController?.enqueue(chunk);
-    });
-
-    ws.on('close', () => {
-        readableController?.close();
-    });
-
-    const writable = new WritableStream({
-        write(chunk) {
-            ws.send(chunk);
-        },
-        close() {
-            ws.close();
-        },
-        abort() {
-            ws.close();
-        },
-    });
-
-    return { readable, writable };
-}
-
 
 async function execute(rpcClient: RPCClient<Manifest>) {
 try {
@@ -723,7 +609,6 @@ const serverObject = await startServer();
 const rpcClient = await startClient();
 
         await execute(rpcClient);
-        await rpcClient.destroy();
 
         await serverObject.rpcServer.destroy();
     } catch (err) {
@@ -784,13 +669,15 @@ type Manifest = {
 
 async function startServer() {
   const wss = new WebSocket.Server({ port: 8080 });
-  const rpcServer = await RPCServer.createRPCServer({
-    manifest: {
-      SquaredDuplex: new SquaredDuplex({}),
-    },
+  const rpcServer = new RPCServer({
     logger: new Logger('rpc-server'),
     handlerTimeoutTime: 1000,
     idGen,
+  });
+  rpcServer.start({
+    manifest: {
+      SquaredDuplex: new SquaredDuplex({}),
+    },
   });
 
   wss.on('connection', (ws) => {
@@ -806,7 +693,7 @@ async function startClient() {
 
     ws.addEventListener('open', async () => {
       const { readable, writable } = wsToStream(ws);
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {
           SquaredDuplex: new DuplexCaller<number, Array<number>>(),
         },
@@ -886,7 +773,6 @@ async function main() {
 
     await executeSquareNumbersDuplex(rpcClient);  // Add this line to run the duplex caller
     await serverObject.rpcServer.destroy();
-    await rpcClient.destroy();
   } catch (err) {
     console.error("An error occurred:", err);
   }
@@ -939,88 +825,49 @@ class SquaredNumberUnary extends UnaryHandler<ContainerType, number, number> {
     return input * input;
   };
 }
-
-// Server-side WebSocket setup
+// Create synthetic streams
+function createSyntheticStreams() {
+  const readable = new ReadableStream();
+  const writable = new WritableStream();
+  return { readable, writable };
+}
+// Server-side setup
 async function startServer() {
-  const wss = new WebSocket.Server({ port: 8080 });
-  const rpcServer = await RPCServer.createRPCServer({
-    manifest: {
-      SquaredNumberUnary: new SquaredNumberUnary({}),
-    },
+  const rpcServer = new RPCServer({
     logger: new Logger('rpc-server'),
     handlerTimeoutTime: 1000,
     idGen,
   });
 
-  wss.on('connection', (ws) => {
-    const { readable, writable } = wsToStream(ws);
-    rpcServer.handleStream({ readable, writable, cancel: () => {} });
+  await rpcServer.start({
+    manifest: {
+      SquaredDuplex: new SquaredDuplex({}),
+    },
   });
-  return { rpcServer  };
+
+  // Replace WebSocket with synthetic stream
+  const { readable, writable } = createSyntheticStreams();
+  rpcServer.handleStream({ readable, writable, cancel: () => {} });
+
+  return { rpcServer };
 }
-type Manifest = {
-  SquaredNumberUnary: UnaryCaller<number, number>;
-};
-// Client-side WebSocket setup
+// Client-side setup
 async function startClient() {
-  return new Promise<RPCClient<Manifest>>( (resolve, reject) => {
-    const ws = new WebSocket('ws://localhost:8080');
-
-    ws.addEventListener('open', async () => {
-      const { readable, writable } = wsToStream(ws);
-      const rpcClient = await RPCClient.createRPCClient({
-        manifest: {
-          SquaredNumberUnary: new UnaryCaller<number, number>(),
-        },
-        streamFactory: async () => ({ readable, writable, cancel: () => {} }),
-        middlewareFactory,
-        logger,
-        idGen,
-      });
-      resolve(rpcClient);
+  return new Promise<RPCClient<Manifest>>((resolve, reject) => {
+    const { readable, writable } = createSyntheticStreams();
+    const rpcClient = new RPCClient({
+      manifest: {
+        SquaredDuplex: new DuplexCaller<number, Array<number>>(),
+      },
+      streamFactory: async () => ({ readable, writable, cancel: () => {} }),
+      middlewareFactory,
+      logger,
+      idGen,
     });
-
-    ws.addEventListener('error', (err) => {
-      reject(err);
-    });
+    resolve(rpcClient);
   });
 }
 
-function wsToStream(ws: WebSocket): { readable: ReadableStream, writable: WritableStream } {
-  let readableController: ReadableStreamDefaultController<any> | null = null;
-
-  const readable = new ReadableStream({
-    start(controller) {
-      readableController = controller;
-    },
-    cancel() {
-      ws.close();
-    },
-  });
-
-  ws.on('message', (chunk: any) => {
-    readableController?.enqueue(chunk);
-  });
-
-  ws.on('close', () => {
-    readableController?.close();
-  });
-
-  const writable = new WritableStream({
-    write(chunk) {
-      ws.send(chunk);
-    },
-    close() {
-      ws.close();
-    },
-    abort() {
-      ws.close();
-    },
-  });
-
-  return { readable, writable };
-}
-// Function to execute the Sum RPC call
 // Function to execute the Sum RPC call
 async function executeSquare(rpcClient: RPCClient<Manifest>) {
   try {
@@ -1042,7 +889,6 @@ async function main() {
     const rpcClient = await startClient();
 
     await executeSquare(rpcClient);
-    await rpcClient.destroy();
     await serverObject.rpcServer.destroy();
   } catch (err) {
     console.error("An error occurred:", err);

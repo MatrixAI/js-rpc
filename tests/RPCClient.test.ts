@@ -21,7 +21,6 @@ import RPCServer from '@/RPCServer';
 import * as rpcErrors from '@/errors';
 import * as rpcUtilsMiddleware from '@/middleware';
 import { promise, sleep } from '@/utils';
-import { ErrorRPCRemote } from '@/errors';
 import * as rpcTestUtils from './utils';
 
 describe(`${RPCClient.name}`, () => {
@@ -68,7 +67,7 @@ describe(`${RPCClient.name}`, () => {
         }),
         writable: inputWritableStream,
       };
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {},
         streamFactory: async () => streamPair,
         logger,
@@ -108,7 +107,7 @@ describe(`${RPCClient.name}`, () => {
       readable: inputStream,
       writable: outputStream,
     };
-    const rpcClient = await RPCClient.createRPCClient({
+    const rpcClient = new RPCClient({
       manifest: {},
       streamFactory: async () => streamPair,
       logger,
@@ -137,7 +136,6 @@ describe(`${RPCClient.name}`, () => {
       JSON.parse(v.toString()),
     );
     expect(outputMessages).toStrictEqual(expectedMessages);
-    await rpcClient.destroy();
   });
   testProp(
     'generic server stream caller',
@@ -151,7 +149,7 @@ describe(`${RPCClient.name}`, () => {
         readable: inputStream,
         writable: outputStream,
       };
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {},
         streamFactory: async () => streamPair,
         logger,
@@ -175,7 +173,6 @@ describe(`${RPCClient.name}`, () => {
           params,
         }),
       );
-      await rpcClient.destroy();
     },
   );
   testProp(
@@ -194,7 +191,7 @@ describe(`${RPCClient.name}`, () => {
         readable: inputStream,
         writable: outputStream,
       };
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {},
         streamFactory: async () => streamPair,
         logger,
@@ -221,7 +218,6 @@ describe(`${RPCClient.name}`, () => {
       expect((await outputResult).map((v) => v.toString())).toStrictEqual(
         expectedOutput,
       );
-      await rpcClient.destroy();
     },
   );
   testProp(
@@ -236,7 +232,7 @@ describe(`${RPCClient.name}`, () => {
         readable: inputStream,
         writable: outputStream,
       };
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {},
         streamFactory: async () => streamPair,
         logger,
@@ -255,7 +251,6 @@ describe(`${RPCClient.name}`, () => {
           params: params,
         }),
       );
-      await rpcClient.destroy();
     },
   );
   testProp(
@@ -276,7 +271,7 @@ describe(`${RPCClient.name}`, () => {
         readable: inputStream,
         writable: outputStream,
       };
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {},
         streamFactory: async () => streamPair,
         logger,
@@ -294,7 +289,6 @@ describe(`${RPCClient.name}`, () => {
       })();
       await expect(callProm).rejects.toThrow(rpcErrors.ErrorRPCRemote);
       await outputResult;
-      await rpcClient.destroy();
     },
   );
   testProp(
@@ -316,7 +310,7 @@ describe(`${RPCClient.name}`, () => {
         readable: inputStream,
         writable: outputStream,
       };
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {},
         streamFactory: async () => streamPair,
         logger,
@@ -334,7 +328,6 @@ describe(`${RPCClient.name}`, () => {
       })();
       await expect(callProm).rejects.toThrow(rpcErrors.ErrorRPCRemote);
       await outputResult;
-      await rpcClient.destroy();
     },
   );
   testProp(
@@ -359,7 +352,7 @@ describe(`${RPCClient.name}`, () => {
         readable: inputStream,
         writable: outputStream,
       };
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {},
         streamFactory: async () => streamPair,
         logger,
@@ -377,7 +370,6 @@ describe(`${RPCClient.name}`, () => {
       })();
       await expect(callProm).rejects.toThrow(rpcErrors.ErrorRPCRemote);
       await outputResult;
-      await rpcClient.destroy();
     },
   );
   testProp(
@@ -393,7 +385,7 @@ describe(`${RPCClient.name}`, () => {
         readable: inputStream,
         writable: outputStream,
       };
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {},
         streamFactory: async () => streamPair,
         middlewareFactory: rpcUtilsMiddleware.defaultClientMiddlewareWrapper(
@@ -446,7 +438,6 @@ describe(`${RPCClient.name}`, () => {
         JSON.parse(v.toString()),
       );
       expect(outputMessages).toStrictEqual(expectedMessages);
-      await rpcClient.destroy();
     },
   );
   testProp(
@@ -462,7 +453,7 @@ describe(`${RPCClient.name}`, () => {
         readable: inputStream,
         writable: outputStream,
       };
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {},
         streamFactory: async () => streamPair,
         middlewareFactory: rpcUtilsMiddleware.defaultClientMiddlewareWrapper(
@@ -501,7 +492,6 @@ describe(`${RPCClient.name}`, () => {
         await writer.write(value);
       }
       await outputResult;
-      await rpcClient.destroy();
     },
   );
   testProp(
@@ -517,7 +507,7 @@ describe(`${RPCClient.name}`, () => {
         readable: inputStream,
         writable: outputStream,
       };
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {
           server: new ServerCaller<string, string>(),
         },
@@ -540,7 +530,6 @@ describe(`${RPCClient.name}`, () => {
           params,
         }),
       );
-      await rpcClient.destroy();
     },
   );
   testProp(
@@ -559,7 +548,7 @@ describe(`${RPCClient.name}`, () => {
         readable: inputStream,
         writable: outputStream,
       };
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {
           client: new ClientCaller<string, string>(),
         },
@@ -585,7 +574,6 @@ describe(`${RPCClient.name}`, () => {
       expect((await outputResult).map((v) => v.toString())).toStrictEqual(
         expectedOutput,
       );
-      await rpcClient.destroy();
     },
   );
   testProp(
@@ -600,7 +588,7 @@ describe(`${RPCClient.name}`, () => {
         readable: inputStream,
         writable: outputStream,
       };
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {
           unary: new UnaryCaller<string, string>(),
         },
@@ -618,7 +606,6 @@ describe(`${RPCClient.name}`, () => {
           params: params,
         }),
       );
-      await rpcClient.destroy();
     },
   );
   testProp(
@@ -652,7 +639,7 @@ describe(`${RPCClient.name}`, () => {
         }),
         writable: inputWritableStream,
       };
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {
           raw: new RawCaller(),
         },
@@ -699,7 +686,7 @@ describe(`${RPCClient.name}`, () => {
         readable: inputStream,
         writable: outputStream,
       };
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {
           duplex: new DuplexCaller<string, string>(),
         },
@@ -719,11 +706,10 @@ describe(`${RPCClient.name}`, () => {
       // We're just checking that it's consuming the messages as expected
       expect(result.length).toEqual(messages.length);
       expect(count).toEqual(messages.length);
-      await rpcClient.destroy();
     },
   );
   test('manifest without handler errors', async () => {
-    const rpcClient = await RPCClient.createRPCClient({
+    const rpcClient = new RPCClient({
       manifest: {},
       streamFactory: async () => {
         return {} as RPCStream<Uint8Array, Uint8Array>;
@@ -735,13 +721,12 @@ describe(`${RPCClient.name}`, () => {
     expect(() => rpcClient.methods.someMethod()).toThrow();
     // @ts-ignore: ignoring type safety here
     expect(() => rpcClient.withMethods.someMethod()).toThrow();
-    await rpcClient.destroy();
   });
   describe('raw caller', () => {
     test('raw caller uses default timeout when creating stream', async () => {
       const holdProm = promise();
       let ctx: ContextTimed | undefined;
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {},
         streamFactory: async (ctx_) => {
           ctx = ctx_;
@@ -765,7 +750,7 @@ describe(`${RPCClient.name}`, () => {
     test('raw caller times out when creating stream', async () => {
       const holdProm = promise();
       let ctx: ContextTimed | undefined;
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {},
         streamFactory: async (ctx_) => {
           ctx = ctx_;
@@ -792,7 +777,7 @@ describe(`${RPCClient.name}`, () => {
     test('raw caller handles abort when creating stream', async () => {
       const holdProm = promise();
       const ctxProm = promise<ContextTimed>();
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {},
         streamFactory: async (ctx_) => {
           ctxProm.resolveP(ctx_);
@@ -835,7 +820,7 @@ describe(`${RPCClient.name}`, () => {
         readable: reversePassThroughStream.readable,
       };
       const ctxProm = promise<ContextTimed>();
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {},
         streamFactory: async (ctx_) => {
           ctxProm.resolveP(ctx_);
@@ -872,7 +857,7 @@ describe(`${RPCClient.name}`, () => {
         readable: reversePassThroughStream.readable,
       };
       const ctxProm = promise<ContextTimed>();
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {},
         streamFactory: async (ctx) => {
           ctxProm.resolveP(ctx);
@@ -910,7 +895,7 @@ describe(`${RPCClient.name}`, () => {
     test('duplex caller uses default timeout when creating stream', async () => {
       const holdProm = promise();
       let ctx: ContextTimed | undefined;
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {},
         streamFactory: async (ctx_) => {
           ctx = ctx_;
@@ -934,7 +919,7 @@ describe(`${RPCClient.name}`, () => {
     test('duplex caller times out when creating stream', async () => {
       const holdProm = promise();
       let ctx: ContextTimed | undefined;
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {},
         streamFactory: async (ctx_) => {
           ctx = ctx_;
@@ -959,7 +944,7 @@ describe(`${RPCClient.name}`, () => {
     test('duplex caller handles abort when creating stream', async () => {
       const holdProm = promise();
       let ctx: ContextTimed | undefined;
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {},
         streamFactory: async (ctx_) => {
           ctx = ctx_;
@@ -999,7 +984,7 @@ describe(`${RPCClient.name}`, () => {
         readable: reversePassThroughStream.readable,
       };
       let ctx: ContextTimed | undefined;
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {},
         streamFactory: async (ctx_) => {
           ctx = ctx_;
@@ -1032,7 +1017,7 @@ describe(`${RPCClient.name}`, () => {
         readable: reversePassThroughStream.readable,
       };
       let ctx: ContextTimed | undefined;
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {},
         streamFactory: async (ctx_) => {
           ctx = ctx_;
@@ -1069,7 +1054,7 @@ describe(`${RPCClient.name}`, () => {
         readable: reversePassThroughStream.readable,
       };
       const ctxProm = promise<ContextTimed>();
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {},
         streamFactory: async (ctx) => {
           ctxProm.resolveP(ctx);
@@ -1109,7 +1094,7 @@ describe(`${RPCClient.name}`, () => {
           writable: outputStream,
         };
         const ctxProm = promise<ContextTimed>();
-        const rpcClient = await RPCClient.createRPCClient({
+        const rpcClient = new RPCClient({
           manifest: {},
           streamFactory: async (ctx) => {
             ctxProm.resolveP(ctx);
@@ -1144,7 +1129,6 @@ describe(`${RPCClient.name}`, () => {
         await writer.close();
 
         await outputResult;
-        await rpcClient.destroy();
       },
       { numRuns: 5 },
     );
@@ -1162,7 +1146,7 @@ describe(`${RPCClient.name}`, () => {
           writable: outputStream,
         };
         const ctxProm = promise<ContextTimed>();
-        const rpcClient = await RPCClient.createRPCClient({
+        const rpcClient = new RPCClient({
           manifest: {},
           streamFactory: async (ctx) => {
             ctxProm.resolveP(ctx);
@@ -1193,7 +1177,6 @@ describe(`${RPCClient.name}`, () => {
         await writer.close();
 
         await outputResult;
-        await rpcClient.destroy();
       },
       { numRuns: 1 },
     );

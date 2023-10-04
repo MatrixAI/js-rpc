@@ -13,7 +13,7 @@ import { ReadableStream, TransformStream, WritableStream } from 'stream/web';
 import { fc, testProp } from '@fast-check/jest';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import RPCServer from '@/RPCServer';
-import * as rpcErrors from '@/errors/errors';
+import * as rpcErrors from '@/errors';
 import * as rpcUtils from '@/utils';
 import { promise, sleep } from '@/utils';
 import * as rpcUtilsMiddleware from '@/middleware';
@@ -85,12 +85,14 @@ describe(`${RPCServer.name}`, () => {
         };
       }
 
-      const rpcServer = await RPCServer.start({
+      const rpcServer = new RPCServer({
+        logger,
+        idGen,
+      });
+      await rpcServer.start({
         manifest: {
           testMethod: new TestHandler({}),
         },
-        logger,
-        idGen,
       });
       const [outputResult, outputStream] = rpcTestUtils.streamToArray();
       const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
@@ -122,12 +124,14 @@ describe(`${RPCServer.name}`, () => {
           }
         };
       }
-      const rpcServer = await RPCServer.start({
+      const rpcServer = new RPCServer({
+        logger,
+        idGen,
+      });
+      await rpcServer.start({
         manifest: {
           testMethod: new TestMethod({}),
         },
-        logger,
-        idGen,
       });
       const [outputResult, outputStream] = rpcTestUtils.streamToArray();
       const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
@@ -159,12 +163,14 @@ describe(`${RPCServer.name}`, () => {
           return count;
         };
       }
-      const rpcServer = await RPCServer.start({
+      const rpcServer = new RPCServer({
+        logger,
+        idGen,
+      });
+      await rpcServer.start({
         manifest: {
           testMethod: new TestMethod({}),
         },
-        logger,
-        idGen,
       });
       const [outputResult, outputStream] = rpcTestUtils.streamToArray();
       const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
@@ -191,12 +197,14 @@ describe(`${RPCServer.name}`, () => {
           }
         };
       }
-      const rpcServer = await RPCServer.start({
+      const rpcServer = new RPCServer({
+        logger,
+        idGen,
+      });
+      await rpcServer.start({
         manifest: {
           testMethod: new TestMethod({}),
         },
-        logger,
-        idGen,
       });
       const [outputResult, outputStream] = rpcTestUtils.streamToArray();
       const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
@@ -219,12 +227,14 @@ describe(`${RPCServer.name}`, () => {
           return input;
         };
       }
-      const rpcServer = await RPCServer.start({
+      const rpcServer = new RPCServer({
+        logger,
+        idGen,
+      });
+      await rpcServer.start({
         manifest: {
           testMethod: new TestMethod({}),
         },
-        logger,
-        idGen,
       });
       const [outputResult, outputStream] = rpcTestUtils.streamToArray();
       const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
@@ -261,12 +271,14 @@ describe(`${RPCServer.name}`, () => {
         };
       }
 
-      const rpcServer = await RPCServer.start({
+      const rpcServer = new RPCServer({
+        logger,
+        idGen,
+      });
+      await rpcServer.start({
         manifest: {
           testMethod: new TestMethod(container),
         },
-        logger,
-        idGen,
       });
       const [outputResult, outputStream] = rpcTestUtils.streamToArray();
       const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
@@ -305,12 +317,14 @@ describe(`${RPCServer.name}`, () => {
           }
         };
       }
-      const rpcServer = await RPCServer.start({
+      const rpcServer = new RPCServer({
+        logger,
+        idGen,
+      });
+      await rpcServer.start({
         manifest: {
           testMethod: new TestMethod({}),
         },
-        logger,
-        idGen,
       });
       const [outputResult, outputStream] = rpcTestUtils.streamToArray();
       const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
@@ -340,12 +354,14 @@ describe(`${RPCServer.name}`, () => {
         }
       };
     }
-    const rpcServer = await RPCServer.start({
+    const rpcServer = new RPCServer({
+      logger,
+      idGen,
+    });
+    await rpcServer.start({
       manifest: {
         testMethod: new TestMethod({}),
       },
-      logger,
-      idGen,
     });
     const [outputResult, outputStream] =
       rpcTestUtils.streamToArray<Uint8Array>();
@@ -393,12 +409,14 @@ describe(`${RPCServer.name}`, () => {
         }
       };
     }
-    const rpcServer = await RPCServer.start({
+    const rpcServer = new RPCServer({
+      logger,
+      idGen,
+    });
+    await rpcServer.start({
       manifest: {
         testMethod: new TestMethod({}),
       },
-      logger,
-      idGen,
     });
     const [outputResult, outputStream] = rpcTestUtils.streamToArray();
     const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
@@ -421,12 +439,14 @@ describe(`${RPCServer.name}`, () => {
           throw error;
         };
       }
-      const rpcServer = await RPCServer.start({
+      const rpcServer = new RPCServer({
+        logger,
+        idGen,
+      });
+      await rpcServer.start({
         manifest: {
           testMethod: new TestMethod({}),
         },
-        logger,
-        idGen,
       });
       let resolve, reject;
       const errorProm = new Promise((resolve_, reject_) => {
@@ -462,12 +482,14 @@ describe(`${RPCServer.name}`, () => {
         };
       }
 
-      const rpcServer = await RPCServer.start({
+      const rpcServer = new RPCServer({
+        logger,
+        idGen,
+      });
+      await rpcServer.start({
         manifest: {
           testMethod: new TestMethod({}),
         },
-        logger,
-        idGen,
       });
       let resolve, reject;
       const errorProm = new Promise((resolve_, reject_) => {
@@ -508,12 +530,14 @@ describe(`${RPCServer.name}`, () => {
           }
         };
       }
-      const rpcServer = await RPCServer.start({
+      const rpcServer = new RPCServer({
+        logger,
+        idGen,
+      });
+      await rpcServer.start({
         manifest: {
           testMethod: new TestMethod({}),
         },
-        logger,
-        idGen,
       });
       let resolve;
       rpcServer.addEventListener('error', (thing: RPCErrorEvent) => {
@@ -568,12 +592,14 @@ describe(`${RPCServer.name}`, () => {
           }
         };
       }
-      const rpcServer = await RPCServer.start({
+      const rpcServer = new RPCServer({
+        logger,
+        idGen,
+      });
+      await rpcServer.start({
         manifest: {
           testMethod: new TestMethod({}),
         },
-        logger,
-        idGen,
       });
       let resolve;
       const errorProm = new Promise<RPCErrorEvent>((resolve_) => {
@@ -645,13 +671,15 @@ describe(`${RPCServer.name}`, () => {
         };
       },
     );
-    const rpcServer = await RPCServer.start({
-      manifest: {
-        testMethod: new TestMethod({}),
-      },
+    const rpcServer = new RPCServer({
       middlewareFactory: middlewareFactory,
       logger,
       idGen,
+    });
+    await rpcServer.start({
+      manifest: {
+        testMethod: new TestMethod({}),
+      },
     });
     const [outputResult, outputStream] = rpcTestUtils.streamToArray();
     const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
@@ -695,13 +723,15 @@ describe(`${RPCServer.name}`, () => {
         }),
       };
     });
-    const rpcServer = await RPCServer.start({
-      manifest: {
-        testMethod: new TestMethod({}),
-      },
+    const rpcServer = new RPCServer({
       middlewareFactory: middleware,
       logger,
       idGen,
+    });
+    await rpcServer.start({
+      manifest: {
+        testMethod: new TestMethod({}),
+      },
     });
     const [outputResult, outputStream] = rpcTestUtils.streamToArray();
     const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
@@ -769,13 +799,15 @@ describe(`${RPCServer.name}`, () => {
           };
         },
       );
-      const rpcServer = await RPCServer.start({
-        manifest: {
-          testMethod: new TestMethod({}),
-        },
+      const rpcServer = new RPCServer({
         middlewareFactory: middleware,
         logger,
         idGen,
+      });
+      await rpcServer.start({
+        manifest: {
+          testMethod: new TestMethod({}),
+        },
       });
       const [outputResult, outputStream] = rpcTestUtils.streamToArray();
       const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
@@ -795,7 +827,6 @@ describe(`${RPCServer.name}`, () => {
         error: {
           code: 1,
           message: 'failure of some kind',
-          type: 'ErrorRPCRemote',
         },
       };
       rpcServer.handleStream(readWriteStream);
@@ -838,13 +869,15 @@ describe(`${RPCServer.name}`, () => {
       };
     }
 
-    const rpcServer = await RPCServer.start({
-      manifest: {
-        testMethod: new TestHandler({}),
-      },
+    const rpcServer = new RPCServer({
       handlerTimeoutTime: 100,
       logger,
       idGen,
+    });
+    await rpcServer.start({
+      manifest: {
+        testMethod: new TestHandler({}),
+      },
     });
 
     const [outputResult, outputStream] = rpcTestUtils.streamToArray();
@@ -882,11 +915,13 @@ describe(`${RPCServer.name}`, () => {
     await rpcServer.stop({ force: true });
   });
   test('timeout with default time before handler selected', async () => {
-    const rpcServer = await RPCServer.start({
-      manifest: {},
+    const rpcServer = new RPCServer({
       handlerTimeoutTime: 100,
       logger,
       idGen,
+    });
+    await rpcServer.start({
+      manifest: {},
     });
     const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
       cancel: () => {},
@@ -939,14 +974,16 @@ describe(`${RPCServer.name}`, () => {
           return input;
         };
       }
-      const rpcServer = await RPCServer.start({
+      const rpcServer = new RPCServer({
+        handlerTimeoutTime: 50,
+        logger,
+        idGen,
+      });
+      await rpcServer.start({
         manifest: {
           testShort: new TestMethodShortTimeout({}),
           testLong: new TestMethodLongTimeout({}),
         },
-        handlerTimeoutTime: 50,
-        logger,
-        idGen,
       });
       const streamShort = rpcTestUtils.messagesToReadableStream([
         {
@@ -1007,13 +1044,15 @@ describe(`${RPCServer.name}`, () => {
         yield 2;
       };
     }
-    const rpcServer = await RPCServer.start({
-      manifest: {
-        testMethod: new TestHandler({}),
-      },
+    const rpcServer = new RPCServer({
       logger,
       idGen,
       handlerTimeoutTime: 1000,
+    });
+    await rpcServer.start({
+      manifest: {
+        testMethod: new TestHandler({}),
+      },
     });
     const [outputResult, outputStream] = rpcTestUtils.streamToArray();
     const requestMessage = Buffer.from(
@@ -1077,12 +1116,14 @@ describe(`${RPCServer.name}`, () => {
         });
       };
     }
-    const rpcServer = await RPCServer.start({
+    const rpcServer = new RPCServer({
+      logger,
+      idGen,
+    });
+    await rpcServer.start({
       manifest: {
         testMethod: new TestHandler({}),
       },
-      logger,
-      idGen,
     });
     const [outputResult, outputStream] = rpcTestUtils.streamToArray();
     const stream = rpcTestUtils.messagesToReadableStream([
@@ -1132,13 +1173,15 @@ describe(`${RPCServer.name}`, () => {
             reverse: new TransformStream(),
           };
         });
-      const rpcServer = await RPCServer.start({
-        manifest: {
-          testMethod: new TestMethod({}),
-        },
+      const rpcServer = new RPCServer({
         middlewareFactory: middlewareFactory,
         logger,
         idGen,
+      });
+      await rpcServer.start({
+        manifest: {
+          testMethod: new TestMethod({}),
+        },
       });
       const [outputResult, outputStream] = rpcTestUtils.streamToArray();
       const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {

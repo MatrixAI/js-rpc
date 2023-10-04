@@ -1,7 +1,9 @@
 import type { ReadableStreamDefaultReadResult } from 'stream/web';
 import type {
+  IdGen,
   ClientHandlerImplementation,
   DuplexHandlerImplementation,
+  JSONValue,
   JSONRPCError,
   JSONRPCRequest,
   JSONRPCResponse,
@@ -14,25 +16,22 @@ import type {
   RPCStream,
   MiddlewareFactory,
 } from './types';
-import type { JSONValue } from './types';
-import type { IdGen } from './types';
-import type { ErrorRPC, ErrorRPCRemote } from './errors';
 import { ReadableStream, TransformStream } from 'stream/web';
-import { ready } from '@matrixai/async-init/dist/StartStop';
 import Logger from '@matrixai/logger';
 import { PromiseCancellable } from '@matrixai/async-cancellable';
 import { Timer } from '@matrixai/timer';
 import { startStop } from '@matrixai/async-init';
+import { StartStop } from '@matrixai/async-init/dist/StartStop';
 import { RawHandler } from './handlers';
-import { DuplexHandler } from './handlers';
-import { ServerHandler } from './handlers';
-import { UnaryHandler } from './handlers';
-import { ClientHandler } from './handlers';
-import * as rpcEvents from './events';
-import * as rpcUtils from './utils';
-import * as rpcErrors from './errors';
-import * as rpcUtilsMiddleware from './middleware';
-import { ErrorHandlerAborted, JSONRPCErrorCode, never } from './errors';
+import {
+  DuplexHandler,
+  ServerHandler,
+  UnaryHandler,
+  ClientHandler,
+} from './handlers';
+import * as utils from './utils';
+import * as errors from './errors';
+import * as middleware from './middleware';
 import * as events from './events';
 
 const cleanupReason = Symbol('CleanupReason');
@@ -46,19 +45,36 @@ const cleanupReason = Symbol('CleanupReason');
  */
 interface RPCServer extends startStop.StartStop {}
 
-@startStop.StartStop({
+@StartStop({
   eventStart: events.EventRPCServerStart,
   eventStarted: events.EventRPCServerStarted,
   eventStop: events.EventRPCServerStopping,
   eventStopped: events.EventRPCServerStopped,
 })
-class RPCServer extends EventTarget {
-  /**
-   * Starts RPC server.
+class RPCServer {
+  protected onTimeoutCallback?: () => void;
+  protected idGen: IdGen;
+  protected logger: Logger;
+  protected handlerMap: Map<string, RawHandlerImplementation> = new Map();
+  protected defaultTimeoutMap: Map<string, number | undefined> = new Map();
+  protected handlerTimeoutTime: number;
+  protected activeStreams: Set<PromiseCancellable<void>> = new Set();
+  protected fromError: (error: errors.ErrorRPC<any>) => JSONValue;
+  protected filterSensitive: (key: string, value: any) => any;
+  protected middlewareFactory: MiddlewareFactory<
+    JSONRPCRequest,
+    Uint8Array,
+    Uint8Array,
+    JSONRPCResponseResult
+  >;
+  // Function to register a callback for timeout
+  public registerOnTimeoutCallback(callback: () => void) {
+    this.onTimeoutCallback = callback;
+  }
 
-   * @param obj
-   * @param obj.manifest - Server manifest used to define the rpc method
-   * handlers.
+  /**
+   * RPCServer Constructor
+   *
    * @param obj.middlewareFactory - Middleware used to process the rpc messages.
    * The middlewareFactory needs to be a function that creates a pair of
    * transform streams that convert `Uint8Array` to `JSONRPCRequest` on the forward
@@ -72,84 +88,46 @@ class RPCServer extends EventTarget {
    * the handler to handle timeout before it is forced to end. Defaults to 2,000 milliseconds.
    * @param obj.logger
    */
-  public static async start({
-    manifest,
-    middlewareFactory = rpcUtilsMiddleware.defaultServerMiddlewareWrapper(),
-    handlerTimeoutTime = Infinity, // 1 minute
-    logger = new Logger(this.name),
-    idGen = () => Promise.resolve(null),
-    fromError = rpcUtils.fromError,
-    filterSensitive = rpcUtils.filterSensitive,
-  }: {
-    manifest: ServerManifest;
-    middlewareFactory?: MiddlewareFactory<
-      JSONRPCRequest,
-      Uint8Array,
-      Uint8Array,
-      JSONRPCResponse
-    >;
-    handlerTimeoutTime?: number;
-    logger?: Logger;
-    idGen?: IdGen;
-    fromError?: (error: ErrorRPC<any>) => JSONValue;
-    filterSensitive?: (key: string, value: any) => any;
-  }): Promise<RPCServer> {
-    logger.info(`Starting ${this.name}`);
-    const rpcServer = new this({
-      manifest,
-      middlewareFactory,
-      handlerTimeoutTime,
-      logger,
-      idGen,
-      fromError,
-      filterSensitive,
-    });
-    logger.info(`Started ${this.name}`);
-    return rpcServer;
-  }
-  protected onTimeoutCallback?: () => void;
-  protected idGen: IdGen;
-  protected logger: Logger;
-  protected handlerMap: Map<string, RawHandlerImplementation> = new Map();
-  protected defaultTimeoutMap: Map<string, number | undefined> = new Map();
-  protected handlerTimeoutTime: number;
-  protected activeStreams: Set<PromiseCancellable<void>> = new Set();
-  protected fromError: (error: ErrorRPC<any>) => JSONValue;
-  protected filterSensitive: (key: string, value: any) => any;
-  protected middlewareFactory: MiddlewareFactory<
-    JSONRPCRequest,
-    Uint8Array,
-    Uint8Array,
-    JSONRPCResponseResult
-  >;
-  // Function to register a callback for timeout
-  public registerOnTimeoutCallback(callback: () => void) {
-    this.onTimeoutCallback = callback;
-  }
   public constructor({
-    manifest,
-    middlewareFactory,
+    middlewareFactory = middleware.defaultServerMiddlewareWrapper(),
     handlerTimeoutTime = Infinity,
     logger,
     idGen = () => Promise.resolve(null),
-    fromError = rpcUtils.fromError,
-    filterSensitive = rpcUtils.filterSensitive,
+    fromError = utils.fromError,
+    filterSensitive = utils.filterSensitive,
   }: {
-    manifest: ServerManifest;
-
-    middlewareFactory: MiddlewareFactory<
+    middlewareFactory?: MiddlewareFactory<
       JSONRPCRequest,
       Uint8Array,
       Uint8Array,
       JSONRPCResponseResult
     >;
     handlerTimeoutTime?: number;
-    logger: Logger;
-    idGen: IdGen;
-    fromError?: (error: ErrorRPC<any>) => JSONValue;
+    logger?: Logger;
+    idGen?: IdGen;
+    fromError?: (error: errors.ErrorRPC<any>) => JSONValue;
     filterSensitive?: (key: string, value: any) => any;
   }) {
-    super();
+    this.idGen = idGen;
+    this.middlewareFactory = middlewareFactory;
+    this.handlerTimeoutTime = handlerTimeoutTime;
+    this.fromError = fromError ?? utils.fromError;
+    this.filterSensitive = filterSensitive ?? utils.filterSensitive;
+    this.logger = logger ?? new Logger(this.constructor.name);
+  }
+
+  /**
+   * Starts RPC server.
+
+   * @param obj
+   * @param obj.manifest - Server manifest used to define the rpc method handlers.
+   */
+  public async start({
+    manifest,
+  }: {
+    manifest: ServerManifest;
+  }): Promise<void> {
+    this.logger.info(`Start ${this.constructor.name}`);
     for (const [key, manifestItem] of Object.entries(manifest)) {
       if (manifestItem instanceof RawHandler) {
         this.registerRawStreamHandler(
@@ -199,36 +177,38 @@ class RPCServer extends EventTarget {
         );
         continue;
       }
-      never();
+      utils.never();
     }
-    this.idGen = idGen;
-    this.middlewareFactory = middlewareFactory;
-    this.handlerTimeoutTime = handlerTimeoutTime;
-    this.logger = logger;
-    this.fromError = fromError || rpcUtils.fromError;
-    this.filterSensitive = filterSensitive || rpcUtils.filterSensitive;
+    this.logger.info(`Started ${this.constructor.name}`);
   }
 
   public async stop({
     force = true,
-    reason = '',
+    reason = new errors.ErrorRPCStopping('RPCServer is stopping'),
   }: {
     force?: boolean;
-    reason?: string;
+    reason?: any;
   }): Promise<void> {
     // Log an event before starting the destruction
-    this.logger.info(`Stopping ${this.constructor.name}`);
+    this.logger.info(`Stop ${this.constructor.name}`);
 
     // Your existing logic for stopping active streams and other cleanup
+    const handlerPs = new Array<PromiseCancellable<void>>();
     if (force) {
       for await (const [activeStream] of this.activeStreams.entries()) {
-        activeStream.cancel(new rpcErrors.ErrorRPCStopping());
+        if (force) activeStream.cancel(new errors.ErrorRPCStopping());
+        handlerPs.push(activeStream);
       }
+      await Promise.all(handlerPs);
     }
 
     for await (const [activeStream] of this.activeStreams.entries()) {
       await activeStream;
     }
+
+    // Removes handlers and default timeouts registered in `RPCServer.start()`
+    this.handlerMap.clear();
+    this.defaultTimeoutMap.clear();
 
     // Log  an event after the destruction has been completed
     this.logger.info(`Stopped ${this.constructor.name}`);
@@ -340,10 +320,9 @@ class RPCServer extends EventTarget {
             controller.enqueue(value);
           } catch (e) {
             const rpcError: JSONRPCError = {
-              code: e.exitCode ?? JSONRPCErrorCode.InternalError,
+              code: e.exitCode ?? errors.JSONRPCErrorCode.InternalError,
               message: e.description ?? '',
               data: JSON.stringify(this.fromError(e), this.filterSensitive),
-              type: e.type,
             };
             const rpcErrorMessage: JSONRPCResponseError = {
               jsonrpc: '2.0',
@@ -354,7 +333,7 @@ class RPCServer extends EventTarget {
             // Clean up the input stream here, ignore error if already ended
             await forwardStream
               .cancel(
-                new rpcErrors.ErrorRPCHandlerFailed('Error clean up', {
+                new errors.ErrorRPCHandlerFailed('Error clean up', {
                   cause: e,
                 }),
               )
@@ -364,8 +343,8 @@ class RPCServer extends EventTarget {
         },
         cancel: async (reason) => {
           this.dispatchEvent(
-            new rpcEvents.RPCErrorEvent({
-              detail: new rpcErrors.ErrorRPCStreamEnded(
+            new events.RPCErrorEvent({
+              detail: new errors.ErrorRPCStreamEnded(
                 'Stream has been cancelled',
                 {
                   cause: reason,
@@ -453,6 +432,7 @@ class RPCServer extends EventTarget {
   /**
    * ID is associated with the stream, not individual messages.
    */
+  @startStop.ready(new errors.ErrorRPCServerNotRunning())
   public handleStream(rpcStream: RPCStream<Uint8Array, Uint8Array>) {
     // This will take a buffer stream of json messages and set up service
     //  handling for it.
@@ -462,7 +442,7 @@ class RPCServer extends EventTarget {
     const timer = new Timer({
       delay: this.handlerTimeoutTime,
       handler: () => {
-        abortController.abort(new rpcErrors.ErrorRPCTimedOut());
+        abortController.abort(new errors.ErrorRPCTimedOut());
         if (this.onTimeoutCallback) {
           this.onTimeoutCallback();
         }
@@ -471,8 +451,8 @@ class RPCServer extends EventTarget {
 
     const prom = (async () => {
       const id = await this.idGen();
-      const headTransformStream = rpcUtilsMiddleware.binaryToJsonMessageStream(
-        rpcUtils.parseJSONRPCRequest,
+      const headTransformStream = middleware.binaryToJsonMessageStream(
+        utils.parseJSONRPCRequest,
       );
       // Transparent transform used as a point to cancel the input stream from
       const passthroughTransform = new TransformStream<
@@ -515,7 +495,7 @@ class RPCServer extends EventTarget {
           ),
         ]);
       } catch (e) {
-        const newErr = new rpcErrors.ErrorRPCHandlerFailed(
+        const newErr = new errors.ErrorRPCHandlerFailed(
           'Stream failed waiting for header',
           { cause: e },
         );
@@ -523,13 +503,8 @@ class RPCServer extends EventTarget {
         timer.cancel(cleanupReason);
         await timer.catch(() => {});
         this.dispatchEvent(
-          new rpcEvents.RPCErrorEvent({
-            detail: new rpcErrors.ErrorRPCOutputStreamError(
-              'Stream failed waiting for header',
-              {
-                cause: newErr,
-              },
-            ),
+          new events.RPCErrorEvent({
+            detail: new errors.ErrorRPCOutputStreamError(),
           }),
         );
         return;
@@ -540,14 +515,14 @@ class RPCServer extends EventTarget {
       //  1. The timeout timer resolves before the first message
       //  2. the stream ends before the first message
       if (headerMessage == null) {
-        const newErr = new rpcErrors.ErrorRPCTimedOut(
+        const newErr = new errors.ErrorRPCTimedOut(
           'Timed out waiting for header',
-          { cause: new rpcErrors.ErrorRPCStreamEnded() },
+          { cause: new errors.ErrorRPCStreamEnded() },
         );
         await cleanUp(newErr);
         this.dispatchEvent(
-          new rpcEvents.RPCErrorEvent({
-            detail: new rpcErrors.ErrorRPCTimedOut(
+          new events.RPCErrorEvent({
+            detail: new errors.ErrorRPCTimedOut(
               'Timed out waiting for header',
               {
                 cause: newErr,
@@ -558,13 +533,11 @@ class RPCServer extends EventTarget {
         return;
       }
       if (headerMessage.done) {
-        const newErr = new rpcErrors.ErrorMissingHeader('Missing header');
+        const newErr = new errors.ErrorMissingHeader('Missing header');
         await cleanUp(newErr);
         this.dispatchEvent(
-          new rpcEvents.RPCErrorEvent({
-            detail: new rpcErrors.ErrorRPCOutputStreamError('Missing header', {
-              cause: newErr,
-            }),
+          new events.RPCErrorEvent({
+            detail: new errors.ErrorRPCOutputStreamError(),
           }),
         );
         return;
@@ -572,13 +545,13 @@ class RPCServer extends EventTarget {
       const method = headerMessage.value.method;
       const handler = this.handlerMap.get(method);
       if (handler == null) {
-        await cleanUp(new rpcErrors.ErrorRPCHandlerFailed('Missing handler'));
+        await cleanUp(new errors.ErrorRPCHandlerFailed('Missing handler'));
         return;
       }
       if (abortController.signal.aborted) {
         await cleanUp(
-          new rpcErrors.ErrorHandlerAborted('Aborted', {
-            cause: new ErrorHandlerAborted(),
+          new errors.ErrorHandlerAborted('Aborted', {
+            cause: new errors.ErrorHandlerAborted(),
           }),
         );
         return;
@@ -604,10 +577,9 @@ class RPCServer extends EventTarget {
         );
       } catch (e) {
         const rpcError: JSONRPCError = {
-          code: e.exitCode ?? JSONRPCErrorCode.InternalError,
+          code: e.exitCode ?? errors.JSONRPCErrorCode.InternalError,
           message: e.description ?? '',
           data: JSON.stringify(this.fromError(e), this.filterSensitive),
-          type: e.type,
         };
         const rpcErrorMessage: JSONRPCResponseError = {
           jsonrpc: '2.0',
@@ -640,7 +612,7 @@ class RPCServer extends EventTarget {
       this.logger.info(`Handled stream with method (${method})`);
       // Cleaning up abort and timer
       timer.cancel(cleanupReason);
-      abortController.abort(new rpcErrors.ErrorRPCStreamEnded());
+      abortController.abort(new errors.ErrorRPCStreamEnded());
     })();
     const handlerProm = PromiseCancellable.from(prom, abortController).finally(
       () => this.activeStreams.delete(handlerProm),

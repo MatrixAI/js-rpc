@@ -7,8 +7,7 @@ import type {
 } from './types';
 import { TransformStream } from 'stream/web';
 import { JSONParser } from '@streamparser/json';
-import * as rpcUtils from './utils';
-import { promise } from './utils';
+import * as utils from './utils';
 import * as rpcErrors from './errors';
 
 /**
@@ -34,7 +33,7 @@ function binaryToJsonMessageStream<T extends JSONRPCMessage>(
   return new TransformStream<Uint8Array, T>({
     flush: async () => {
       // Avoid potential race conditions by allowing parser to end first
-      const waitP = promise();
+      const waitP = utils.promise();
       parser.onEnd = () => waitP.resolveP();
       parser.end();
       await waitP.p;
@@ -108,7 +107,7 @@ function defaultServerMiddlewareWrapper(
 ): MiddlewareFactory<JSONRPCRequest, Uint8Array, Uint8Array, JSONRPCResponse> {
   return (ctx, cancel, meta) => {
     const inputTransformStream = binaryToJsonMessageStream(
-      rpcUtils.parseJSONRPCRequest,
+      utils.parseJSONRPCRequest,
       parserBufferByteLimit,
     );
     const outputTransformStream = new TransformStream<
@@ -165,7 +164,7 @@ const defaultClientMiddlewareWrapper = (
 > => {
   return (ctx, cancel, meta) => {
     const outputTransformStream = binaryToJsonMessageStream(
-      rpcUtils.parseJSONRPCResponse,
+      utils.parseJSONRPCResponse,
       parserBufferByteLimit,
     );
     const inputTransformStream = new TransformStream<
