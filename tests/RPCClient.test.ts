@@ -295,7 +295,7 @@ describe(`${RPCClient.name}`, () => {
     'generic duplex caller can throw received error message with sensitive',
     [
       fc.array(rpcTestUtils.jsonRpcResponseResultArb()),
-      rpcTestUtils.jsonRpcResponseErrorArb(rpcTestUtils.errorArb(), true),
+      rpcTestUtils.jsonRpcResponseErrorArb(rpcTestUtils.errorArb()),
     ],
     async (messages, errorMessage) => {
       const inputStream = rpcTestUtils.messagesToReadableStream([
@@ -336,7 +336,6 @@ describe(`${RPCClient.name}`, () => {
       fc.array(rpcTestUtils.jsonRpcResponseResultArb()),
       rpcTestUtils.jsonRpcResponseErrorArb(
         rpcTestUtils.errorArb(rpcTestUtils.errorArb()),
-        true,
       ),
     ],
     async (messages, errorMessage) => {

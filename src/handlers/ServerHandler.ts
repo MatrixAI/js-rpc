@@ -9,10 +9,12 @@ abstract class ServerHandler<
   Output extends JSONValue = JSONValue,
 > extends Handler<Container, Input, Output> {
   public async *handle(
+    /* eslint-disable */
     input: Input,
     cancel: (reason?: any) => void,
     meta: Record<string, JSONValue> | undefined,
     ctx: ContextTimed,
+    /* eslint-disable */
   ): AsyncIterableIterator<Output> {
     throw new ErrorRPCMethodNotImplemented('This method must be overridden');
   }

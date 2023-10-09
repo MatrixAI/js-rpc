@@ -1,4 +1,3 @@
-import type RPCServer from './RPCServer';
 import type {
   ErrorRPCConnectionLocal,
   ErrorRPCConnectionPeer,

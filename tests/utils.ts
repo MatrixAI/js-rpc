@@ -12,6 +12,7 @@ import type {
 } from '@/types';
 import { ReadableStream, WritableStream, TransformStream } from 'stream/web';
 import { fc } from '@fast-check/jest';
+import { AbstractError } from '@matrixai/errors';
 import * as utils from '@/utils';
 import { fromError } from '@/utils';
 import * as rpcErrors from '@/errors';
@@ -148,20 +149,19 @@ const jsonRpcErrorArb = (
   fc
     .record(
       {
-        code: fc.integer(),
+        code: fc.constant(rpcErrors.JSONRPCErrorCode.RPCRemote),
         message: fc.string(),
-        data: error.map((e) => JSON.stringify(fromError(e))),
+        data: fc.record({
+          cause: error.map((e) => JSON.stringify(fromError(e))),
+        }),
       },
       {
-        requiredKeys: ['code', 'message'],
+        requiredKeys: ['code', 'message', 'data'],
       },
     )
     .noShrink() as fc.Arbitrary<JSONRPCError>;
 
-const jsonRpcResponseErrorArb = (
-  error?: fc.Arbitrary<ErrorRPC<any>>,
-  sensitive: boolean = false,
-) =>
+const jsonRpcResponseErrorArb = (error?: fc.Arbitrary<ErrorRPC<any>>) =>
   fc
     .record({
       jsonrpc: fc.constant('2.0'),
@@ -260,20 +260,16 @@ const errorArb = (
 ) =>
   cause.chain((cause) =>
     fc.oneof(
-      fc.constant(new rpcErrors.ErrorRPCRemote()),
       fc.constant(new rpcErrors.ErrorRPCMessageLength(undefined)),
       fc.constant(
-        new rpcErrors.ErrorRPCRemote(
-          {
+        new AbstractError('message', {
+          cause,
+          data: {
             command: 'someCommand',
             host: `someHost`,
             port: 0,
           },
-          undefined,
-          {
-            cause,
-          },
-        ),
+        }),
       ),
     ),
   );

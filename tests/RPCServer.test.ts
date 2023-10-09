@@ -465,7 +465,7 @@ describe(`${RPCServer.name}`, () => {
       rpcServer.handleStream(readWriteStream);
       const rawErrorMessage = (await outputResult)[0]!.toString();
       const errorMessage = JSON.parse(rawErrorMessage);
-      expect(errorMessage.error.message).toEqual(error.description);
+      expect(errorMessage.error.message).toEqual(error.message);
       reject();
       await expect(errorProm).toReject();
       await rpcServer.stop({ force: true });
@@ -508,7 +508,7 @@ describe(`${RPCServer.name}`, () => {
       rpcServer.handleStream(readWriteStream);
       const rawErrorMessage = (await outputResult)[0]!.toString();
       const errorMessage = JSON.parse(rawErrorMessage);
-      expect(errorMessage.error.message).toEqual(error.description);
+      expect(errorMessage.error.message).toEqual(error.message);
       reject();
       await expect(errorProm).toReject();
       await rpcServer.stop({ force: true });
@@ -557,7 +557,7 @@ describe(`${RPCServer.name}`, () => {
         await writer.write(Buffer.from(JSON.stringify(message)));
       }
       // Abort stream
-      const writerReason = Symbol('writerAbort');
+      const writerReason = new Error('writerAbort');
       await writer.abort(writerReason);
       // We should get an error RPC message
       await expect(outputResult).toResolve();

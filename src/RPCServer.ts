@@ -15,7 +15,9 @@ import type {
   UnaryHandlerImplementation,
   RPCStream,
   MiddlewareFactory,
+  FromError,
 } from './types';
+import type { POJO } from '@matrixai/errors';
 import { ReadableStream, TransformStream } from 'stream/web';
 import Logger from '@matrixai/logger';
 import { PromiseCancellable } from '@matrixai/async-cancellable';
@@ -59,8 +61,8 @@ class RPCServer {
   protected defaultTimeoutMap: Map<string, number | undefined> = new Map();
   protected handlerTimeoutTime: number;
   protected activeStreams: Set<PromiseCancellable<void>> = new Set();
-  protected fromError: (error: errors.ErrorRPC<any>) => JSONValue;
-  protected filterSensitive: (key: string, value: any) => any;
+  protected fromError: FromError;
+  protected replacer?: (key: string, value: any) => any;
   protected middlewareFactory: MiddlewareFactory<
     JSONRPCRequest,
     Uint8Array,
@@ -94,7 +96,7 @@ class RPCServer {
     logger,
     idGen = () => Promise.resolve(null),
     fromError = utils.fromError,
-    filterSensitive = utils.filterSensitive,
+    replacer,
   }: {
     middlewareFactory?: MiddlewareFactory<
       JSONRPCRequest,
@@ -105,14 +107,14 @@ class RPCServer {
     handlerTimeoutTime?: number;
     logger?: Logger;
     idGen?: IdGen;
-    fromError?: (error: errors.ErrorRPC<any>) => JSONValue;
-    filterSensitive?: (key: string, value: any) => any;
+    fromError?: FromError;
+    replacer?: (key: string, value: any) => any;
   }) {
     this.idGen = idGen;
     this.middlewareFactory = middlewareFactory;
     this.handlerTimeoutTime = handlerTimeoutTime;
-    this.fromError = fromError ?? utils.fromError;
-    this.filterSensitive = filterSensitive ?? utils.filterSensitive;
+    this.fromError = fromError;
+    this.replacer = replacer;
     this.logger = logger ?? new Logger(this.constructor.name);
   }
 
@@ -196,7 +198,7 @@ class RPCServer {
     const handlerPs = new Array<PromiseCancellable<void>>();
     if (force) {
       for await (const [activeStream] of this.activeStreams.entries()) {
-        if (force) activeStream.cancel(new errors.ErrorRPCStopping());
+        if (force) activeStream.cancel(reason);
         handlerPs.push(activeStream);
       }
       await Promise.all(handlerPs);
@@ -319,11 +321,26 @@ class RPCServer {
             }
             controller.enqueue(value);
           } catch (e) {
-            const rpcError: JSONRPCError = {
-              code: e.exitCode ?? errors.JSONRPCErrorCode.InternalError,
-              message: e.description ?? '',
-              data: JSON.stringify(this.fromError(e), this.filterSensitive),
-            };
+            let rpcError: JSONRPCError;
+            if (e instanceof errors.ErrorRPCProtocol) {
+              rpcError = e.toJSON();
+            } else {
+              rpcError = new errors.ErrorRPCRemote(e?.message).toJSON();
+              try {
+                (rpcError.data as POJO).cause = JSON.stringify(
+                  this.fromError(e),
+                  this.replacer,
+                );
+              } catch (e) {
+                (rpcError.data as POJO).cause = e;
+                // Dispatch error in the case where the thrown value could not be parsed
+                this.dispatchEvent(
+                  new events.RPCErrorEvent({
+                    detail: e,
+                  }),
+                );
+              }
+            }
             const rpcErrorMessage: JSONRPCResponseError = {
               jsonrpc: '2.0',
               error: rpcError,
@@ -504,7 +521,10 @@ class RPCServer {
         await timer.catch(() => {});
         this.dispatchEvent(
           new events.RPCErrorEvent({
-            detail: new errors.ErrorRPCOutputStreamError(),
+            detail: new errors.ErrorRPCOutputStreamError(
+              'Stream failed waiting for header',
+              { cause: newErr },
+            ),
           }),
         );
         return;
@@ -576,11 +596,26 @@ class RPCServer {
           { signal: abortController.signal, timer },
         );
       } catch (e) {
-        const rpcError: JSONRPCError = {
-          code: e.exitCode ?? errors.JSONRPCErrorCode.InternalError,
-          message: e.description ?? '',
-          data: JSON.stringify(this.fromError(e), this.filterSensitive),
-        };
+        let rpcError: JSONRPCError;
+        if (e instanceof errors.ErrorRPCProtocol) {
+          rpcError = e.toJSON();
+        } else {
+          rpcError = new errors.ErrorRPCRemote(e?.message).toJSON();
+          try {
+            (rpcError.data as POJO).cause = JSON.stringify(
+              this.fromError(e),
+              this.replacer,
+            );
+          } catch (e) {
+            (rpcError.data as POJO).cause = e;
+            // Dispatch error in the case where the thrown value could not be parsed
+            this.dispatchEvent(
+              new events.RPCErrorEvent({
+                detail: e,
+              }),
+            );
+          }
+        }
         const rpcErrorMessage: JSONRPCResponseError = {
           jsonrpc: '2.0',
           error: rpcError,
