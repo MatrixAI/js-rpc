@@ -466,11 +466,9 @@ describe('RPC', () => {
       // The promise should be rejected
       const rejection = await callProm;
 
-      // console.log(rejection)
-
       // The error should have specific properties
       expect(rejection).toBeInstanceOf(error.constructor);
-      expect(rejection).toMatchObject(error);
+      expect(rejection).toEqual(error);
 
       // Cleanup
       await rpcServer.stop({ force: true });
@@ -919,6 +917,8 @@ describe('RPC', () => {
       const callProm = rpcClient.methods.testMethod({});
       const callError = await callProm.catch((e) => e);
 
+      expect(callError).toEqual(error);
+
       await rpcServer.stop({ force: true });
     },
   );
@@ -968,6 +968,8 @@ describe('RPC', () => {
 
       const callProm = rpcClient.methods.testMethod({});
       const callError = await callProm.catch((e) => e);
+
+      expect(callError).toEqual(error);
 
       await rpcServer.stop({ force: true });
     },
@@ -1024,7 +1026,9 @@ describe('RPC', () => {
     const testProm = rpcClient.methods.testMethod({});
 
     await rpcServer.stop({ force: true, reason: testReason });
-
-    await expect(testProm).rejects.toHaveProperty('message', errorMessage);
+    const rejection = await testProm.catch(e => e);
+    expect(rejection).toBeInstanceOf(ErrorRPCRemote);
+    expect(rejection.cause).toBeInstanceOf(Error);
+    expect(rejection.cause.message).toBe(errorMessage);
   });
 });

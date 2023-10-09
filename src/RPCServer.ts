@@ -34,6 +34,7 @@ import * as utils from './utils';
 import * as errors from './errors';
 import * as middleware from './middleware';
 import * as events from './events';
+import { POJO } from '@matrixai/errors';
 
 const cleanupReason = Symbol('CleanupReason');
 
@@ -325,11 +326,8 @@ class RPCServer {
               rpcError = e.toJSON();
             }
             else {
-              rpcError = {
-                code: errors.JSONRPCErrorCode.RPCRemote,
-                message: e?.message ?? '',
-                data: JSON.stringify(this.fromError(e), this.replacer),
-              };
+              rpcError = new errors.ErrorRPCRemote(e?.message).toJSON();
+              (rpcError.data as POJO).cause = JSON.stringify(this.fromError(e), this.replacer);
             }
             const rpcErrorMessage: JSONRPCResponseError = {
               jsonrpc: '2.0',
@@ -588,11 +586,8 @@ class RPCServer {
           rpcError = e.toJSON();
         }
         else {
-          rpcError = {
-            code: errors.JSONRPCErrorCode.RPCRemote,
-            message: e?.message ?? '',
-            data: JSON.stringify(this.fromError(e), this.replacer),
-          };
+          rpcError = new errors.ErrorRPCRemote(e?.message).toJSON();
+          (rpcError.data as POJO).cause = JSON.stringify(this.fromError(e), this.replacer);
         }
         const rpcErrorMessage: JSONRPCResponseError = {
           jsonrpc: '2.0',

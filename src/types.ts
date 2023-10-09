@@ -7,7 +7,6 @@ import type { ServerCaller } from './callers';
 import type { ClientCaller } from './callers';
 import type { UnaryCaller } from './callers';
 import type Handler from './handlers/Handler';
-import type { ErrorRPC } from './errors';
 
 /**
  * This is the type for the IdGenFunction. It is used to generate the request
@@ -350,7 +349,7 @@ type HandlerTypes<T> = T extends Handler<
 
 type FromError = (error: any) => JSONValue;
 
-type ToError = (errorData: JSONValue, metadata: JSONValue) => any;
+type ToError = (errorData: JSONValue) => any;
 
 export type {
   IdGen,

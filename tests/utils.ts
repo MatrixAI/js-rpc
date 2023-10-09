@@ -151,10 +151,12 @@ const jsonRpcErrorArb = (
       {
         code: fc.integer(),
         message: fc.string(),
-        data: error.map((e) => JSON.stringify(fromError(e))),
+        data: fc.record({
+          cause: error.map((e) => JSON.stringify(fromError(e)))
+        }),
       },
       {
-        requiredKeys: ['code', 'message'],
+        requiredKeys: ['code', 'message', 'data'],
       },
     )
     .noShrink() as fc.Arbitrary<JSONRPCError>;

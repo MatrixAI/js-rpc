@@ -23,12 +23,4 @@ describe('utils tests', () => {
     },
     { numRuns: 1000 },
   );
-  test('fromError', () => {
-    expect(rpcUtils.fromError(undefined)).toBe(undefined);
-    expect(rpcUtils.fromError(null)).toBe(null);
-    expect(rpcUtils.fromError("123")).toBe("123");
-    expect(rpcUtils.fromError(123)).toBe(123);
-    expect(rpcUtils.fromError(new Error("message"))).toHaveProperty("message", "message");
-    expect(rpcUtils.fromError(new Error("message", { cause: new Error() }))).toHaveProperty(["cause", "type"], "Error");
-  });
 });

@@ -15,7 +15,6 @@ import type {
   JSONRPCResponseResult,
   ToError,
 } from './types';
-import { JSONRPCErrorCode } from './errors';
 import Logger from '@matrixai/logger';
 import { Timer } from '@matrixai/timer';
 import * as middleware from './middleware';
@@ -470,10 +469,17 @@ class RPCClient<M extends ClientManifest> {
             ...(rpcStream.meta ?? {}),
             command: method,
           };
-          if (messageValue.error.code === JSONRPCErrorCode.RPCRemote) {
-            throw this.toError(JSON.parse(messageValue.error.data as string), metadata);
+          const e: errors.ErrorRPCProtocol<any> = errors.ErrorRPCProtocol.fromJSON(messageValue.error);
+          if (
+            e instanceof errors.ErrorRPCRemote &&
+            messageValue.error.data != null &&
+            typeof messageValue.error.data === "object" &&
+            'cause' in messageValue.error.data
+          ) {
+            e.metadata = metadata;
+            e.cause = this.toError(JSON.parse(messageValue.error.data.cause as string));
           }
-          throw errors.ErrorRPCProtocol.fromJSON(messageValue.error);
+          throw e;
         }
         leadingMessage = messageValue;
       } catch (e) {
