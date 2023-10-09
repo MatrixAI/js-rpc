@@ -327,7 +327,18 @@ class RPCServer {
             }
             else {
               rpcError = new errors.ErrorRPCRemote(e?.message).toJSON();
-              (rpcError.data as POJO).cause = JSON.stringify(this.fromError(e), this.replacer);
+              try {
+                (rpcError.data as POJO).cause = JSON.stringify(this.fromError(e), this.replacer);
+              }
+              catch (e) {
+                (rpcError.data as POJO).cause = e;
+                // dispatch error in the case where the thrown value could not be parsed
+                this.dispatchEvent(
+                  new events.RPCErrorEvent({
+                    detail: e,
+                  }),
+                );
+              }
             }
             const rpcErrorMessage: JSONRPCResponseError = {
               jsonrpc: '2.0',
@@ -587,7 +598,18 @@ class RPCServer {
         }
         else {
           rpcError = new errors.ErrorRPCRemote(e?.message).toJSON();
-          (rpcError.data as POJO).cause = JSON.stringify(this.fromError(e), this.replacer);
+          try {
+            (rpcError.data as POJO).cause = JSON.stringify(this.fromError(e), this.replacer);
+          }
+          catch (e) {
+            (rpcError.data as POJO).cause = e;
+            // dispatch error in the case where the thrown value could not be parsed
+            this.dispatchEvent(
+              new events.RPCErrorEvent({
+                detail: e,
+              }),
+            );
+          }
         }
         const rpcErrorMessage: JSONRPCResponseError = {
           jsonrpc: '2.0',
