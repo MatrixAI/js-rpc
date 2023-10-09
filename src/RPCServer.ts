@@ -142,7 +142,8 @@ class RPCServer {
       if (manifestItem instanceof DuplexHandler) {
         this.registerDuplexStreamHandler(
           key,
-          manifestItem.handle,
+          // Bind the `this` to the generator handler to make the container available
+          manifestItem.handle.bind(manifestItem),
           manifestItem.timeout,
         );
         continue;
@@ -150,7 +151,8 @@ class RPCServer {
       if (manifestItem instanceof ServerHandler) {
         this.registerServerStreamHandler(
           key,
-          manifestItem.handle,
+          // Bind the `this` to the generator handler to make the container available
+          manifestItem.handle.bind(manifestItem),
           manifestItem.timeout,
         );
         continue;
