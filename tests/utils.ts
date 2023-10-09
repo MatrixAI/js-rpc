@@ -149,7 +149,7 @@ const jsonRpcErrorArb = (
   fc
     .record(
       {
-        code: fc.integer(),
+        code: fc.constant(utils.JSONRPCErrorCode.RPCRemote),
         message: fc.string(),
         data: fc.record({
           cause: error.map((e) => JSON.stringify(fromError(e)))

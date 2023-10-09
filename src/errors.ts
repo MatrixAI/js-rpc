@@ -41,13 +41,13 @@ abstract class ErrorRPCProtocol<T> extends ErrorRPC<T> {
       typeof json.message !== 'string' ||
       typeof json.data !== 'object'
     ) {
-      throw new TypeError(`Cannot decode JSON to ${this.name}`);
+      return new ErrorRPCUnknown<T>(`Cannot decode JSON to ${this.name}`) as InstanceType<T>;
     }
 
     const errorC = rpcProtocolErrors[json.code];
 
     if (errorC == null) {
-      throw new TypeError(`Cannot decode JSON to ${this.name}`);
+      return new ErrorRPCUnknown<T>(`Unknown error.code found on RPC message`) as InstanceType<T>;
     }
 
     const e: InstanceType<T> = new errorC(json.message);
@@ -168,6 +168,11 @@ class ErrorRPCConnectionInternal<T> extends ErrorRPCProtocol<T> {
   code = JSONRPCErrorCode.RPCConnectionInternal;
 }
 
+class ErrorRPCUnknown<T> extends ErrorRPCProtocol<T> {
+  static description = 'RPC Unknown Error';
+  code = 0;
+}
+
 export {
   ErrorRPC,
   ErrorRPCServer,
@@ -193,4 +198,5 @@ export {
   ErrorHandlerAborted,
   ErrorRPCCallerFailed,
   ErrorMissingCaller,
+  ErrorRPCUnknown
 };
