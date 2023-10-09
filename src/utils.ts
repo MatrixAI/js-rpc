@@ -316,50 +316,6 @@ const filterSensitive = (keyToRemove) => {
   };
 };
 
-const enum JSONRPCErrorCode {
-  ParseError = -32700,
-  InvalidRequest = -32600,
-  MethodNotFound = -32601,
-  InvalidParams = -32602,
-  InternalError = -32603,
-  HandlerNotFound = -32000,
-  RPCStopping = -32001,
-  RPCMessageLength = -32003,
-  RPCMissingResponse = -32004,
-  RPCOutputStreamError = -32005,
-  RPCRemote = -32006,
-  RPCStreamEnded = -32007,
-  RPCTimedOut = -32008,
-  RPCConnectionLocal = -32010,
-  RPCConnectionPeer = -32011,
-  RPCConnectionKeepAliveTimeOut = -32012,
-  RPCConnectionInternal = -32013,
-  MissingHeader = -32014,
-  HandlerAborted = -32015,
-  MissingCaller = -32016,
-}
-
-const rpcProtocolErrors = {
-  [JSONRPCErrorCode.RPCRemote]: errors.ErrorRPCRemote,
-  [JSONRPCErrorCode.RPCStopping]: errors.ErrorRPCStopping,
-  [JSONRPCErrorCode.RPCMessageLength]: errors.ErrorRPCMessageLength,
-  [JSONRPCErrorCode.ParseError]: errors.ErrorRPCParse,
-  [JSONRPCErrorCode.InvalidParams]: errors.ErrorRPCInvalidParams,
-  [JSONRPCErrorCode.HandlerNotFound]: errors.ErrorRPCHandlerFailed,
-  [JSONRPCErrorCode.RPCMissingResponse]: errors.ErrorRPCMissingResponse,
-  [JSONRPCErrorCode.RPCOutputStreamError]: errors.ErrorRPCOutputStreamError,
-  [JSONRPCErrorCode.RPCTimedOut]: errors.ErrorRPCTimedOut,
-  [JSONRPCErrorCode.RPCStreamEnded]: errors.ErrorRPCStreamEnded,
-  [JSONRPCErrorCode.RPCConnectionLocal]: errors.ErrorRPCConnectionLocal,
-  [JSONRPCErrorCode.RPCConnectionPeer]: errors.ErrorRPCConnectionPeer,
-  [JSONRPCErrorCode.RPCConnectionKeepAliveTimeOut]:
-    errors.ErrorRPCConnectionKeepAliveTimeOut,
-  [JSONRPCErrorCode.RPCConnectionInternal]: errors.ErrorRPCConnectionInternal,
-  [JSONRPCErrorCode.MissingHeader]: errors.ErrorMissingHeader,
-  [JSONRPCErrorCode.HandlerAborted]: errors.ErrorRPCHandlerFailed,
-  [JSONRPCErrorCode.MissingCaller]: errors.ErrorMissingCaller,
-};
-
 /**
  * Deserializes an error response object into an ErrorRPCRemote instance.
  * @param {any} errorResponse - The error response object.
@@ -588,8 +544,6 @@ export {
   getHandlerTypes,
   parseHeadStream,
   promise,
-  JSONRPCErrorCode,
-  rpcProtocolErrors,
   isObject,
   sleep,
   never,
