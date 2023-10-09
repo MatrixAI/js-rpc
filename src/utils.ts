@@ -215,6 +215,7 @@ function parseJSONRPCMessage<T extends JSONValue>(
  * Serializes an Error instance into a JSONValue object suitable for RPC.
  * @param {Error} error - The Error instance to serialize.
  * @returns {JSONValue} The serialized ErrorRPC instance.
+ * @throws {TypeError} If the error is an instance of {@link Symbol}, {@link BigInt} or {@link Function}.
  */
 function fromError(error: any): JSONValue {
   // TODO: Linked-List traversal must be done iteractively rather than recusively to prevent stack overflow.
@@ -315,11 +316,9 @@ const filterSensitive = (keyToRemove) => {
 
 /**
  * Deserializes an error response object into an ErrorRPCRemote instance.
- * @param {any} errorResponse - The error response object.
- * @returns {ErrorRPCRemote<any>} The deserialized ErrorRPCRemote instance.
- * @throws {TypeError} If the errorResponse object is invalid.
+ * @param {JSONValue} errorData - The error data object.
+ * @returns {any} The deserialized error.
  */
-
 function toError(errorData: JSONValue): any {
   // If the value is an error then reconstruct it
   if (
