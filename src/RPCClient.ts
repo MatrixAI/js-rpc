@@ -13,8 +13,9 @@ import type {
   ClientManifest,
   RPCStream,
   JSONRPCResponseResult,
+  ToError,
 } from './types';
-import type { ErrorRPC } from './errors';
+import { JSONRPCErrorCode } from './errors';
 import Logger from '@matrixai/logger';
 import { Timer } from '@matrixai/timer';
 import * as middleware from './middleware';
@@ -28,7 +29,7 @@ class RPCClient<M extends ClientManifest> {
   protected idGen: IdGen;
   protected logger: Logger;
   protected streamFactory: StreamFactory;
-  protected toError?: typeof utils.toError;
+  protected toError: ToError;
   protected middlewareFactory: MiddlewareFactory<
     Uint8Array,
     JSONRPCRequest,
@@ -86,7 +87,7 @@ class RPCClient<M extends ClientManifest> {
     middlewareFactory = middleware.defaultClientMiddlewareWrapper(),
     streamKeepAliveTimeoutTime = Infinity,
     logger,
-    toError,
+    toError = utils.toError,
     idGen = () => Promise.resolve(null),
   }: {
     manifest: M;
@@ -100,10 +101,7 @@ class RPCClient<M extends ClientManifest> {
     streamKeepAliveTimeoutTime?: number;
     logger?: Logger;
     idGen?: IdGen;
-    toError?: (
-      errorData: JSONValue,
-      metadata: Record<string, JSONValue>,
-    ) => ErrorRPC<any>;
+    toError?: ToError;
   }) {
     this.idGen = idGen;
     this.callerTypes = utils.getHandlerTypes(manifest);
@@ -472,7 +470,10 @@ class RPCClient<M extends ClientManifest> {
             ...(rpcStream.meta ?? {}),
             command: method,
           };
-          throw utils.toError(messageValue.error, metadata);
+          if (messageValue.error.code === JSONRPCErrorCode.RPCRemote) {
+            throw this.toError(JSON.parse(messageValue.error.data as string), metadata);
+          }
+          throw errors.ErrorRPCProtocol.fromJSON(messageValue.error);
         }
         leadingMessage = messageValue;
       } catch (e) {

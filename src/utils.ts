@@ -16,13 +16,10 @@ import type {
 import { TransformStream } from 'stream/web';
 import { JSONParser } from '@streamparser/json';
 import { AbstractError } from '@matrixai/errors';
-import { JsonableValue } from 'ts-jest';
 import {
   ErrorRPCRemote,
   ErrorRPC,
-  ErrorRPCMethodNotImplemented,
   ErrorRPCConnectionInternal,
-  JSONRPCErrorCode,
   ErrorRPCStopping,
   ErrorRPCMessageLength,
   ErrorRPCParse,
@@ -36,6 +33,8 @@ import {
   ErrorRPCConnectionKeepAliveTimeOut,
   ErrorMissingHeader,
   ErrorMissingCaller,
+  ErrorRPCProtocol,
+  ErrorRPCInvalidParams,
 } from './errors';
 import * as rpcErrors from './errors';
 
@@ -235,21 +234,50 @@ function parseJSONRPCMessage<T extends JSONValue>(
   );
 }
 /**
- * Serializes an ErrorRPC instance into a JSONValue object suitable for RPC.
- * @param {ErrorRPC<any>} error - The ErrorRPC instance to serialize.
- * @param {any} [id] - Optional id for the error object in the RPC response.
+ * Serializes an Error instance into a JSONValue object suitable for RPC.
+ * @param {Error} error - The Error instance to serialize.
  * @returns {JSONValue} The serialized ErrorRPC instance.
  */
 function fromError(
-  errorin: rpcErrors.ErrorRPCProtocol<any>,
-  id?: any,
+  error: any,
 ): JSONValue {
-  const error: { [key: string]: JSONValue } = {
-    errorCode: errorin.code,
-    message: errorin.message,
-    data: errorin.data,
-    type: errorin.constructor.name,
-  };
+  // TODO: Linked-List traversal must be done iteractively rather than recusively to prevent stack overflow.
+  switch (typeof error) {
+    case "symbol":
+    case "bigint":
+    case "function":
+      throw TypeError(`${error} cannot be serialized`);
+  }
+
+  if (error instanceof Error) {
+    const cause = fromError(error.cause);
+    const timestamp: string = ((error as any).timestamp ?? new Date()).toJSON();
+    if (error instanceof AbstractError) {
+      return error.toJSON();
+    }
+    else if (error instanceof AggregateError) {
+      // AggregateError has an `errors` property
+      return {
+        type: error.constructor.name,
+        errors: error.errors.map(fromError),
+        message: error.message,
+        stack: error.stack,
+        timestamp,
+        cause
+      };
+    }
+
+    // If it's some other type of error then only serialise the message and
+    // stack (and the type of the error)
+    return {
+      type: error.name,
+      message: error.message,
+      stack: error.stack,
+      timestamp,
+      cause,
+    };
+  }
+
   return error;
 }
 
@@ -257,7 +285,7 @@ function fromError(
  * Error constructors for non-Polykey rpcErrors
  * Allows these rpcErrors to be reconstructed from RPC metadata
  */
-const standardErrors = {
+const standardErrors: { [key: string]: typeof Error | typeof AggregateError | typeof AbstractError } = {
   Error,
   TypeError,
   SyntaxError,
@@ -267,59 +295,72 @@ const standardErrors = {
   URIError,
   AggregateError,
   AbstractError,
-  ErrorRPCRemote,
-  ErrorRPC,
 };
-/**
- * Creates a replacer function that omits a specific key during serialization.
- * @returns {Function} The replacer function.
- */
-const createReplacer = () => {
-  return (keyToRemove) => {
-    return (key, value) => {
-      if (key === keyToRemove) {
-        return undefined;
-      }
 
-      if (key !== 'code') {
-        if (value instanceof rpcErrors.ErrorRPCProtocol) {
-          return {
-            code: value.code,
-            message: value.message,
-            data: value.data,
-            type: value.constructor.name,
-          };
-        }
-
-        if (value instanceof AggregateError) {
-          return {
-            type: value.constructor.name,
-            data: {
-              errors: value.errors,
-              message: value.message,
-              stack: value.stack,
-            },
-          };
-        }
-      }
-
-      return value;
-    };
-  };
-};
 /**
  * The replacer function to customize the serialization process.
  */
-const filterSensitive = createReplacer();
+const filterSensitive = (keyToRemove) => {
+  return (key, value) => {
+    if (key === keyToRemove) {
+      return undefined;
+    }
 
-const ErrorCodeToErrorType: {
-  [code: number]: new (...args: any[]) => ErrorRPC<any>;
-} = {
+    if (key !== 'code') {
+      if (value instanceof rpcErrors.ErrorRPCProtocol) {
+        return {
+          code: value.code,
+          message: value.message,
+          data: value.data,
+          type: value.constructor.name,
+        };
+      }
+
+      if (value instanceof AggregateError) {
+        return {
+          type: value.constructor.name,
+          data: {
+            errors: value.errors,
+            message: value.message,
+            stack: value.stack,
+          },
+        };
+      }
+    }
+
+    return value;
+  };
+};
+
+const enum JSONRPCErrorCode {
+  ParseError = -32700,
+  InvalidRequest = -32600,
+  MethodNotFound = -32601,
+  InvalidParams = -32602,
+  InternalError = -32603,
+  HandlerNotFound = -32000,
+  RPCStopping = -32001,
+  RPCMessageLength = -32003,
+  RPCMissingResponse = -32004,
+  RPCOutputStreamError = -32005,
+  RPCRemote = -32006,
+  RPCStreamEnded = -32007,
+  RPCTimedOut = -32008,
+  RPCConnectionLocal = -32010,
+  RPCConnectionPeer = -32011,
+  RPCConnectionKeepAliveTimeOut = -32012,
+  RPCConnectionInternal = -32013,
+  MissingHeader = -32014,
+  HandlerAborted = -32015,
+  MissingCaller = -32016,
+}
+
+const rpcProtocolErrors = {
   [JSONRPCErrorCode.RPCRemote]: ErrorRPCRemote,
   [JSONRPCErrorCode.RPCStopping]: ErrorRPCStopping,
   [JSONRPCErrorCode.RPCMessageLength]: ErrorRPCMessageLength,
   [JSONRPCErrorCode.ParseError]: ErrorRPCParse,
-  [JSONRPCErrorCode.InvalidParams]: ErrorRPC,
+  [JSONRPCErrorCode.InvalidParams]: ErrorRPCInvalidParams,
   [JSONRPCErrorCode.HandlerNotFound]: ErrorRPCHandlerFailed,
   [JSONRPCErrorCode.RPCMissingResponse]: ErrorRPCMissingResponse,
   [JSONRPCErrorCode.RPCOutputStreamError]: ErrorRPCOutputStreamError,
@@ -334,57 +375,70 @@ const ErrorCodeToErrorType: {
   [JSONRPCErrorCode.HandlerAborted]: ErrorRPCHandlerFailed,
   [JSONRPCErrorCode.MissingCaller]: ErrorMissingCaller,
 };
+
 /**
  * Deserializes an error response object into an ErrorRPCRemote instance.
  * @param {any} errorResponse - The error response object.
- * @param {any} [metadata] - Optional metadata for the deserialized error.
  * @returns {ErrorRPCRemote<any>} The deserialized ErrorRPCRemote instance.
  * @throws {TypeError} If the errorResponse object is invalid.
  */
 
-function toError(errorData: any, clientMetadata?: any): ErrorRPC<any> {
-  // Parsing if it's a string
-  if (typeof errorData === 'string') {
+function toError(errorData: JSONValue, metadata: JSONValue): any {
+  // If the value is an error then reconstruct it
+  if (
+    errorData != null &&
+    typeof errorData === 'object' &&
+    'type' in errorData &&
+    typeof errorData.type === 'string'
+  ) {
     try {
-      errorData = JSON.parse(errorData);
+      let eClass = standardErrors[errorData.type];
+      if (eClass != null) {
+        let e: Error;
+        switch (eClass) {
+          case AbstractError:
+            e = eClass.fromJSON(errorData);
+            break;
+          case AggregateError:
+            if (
+              !Array.isArray(errorData.errors) ||
+              typeof errorData.message !== 'string' ||
+              ('stack' in errorData && typeof errorData.stack !== 'string')
+            ) {
+              throw new TypeError(`cannot decode JSON to ${errorData.type}`);
+            }
+            e = new eClass(errorData.errors.map(toError), errorData.message);
+            e.stack = errorData.stack as string;
+            break;
+          default:
+            if (
+              typeof errorData.message !== 'string' ||
+              ('stack' in errorData && typeof errorData.stack !== 'string')
+            ) {
+              throw new TypeError(`Cannot decode JSON to ${errorData.type}`);
+            }
+            e = new (eClass as typeof Error)(errorData.message);
+            e.stack = errorData.stack as string;
+            break;
+        }
+        if ((e as any).data == null) {
+          (e as any).data = {};
+        }
+        Object.assign((e as any).data, metadata);
+        Object.assign((e as any).data, errorData);
+        return e;
+      }
     } catch (e) {
-      throw new ErrorRPCConnectionInternal('Unable to parse string to JSON');
+      // If `TypeError` which represents decoding failure
+      // then return value as-is
+      // Any other exception is a bug
+      if (!(e instanceof TypeError)) {
+        throw e;
+      }
     }
   }
-
-  // Check if errorData is an object and not null
-  if (typeof errorData !== 'object' || errorData === null) {
-    throw new ErrorRPCConnectionInternal(
-      'errorData should be a non-null object',
-    );
-  }
-
-  // Define default error values, you can modify this as per your needs
-  let errorCode = -32006;
-  let message = 'Unknown error';
-  let data = {};
-
-  // Check for errorCode and update if exists
-  if ('errorCode' in errorData) {
-    errorCode = errorData.errorCode;
-  }
-
-  if ('message' in errorData) {
-    message = errorData.message;
-  }
-
-  if ('data' in errorData) {
-    data = errorData.data;
-  }
-
-  // Map errorCode to a specific Error type
-  const ErrorType = ErrorCodeToErrorType[errorCode];
-  if (!ErrorType) {
-    throw new ErrorRPC('Unknown Error Code'); // Handle unknown error codes
-  }
-
-  const error = new ErrorType(message, { data, metadata: clientMetadata });
-  return error;
+  // Other values are returned as-is
+  return errorData;
 }
 
 /**
@@ -422,7 +476,7 @@ function clientInputTransformStream<I extends JSONValue>(
  * @param timer - Timer that gets refreshed each time a message is provided.
  */
 function clientOutputTransformStream<O extends JSONValue>(
-  clientMetadata?: JSONValue,
+  clientMetadata: JSONValue,
   timer?: Timer,
 ): TransformStream<JSONRPCResponse<O>, O> {
   return new TransformStream<JSONRPCResponse<O>, O>({
@@ -430,7 +484,12 @@ function clientOutputTransformStream<O extends JSONValue>(
       timer?.refresh();
       // `error` indicates it's an error message
       if ('error' in chunk) {
-        throw toError(chunk.error, clientMetadata);
+        if (chunk.error.code === JSONRPCErrorCode.RPCRemote) {
+          throw toError(JSON.parse(chunk.error.data as string), clientMetadata);
+        }
+        const e = ErrorRPCProtocol.fromJSON(chunk.error);
+        Object.assign(e.data, clientMetadata);
+        throw e;
       }
       controller.enqueue(chunk.result);
     },
@@ -535,6 +594,8 @@ export {
   getHandlerTypes,
   parseHeadStream,
   promise,
+  JSONRPCErrorCode,
+  rpcProtocolErrors,
   isObject,
   sleep,
   never,

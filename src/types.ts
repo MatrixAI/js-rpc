@@ -348,6 +348,10 @@ type HandlerTypes<T> = T extends Handler<
     }
   : never;
 
+type FromError = (error: any) => JSONValue;
+
+type ToError = (errorData: JSONValue, metadata: JSONValue) => any;
+
 export type {
   IdGen,
   JSONRPCRequestMessage,
@@ -376,4 +380,6 @@ export type {
   POJO,
   PromiseDeconstructed,
   HandlerTypes,
+  FromError,
+  ToError
 };

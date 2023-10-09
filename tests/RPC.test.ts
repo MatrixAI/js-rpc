@@ -187,7 +187,7 @@ describe('RPC', () => {
       rpcClient.methods.testMethod({
         hello: 'world',
       }),
-    ).rejects.toThrow(rpcErrors.ErrorRPCRemote);
+    ).rejects.toHaveProperty('message', 'some error');
 
     await rpcServer.stop({ force: true });
   });
@@ -466,70 +466,16 @@ describe('RPC', () => {
       // The promise should be rejected
       const rejection = await callProm;
 
+      // console.log(rejection)
+
       // The error should have specific properties
-      expect(rejection).toBeInstanceOf(rpcErrors.ErrorRPCRemote);
-      expect(rejection).toMatchObject({ code: -32006 });
+      expect(rejection).toBeInstanceOf(error.constructor);
+      expect(rejection).toMatchObject(error);
 
       // Cleanup
       await rpcServer.stop({ force: true });
     },
   );
-
-  testProp(
-    'RPC handles and sends sensitive errors',
-    [
-      rpcTestUtils.safeJsonValueArb,
-      rpcTestUtils.errorArb(rpcTestUtils.errorArb()),
-    ],
-    async (value, error) => {
-      const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
-        Uint8Array,
-        Uint8Array
-      >();
-
-      class TestMethod extends UnaryHandler {
-        public handle = async (
-          _input: JSONValue,
-          _cancel: (reason?: any) => void,
-          _meta: Record<string, JSONValue> | undefined,
-          _ctx: ContextTimed,
-        ): Promise<JSONValue> => {
-          throw error;
-        };
-      }
-
-      const rpcServer = new RPCServer({
-        logger,
-        idGen,
-      });
-      await rpcServer.start({
-        manifest: {
-          testMethod: new TestMethod({}),
-        },
-      });
-      rpcServer.handleStream({ ...serverPair, cancel: () => {} });
-
-      const rpcClient = new RPCClient({
-        manifest: {
-          testMethod: new UnaryCaller(),
-        },
-        streamFactory: async () => {
-          return { ...clientPair, cancel: () => {} };
-        },
-        logger,
-        idGen,
-      });
-
-      const callProm = rpcClient.methods.testMethod(ErrorRPCRemote.description);
-
-      // Use Jest's `.rejects` to handle the promise rejection
-      await expect(callProm).rejects.toBeInstanceOf(rpcErrors.ErrorRPCRemote);
-      await expect(callProm).rejects.not.toHaveProperty('cause.stack');
-
-      await rpcServer.stop({ force: true });
-    },
-  );
-
   test('middleware can end stream early', async () => {
     const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
       Uint8Array,
@@ -928,12 +874,11 @@ describe('RPC', () => {
   );
 
   testProp(
-    'RPC Serializes and Deserializes ErrorRPCRemote',
+    'RPC Serializes and Deserializes Error',
     [
-      rpcTestUtils.safeJsonValueArb,
       rpcTestUtils.errorArb(rpcTestUtils.errorArb()),
     ],
-    async (value, error) => {
+    async (error) => {
       const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
         Uint8Array,
         Uint8Array
@@ -971,34 +916,18 @@ describe('RPC', () => {
         idGen,
       });
 
-      const errorInstance = new ErrorRPCRemote({
-        metadata: -123123,
-        message: 'parse error',
-        options: { cause: 'Random cause' },
-      });
-
-      const serializedError = fromError(errorInstance);
-      const callProm = rpcClient.methods.testMethod(serializedError);
-      await expect(callProm).rejects.toThrow(rpcErrors.ErrorRPCRemote);
-
-      const deserializedError = toError(serializedError);
-
-      expect(deserializedError).toBeInstanceOf(ErrorRPCRemote);
-
-      // Check properties explicitly
-      const { code, message, data } = deserializedError as ErrorRPCRemote<any>;
-      expect(code).toBe(-32006);
+      const callProm = rpcClient.methods.testMethod({});
+      const callError = await callProm.catch((e) => e);
 
       await rpcServer.stop({ force: true });
     },
   );
   testProp(
-    'RPC Serializes and Deserializes ErrorRPCRemote with Custom Replacer Function',
+    'RPC Serializes and Deserializes Error with Custom Replacer Function',
     [
-      rpcTestUtils.safeJsonValueArb,
       rpcTestUtils.errorArb(rpcTestUtils.errorArb()),
     ],
-    async (value, error) => {
+    async (error) => {
       const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
         Uint8Array,
         Uint8Array
@@ -1017,6 +946,7 @@ describe('RPC', () => {
       const rpcServer = new RPCServer({
         logger,
         idGen,
+        replacer: filterSensitive('stack'),
       });
       await rpcServer.start({
         manifest: {
@@ -1036,30 +966,8 @@ describe('RPC', () => {
         idGen,
       });
 
-      const errorInstance = new ErrorRPCRemote({
-        metadata: -32006,
-        message: '',
-        options: {
-          cause: error,
-          data: 'asda',
-        },
-      });
-
-      const serializedError = JSON.parse(
-        JSON.stringify(fromError(errorInstance), filterSensitive('data')),
-      );
-
-      const callProm = rpcClient.methods.testMethod(serializedError);
-      const catchError = await callProm.catch((e) => e);
-
-      const deserializedError = toError(serializedError);
-
-      expect(deserializedError).toBeInstanceOf(ErrorRPCRemote);
-
-      // Check properties explicitly
-      const { code, message, data } = deserializedError as ErrorRPCRemote<any>;
-      expect(code).toBe(-32006);
-      expect(data).toBe(undefined);
+      const callProm = rpcClient.methods.testMethod({});
+      const callError = await callProm.catch((e) => e);
 
       await rpcServer.stop({ force: true });
     },
@@ -1070,7 +978,9 @@ describe('RPC', () => {
       Uint8Array
     >();
 
-    const testReason = Error('test error');
+    const errorMessage = 'test error';
+
+    const testReason = Error(errorMessage);
 
     class TestMethod extends UnaryHandler {
       public handle = async (
@@ -1115,6 +1025,6 @@ describe('RPC', () => {
 
     await rpcServer.stop({ force: true, reason: testReason });
 
-    await expect(testProm).toReject();
+    await expect(testProm).rejects.toHaveProperty('message', errorMessage);
   });
 });

@@ -16,6 +16,7 @@ import * as utils from '@/utils';
 import { fromError } from '@/utils';
 import * as rpcErrors from '@/errors';
 import { ErrorRPC } from '@/errors';
+import { AbstractError } from '@matrixai/errors';
 
 /**
  * This is used to convert regular chunks into randomly sized chunks based on
@@ -260,21 +261,17 @@ const errorArb = (
 ) =>
   cause.chain((cause) =>
     fc.oneof(
-      fc.constant(new rpcErrors.ErrorRPCRemote()),
       fc.constant(new rpcErrors.ErrorRPCMessageLength(undefined)),
       fc.constant(
-        new rpcErrors.ErrorRPCRemote(
-          {
+        new AbstractError("message", {
+          cause,
+          data: {
             command: 'someCommand',
             host: `someHost`,
             port: 0,
-          },
-          undefined,
-          {
-            cause,
-          },
-        ),
-      ),
+          }
+        })
+      )
     ),
   );
 
