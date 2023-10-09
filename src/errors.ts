@@ -1,7 +1,6 @@
 import type { Class } from '@matrixai/errors';
-import type { JSONRPCError, JSONValue } from '@/types';
+import type { JSONRPCError } from '@/types';
 import { AbstractError } from '@matrixai/errors';
-import { JSONRPCErrorCode, rpcProtocolErrors } from './utils';
 
 class ErrorRPC<T> extends AbstractError<T> {
   static description = 'RPC Error';
@@ -159,6 +158,50 @@ class ErrorRPCConnectionInternal<T> extends ErrorRPCProtocol<T> {
   code = JSONRPCErrorCode.RPCConnectionInternal;
 }
 
+const enum JSONRPCErrorCode {
+  ParseError = -32700,
+  InvalidRequest = -32600,
+  MethodNotFound = -32601,
+  InvalidParams = -32602,
+  InternalError = -32603,
+  HandlerNotFound = -32000,
+  RPCStopping = -32001,
+  RPCMessageLength = -32003,
+  RPCMissingResponse = -32004,
+  RPCOutputStreamError = -32005,
+  RPCRemote = -32006,
+  RPCStreamEnded = -32007,
+  RPCTimedOut = -32008,
+  RPCConnectionLocal = -32010,
+  RPCConnectionPeer = -32011,
+  RPCConnectionKeepAliveTimeOut = -32012,
+  RPCConnectionInternal = -32013,
+  MissingHeader = -32014,
+  HandlerAborted = -32015,
+  MissingCaller = -32016,
+}
+
+const rpcProtocolErrors = {
+  [JSONRPCErrorCode.RPCRemote]: ErrorRPCRemote,
+  [JSONRPCErrorCode.RPCStopping]: ErrorRPCStopping,
+  [JSONRPCErrorCode.RPCMessageLength]: ErrorRPCMessageLength,
+  [JSONRPCErrorCode.ParseError]: ErrorRPCParse,
+  [JSONRPCErrorCode.InvalidParams]: ErrorRPCInvalidParams,
+  [JSONRPCErrorCode.HandlerNotFound]: ErrorRPCHandlerFailed,
+  [JSONRPCErrorCode.RPCMissingResponse]: ErrorRPCMissingResponse,
+  [JSONRPCErrorCode.RPCOutputStreamError]: ErrorRPCOutputStreamError,
+  [JSONRPCErrorCode.RPCTimedOut]: ErrorRPCTimedOut,
+  [JSONRPCErrorCode.RPCStreamEnded]: ErrorRPCStreamEnded,
+  [JSONRPCErrorCode.RPCConnectionLocal]: ErrorRPCConnectionLocal,
+  [JSONRPCErrorCode.RPCConnectionPeer]: ErrorRPCConnectionPeer,
+  [JSONRPCErrorCode.RPCConnectionKeepAliveTimeOut]:
+  ErrorRPCConnectionKeepAliveTimeOut,
+  [JSONRPCErrorCode.RPCConnectionInternal]: ErrorRPCConnectionInternal,
+  [JSONRPCErrorCode.MissingHeader]: ErrorMissingHeader,
+  [JSONRPCErrorCode.HandlerAborted]: ErrorRPCHandlerFailed,
+  [JSONRPCErrorCode.MissingCaller]: ErrorMissingCaller,
+};
+
 export {
   ErrorRPC,
   ErrorRPCServer,
@@ -185,4 +228,5 @@ export {
   ErrorRPCCallerFailed,
   ErrorMissingCaller,
   JSONRPCErrorCode,
+  rpcProtocolErrors,
 };

@@ -16,27 +16,7 @@ import type {
 import { TransformStream } from 'stream/web';
 import { JSONParser } from '@streamparser/json';
 import { AbstractError } from '@matrixai/errors';
-import {
-  ErrorRPCRemote,
-  ErrorRPC,
-  ErrorRPCConnectionInternal,
-  ErrorRPCStopping,
-  ErrorRPCMessageLength,
-  ErrorRPCParse,
-  ErrorRPCHandlerFailed,
-  ErrorRPCMissingResponse,
-  ErrorRPCOutputStreamError,
-  ErrorRPCTimedOut,
-  ErrorRPCStreamEnded,
-  ErrorRPCConnectionLocal,
-  ErrorRPCConnectionPeer,
-  ErrorRPCConnectionKeepAliveTimeOut,
-  ErrorMissingHeader,
-  ErrorMissingCaller,
-  ErrorRPCProtocol,
-  ErrorRPCInvalidParams,
-} from './errors';
-import * as rpcErrors from './errors';
+import * as errors from './errors';
 
 // Importing PK funcs and utils which are essential for RPC
 function isObject(o: unknown): o is object {
@@ -63,13 +43,13 @@ function parseJSONRPCRequest<T extends JSONValue>(
   message: unknown,
 ): JSONRPCRequest<T> {
   if (!isObject(message)) {
-    throw new rpcErrors.ErrorRPCParse('must be a JSON POJO');
+    throw new errors.ErrorRPCParse('must be a JSON POJO');
   }
   if (!('method' in message)) {
-    throw new rpcErrors.ErrorRPCParse('`method` property must be defined');
+    throw new errors.ErrorRPCParse('`method` property must be defined');
   }
   if (typeof message.method !== 'string') {
-    throw new rpcErrors.ErrorRPCParse('`method` property must be a string');
+    throw new errors.ErrorRPCParse('`method` property must be a string');
   }
   // If ('params' in message && !utils.isObject(message.params)) {
   //   throw new rpcErrors.ErrorRPCParse('`params` property must be a POJO');
@@ -82,14 +62,14 @@ function parseJSONRPCRequestMessage<T extends JSONValue>(
 ): JSONRPCRequestMessage<T> {
   const jsonRequest = parseJSONRPCRequest(message);
   if (!('id' in jsonRequest)) {
-    throw new rpcErrors.ErrorRPCParse('`id` property must be defined');
+    throw new errors.ErrorRPCParse('`id` property must be defined');
   }
   if (
     typeof jsonRequest.id !== 'string' &&
     typeof jsonRequest.id !== 'number' &&
     jsonRequest.id !== null
   ) {
-    throw new rpcErrors.ErrorRPCParse(
+    throw new errors.ErrorRPCParse(
       '`id` property must be a string, number or null',
     );
   }
@@ -101,7 +81,7 @@ function parseJSONRPCRequestNotification<T extends JSONValue>(
 ): JSONRPCRequestNotification<T> {
   const jsonRequest = parseJSONRPCRequest(message);
   if ('id' in jsonRequest) {
-    throw new rpcErrors.ErrorRPCParse('`id` property must not be defined');
+    throw new errors.ErrorRPCParse('`id` property must not be defined');
   }
   return jsonRequest as JSONRPCRequestNotification<T>;
 }
@@ -110,26 +90,26 @@ function parseJSONRPCResponseResult<T extends JSONValue>(
   message: unknown,
 ): JSONRPCResponseResult<T> {
   if (!isObject(message)) {
-    throw new rpcErrors.ErrorRPCParse('must be a JSON POJO');
+    throw new errors.ErrorRPCParse('must be a JSON POJO');
   }
   if (!('result' in message)) {
-    throw new rpcErrors.ErrorRPCParse('`result` property must be defined');
+    throw new errors.ErrorRPCParse('`result` property must be defined');
   }
   if ('error' in message) {
-    throw new rpcErrors.ErrorRPCParse('`error` property must not be defined');
+    throw new errors.ErrorRPCParse('`error` property must not be defined');
   }
   // If (!utils.isObject(message.result)) {
   //   throw new rpcErrors.ErrorRPCParse('`result` property must be a POJO');
   // }
   if (!('id' in message)) {
-    throw new rpcErrors.ErrorRPCParse('`id` property must be defined');
+    throw new errors.ErrorRPCParse('`id` property must be defined');
   }
   if (
     typeof message.id !== 'string' &&
     typeof message.id !== 'number' &&
     message.id !== null
   ) {
-    throw new rpcErrors.ErrorRPCParse(
+    throw new errors.ErrorRPCParse(
       '`id` property must be a string, number or null',
     );
   }
@@ -138,24 +118,24 @@ function parseJSONRPCResponseResult<T extends JSONValue>(
 
 function parseJSONRPCResponseError(message: unknown): JSONRPCResponseError {
   if (!isObject(message)) {
-    throw new rpcErrors.ErrorRPCParse('must be a JSON POJO');
+    throw new errors.ErrorRPCParse('must be a JSON POJO');
   }
   if ('result' in message) {
-    throw new rpcErrors.ErrorRPCParse('`result` property must not be defined');
+    throw new errors.ErrorRPCParse('`result` property must not be defined');
   }
   if (!('error' in message)) {
-    throw new rpcErrors.ErrorRPCParse('`error` property must be defined');
+    throw new errors.ErrorRPCParse('`error` property must be defined');
   }
   parseJSONRPCError(message.error);
   if (!('id' in message)) {
-    throw new rpcErrors.ErrorRPCParse('`id` property must be defined');
+    throw new errors.ErrorRPCParse('`id` property must be defined');
   }
   if (
     typeof message.id !== 'string' &&
     typeof message.id !== 'number' &&
     message.id !== null
   ) {
-    throw new rpcErrors.ErrorRPCParse(
+    throw new errors.ErrorRPCParse(
       '`id` property must be a string, number or null',
     );
   }
@@ -164,19 +144,19 @@ function parseJSONRPCResponseError(message: unknown): JSONRPCResponseError {
 
 function parseJSONRPCError(message: unknown): JSONRPCError {
   if (!isObject(message)) {
-    throw new rpcErrors.ErrorRPCParse('must be a JSON POJO');
+    throw new errors.ErrorRPCParse('must be a JSON POJO');
   }
   if (!('code' in message)) {
-    throw new rpcErrors.ErrorRPCParse('`code` property must be defined');
+    throw new errors.ErrorRPCParse('`code` property must be defined');
   }
   if (typeof message.code !== 'number') {
-    throw new rpcErrors.ErrorRPCParse('`code` property must be a number');
+    throw new errors.ErrorRPCParse('`code` property must be a number');
   }
   if (!('message' in message)) {
-    throw new rpcErrors.ErrorRPCParse('`message` property must be defined');
+    throw new errors.ErrorRPCParse('`message` property must be defined');
   }
   if (typeof message.message !== 'string') {
-    throw new rpcErrors.ErrorRPCParse('`message` property must be a string');
+    throw new errors.ErrorRPCParse('`message` property must be a string');
   }
   // If ('data' in message && !utils.isObject(message.data)) {
   //   throw new rpcErrors.ErrorRPCParse('`data` property must be a POJO');
@@ -188,7 +168,7 @@ function parseJSONRPCResponse<T extends JSONValue>(
   message: unknown,
 ): JSONRPCResponse<T> {
   if (!isObject(message)) {
-    throw new rpcErrors.ErrorRPCParse('must be a JSON POJO');
+    throw new errors.ErrorRPCParse('must be a JSON POJO');
   }
   try {
     return parseJSONRPCResponseResult(message);
@@ -200,7 +180,7 @@ function parseJSONRPCResponse<T extends JSONValue>(
   } catch (e) {
     // Do nothing
   }
-  throw new rpcErrors.ErrorRPCParse(
+  throw new errors.ErrorRPCParse(
     'structure did not match a `JSONRPCResponse`',
   );
 }
@@ -209,13 +189,13 @@ function parseJSONRPCMessage<T extends JSONValue>(
   message: unknown,
 ): JSONRPCMessage<T> {
   if (!isObject(message)) {
-    throw new rpcErrors.ErrorRPCParse('must be a JSON POJO');
+    throw new errors.ErrorRPCParse('must be a JSON POJO');
   }
   if (!('jsonrpc' in message)) {
-    throw new rpcErrors.ErrorRPCParse('`jsonrpc` property must be defined');
+    throw new errors.ErrorRPCParse('`jsonrpc` property must be defined');
   }
   if (message.jsonrpc !== '2.0') {
-    throw new rpcErrors.ErrorRPCParse(
+    throw new errors.ErrorRPCParse(
       '`jsonrpc` property must be a string of "2.0"',
     );
   }
@@ -229,7 +209,7 @@ function parseJSONRPCMessage<T extends JSONValue>(
   } catch {
     // Do nothing
   }
-  throw new rpcErrors.ErrorRPCParse(
+  throw new errors.ErrorRPCParse(
     'Message structure did not match a `JSONRPCMessage`',
   );
 }
@@ -307,7 +287,7 @@ const filterSensitive = (keyToRemove) => {
     }
 
     if (key !== 'code') {
-      if (value instanceof rpcErrors.ErrorRPCProtocol) {
+      if (value instanceof errors.ErrorRPCProtocol) {
         return {
           code: value.code,
           message: value.message,
@@ -330,50 +310,6 @@ const filterSensitive = (keyToRemove) => {
 
     return value;
   };
-};
-
-const enum JSONRPCErrorCode {
-  ParseError = -32700,
-  InvalidRequest = -32600,
-  MethodNotFound = -32601,
-  InvalidParams = -32602,
-  InternalError = -32603,
-  HandlerNotFound = -32000,
-  RPCStopping = -32001,
-  RPCMessageLength = -32003,
-  RPCMissingResponse = -32004,
-  RPCOutputStreamError = -32005,
-  RPCRemote = -32006,
-  RPCStreamEnded = -32007,
-  RPCTimedOut = -32008,
-  RPCConnectionLocal = -32010,
-  RPCConnectionPeer = -32011,
-  RPCConnectionKeepAliveTimeOut = -32012,
-  RPCConnectionInternal = -32013,
-  MissingHeader = -32014,
-  HandlerAborted = -32015,
-  MissingCaller = -32016,
-}
-
-const rpcProtocolErrors = {
-  [JSONRPCErrorCode.RPCRemote]: ErrorRPCRemote,
-  [JSONRPCErrorCode.RPCStopping]: ErrorRPCStopping,
-  [JSONRPCErrorCode.RPCMessageLength]: ErrorRPCMessageLength,
-  [JSONRPCErrorCode.ParseError]: ErrorRPCParse,
-  [JSONRPCErrorCode.InvalidParams]: ErrorRPCInvalidParams,
-  [JSONRPCErrorCode.HandlerNotFound]: ErrorRPCHandlerFailed,
-  [JSONRPCErrorCode.RPCMissingResponse]: ErrorRPCMissingResponse,
-  [JSONRPCErrorCode.RPCOutputStreamError]: ErrorRPCOutputStreamError,
-  [JSONRPCErrorCode.RPCTimedOut]: ErrorRPCTimedOut,
-  [JSONRPCErrorCode.RPCStreamEnded]: ErrorRPCStreamEnded,
-  [JSONRPCErrorCode.RPCConnectionLocal]: ErrorRPCConnectionLocal,
-  [JSONRPCErrorCode.RPCConnectionPeer]: ErrorRPCConnectionPeer,
-  [JSONRPCErrorCode.RPCConnectionKeepAliveTimeOut]:
-    ErrorRPCConnectionKeepAliveTimeOut,
-  [JSONRPCErrorCode.RPCConnectionInternal]: ErrorRPCConnectionInternal,
-  [JSONRPCErrorCode.MissingHeader]: ErrorMissingHeader,
-  [JSONRPCErrorCode.HandlerAborted]: ErrorRPCHandlerFailed,
-  [JSONRPCErrorCode.MissingCaller]: ErrorMissingCaller,
 };
 
 /**
@@ -484,10 +420,10 @@ function clientOutputTransformStream<O extends JSONValue>(
       timer?.refresh();
       // `error` indicates it's an error message
       if ('error' in chunk) {
-        if (chunk.error.code === JSONRPCErrorCode.RPCRemote) {
+        if (chunk.error.code === errors.JSONRPCErrorCode.RPCRemote) {
           throw toError(JSON.parse(chunk.error.data as string), clientMetadata);
         }
-        const e = ErrorRPCProtocol.fromJSON(chunk.error);
+        const e = errors.ErrorRPCProtocol.fromJSON(chunk.error);
         Object.assign(e.data, clientMetadata);
         throw e;
       }
@@ -551,12 +487,12 @@ function parseHeadStream<T extends JSONRPCMessage>(
             bytesWritten += chunk.byteLength;
             parser.write(chunk);
           } catch (e) {
-            throw new rpcErrors.ErrorRPCParse(undefined, {
+            throw new errors.ErrorRPCParse(undefined, {
               cause: e,
             });
           }
           if (bytesWritten > bufferByteLimit) {
-            throw new rpcErrors.ErrorRPCMessageLength();
+            throw new errors.ErrorRPCMessageLength();
           }
         } else {
           // Wait for parser to end
@@ -575,7 +511,7 @@ function parseHeadStream<T extends JSONRPCMessage>(
 }
 
 function never(): never {
-  throw new ErrorRPC('This function should never be called');
+  throw new errors.ErrorRPC('This function should never be called');
 }
 
 export {
@@ -594,8 +530,6 @@ export {
   getHandlerTypes,
   parseHeadStream,
   promise,
-  JSONRPCErrorCode,
-  rpcProtocolErrors,
   isObject,
   sleep,
   never,
