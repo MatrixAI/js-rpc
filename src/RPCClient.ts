@@ -1,87 +1,34 @@
 import type { WritableStream, ReadableStream } from 'stream/web';
 import type { ContextTimedInput } from '@matrixai/contexts';
 import type {
+  IdGen,
   HandlerType,
+  JSONValue,
   JSONRPCRequestMessage,
+  JSONRPCRequest,
+  JSONRPCResponse,
+  MiddlewareFactory,
+  MapCallers,
   StreamFactory,
   ClientManifest,
   RPCStream,
   JSONRPCResponseResult,
 } from './types';
-import type { JSONValue, IdGen } from './types';
-import type {
-  JSONRPCRequest,
-  JSONRPCResponse,
-  MiddlewareFactory,
-  MapCallers,
-} from './types';
-import type { ErrorRPCRemote } from './errors';
+import type { ErrorRPC } from './errors';
 import Logger from '@matrixai/logger';
 import { Timer } from '@matrixai/timer';
-import * as rpcUtilsMiddleware from './middleware';
-import * as rpcErrors from './errors';
-import * as rpcUtils from './utils';
-import { promise } from './utils';
-import { ErrorRPCStreamEnded, never } from './errors';
-import * as events from './events';
-import { toError } from './utils';
+import * as middleware from './middleware';
+import * as errors from './errors';
+import * as utils from './utils';
 
 const timerCleanupReasonSymbol = Symbol('timerCleanUpReasonSymbol');
 
-interface RPCClient<M extends ClientManifest> {}
-
 class RPCClient<M extends ClientManifest> {
-  /**
-   * @param obj
-   * @param obj.manifest - Client manifest that defines the types for the rpc
-   * methods.
-   * @param obj.streamFactory - An arrow function that when called, creates a
-   * new stream for each rpc method call.
-   * @param obj.middlewareFactory - Middleware used to process the rpc messages.
-   * The middlewareFactory needs to be a function that creates a pair of
-   * transform streams that convert `JSONRPCRequest` to `Uint8Array` on the forward
-   * path and `Uint8Array` to `JSONRPCResponse` on the reverse path.
-   * @param obj.streamKeepAliveTimeoutTime - Timeout time used if no timeout timer was provided when making a call.
-   * Defaults to 60,000 milliseconds.
-   * for a client call.
-   * @param obj.logger
-   */
-  static async createRPCClient<M extends ClientManifest>({
-    manifest,
-    streamFactory,
-    middlewareFactory = rpcUtilsMiddleware.defaultClientMiddlewareWrapper(),
-    streamKeepAliveTimeoutTime = Infinity, // 1 minute
-    logger = new Logger(this.name),
-    idGen = () => Promise.resolve(null),
-  }: {
-    manifest: M;
-    streamFactory: StreamFactory;
-    middlewareFactory?: MiddlewareFactory<
-      Uint8Array,
-      JSONRPCRequest,
-      JSONRPCResponse,
-      Uint8Array
-    >;
-    streamKeepAliveTimeoutTime?: number;
-    logger?: Logger;
-    idGen?: IdGen;
-  }) {
-    logger.info(`Creating ${this.name}`);
-    const rpcClient = new this({
-      manifest,
-      streamFactory,
-      middlewareFactory,
-      streamKeepAliveTimeoutTime: streamKeepAliveTimeoutTime,
-      logger,
-      idGen,
-    });
-    logger.info(`Created ${this.name}`);
-    return rpcClient;
-  }
   protected onTimeoutCallback?: () => void;
   protected idGen: IdGen;
   protected logger: Logger;
   protected streamFactory: StreamFactory;
+  protected toError?: typeof utils.toError;
   protected middlewareFactory: MiddlewareFactory<
     Uint8Array,
     JSONRPCRequest,
@@ -118,46 +65,53 @@ class RPCClient<M extends ClientManifest> {
     },
   );
 
+  /**
+   * @param obj
+   * @param obj.manifest - Client manifest that defines the types for the rpc
+   * methods.
+   * @param obj.streamFactory - An arrow function that when called, creates a
+   * new stream for each rpc method call.
+   * @param obj.middlewareFactory - Middleware used to process the rpc messages.
+   * The middlewareFactory needs to be a function that creates a pair of
+   * transform streams that convert `JSONRPCRequest` to `Uint8Array` on the forward
+   * path and `Uint8Array` to `JSONRPCResponse` on the reverse path.
+   * @param obj.streamKeepAliveTimeoutTime - Timeout time used if no timeout timer was provided when making a call.
+   * Defaults to 60,000 milliseconds.
+   * for a client call.
+   * @param obj.logger
+   */
   public constructor({
     manifest,
     streamFactory,
-    middlewareFactory,
-    streamKeepAliveTimeoutTime,
+    middlewareFactory = middleware.defaultClientMiddlewareWrapper(),
+    streamKeepAliveTimeoutTime = Infinity,
     logger,
+    toError,
     idGen = () => Promise.resolve(null),
   }: {
     manifest: M;
     streamFactory: StreamFactory;
-    middlewareFactory: MiddlewareFactory<
+    middlewareFactory?: MiddlewareFactory<
       Uint8Array,
       JSONRPCRequest,
       JSONRPCResponse,
       Uint8Array
     >;
-    streamKeepAliveTimeoutTime: number;
-    logger: Logger;
-    idGen: IdGen;
+    streamKeepAliveTimeoutTime?: number;
+    logger?: Logger;
+    idGen?: IdGen;
+    toError?: (
+      errorData: JSONValue,
+      metadata: Record<string, JSONValue>,
+    ) => ErrorRPC<any>;
   }) {
     this.idGen = idGen;
-    this.callerTypes = rpcUtils.getHandlerTypes(manifest);
+    this.callerTypes = utils.getHandlerTypes(manifest);
     this.streamFactory = streamFactory;
     this.middlewareFactory = middlewareFactory;
     this.streamKeepAliveTimeoutTime = streamKeepAliveTimeoutTime;
-    this.logger = logger;
-  }
-
-  public async destroy({
-    errorCode = rpcErrors.JSONRPCErrorCode.RPCStopping,
-    errorMessage = '',
-    force = true,
-  }: {
-    errorCode?: number;
-    errorMessage?: string;
-    force?: boolean;
-  } = {}): Promise<void> {
-    this.logger.info(`Destroying ${this.constructor.name}`);
-
-    this.logger.info(`Destroyed ${this.constructor.name}`);
+    this.logger = logger ?? new Logger(this.constructor.name);
+    this.toError = toError;
   }
 
   public get methods(): MapCallers<M> {
@@ -185,7 +139,7 @@ class RPCClient<M extends ClientManifest> {
       await writer.write(parameters);
       const output = await reader.read();
       if (output.done) {
-        throw new rpcErrors.ErrorMissingCaller('Missing response', {
+        throw new errors.ErrorMissingCaller('Missing response', {
           cause: ctx.signal?.reason,
         });
       }
@@ -248,7 +202,7 @@ class RPCClient<M extends ClientManifest> {
     const reader = callerInterface.readable.getReader();
     const output = reader.read().then(({ value, done }) => {
       if (done) {
-        throw new rpcErrors.ErrorMissingCaller('Missing response', {
+        throw new errors.ErrorMissingCaller('Missing response', {
           cause: ctx.signal?.reason,
         });
       }
@@ -279,7 +233,7 @@ class RPCClient<M extends ClientManifest> {
     const abortController = new AbortController();
     const signal = abortController.signal;
     // A promise that will reject if there is an abort signal or timeout
-    const abortRaceProm = promise<never>();
+    const abortRaceProm = utils.promise<never>();
     // Prevent unhandled rejection when we're done with the promise
     abortRaceProm.p.catch(() => {});
     const abortRacePromHandler = () => {
@@ -313,7 +267,7 @@ class RPCClient<M extends ClientManifest> {
       signal.addEventListener('abort', abortRacePromHandler);
     };
     // Setting up abort events for timeout
-    const timeoutError = new rpcErrors.ErrorRPCTimedOut(
+    const timeoutError = new errors.ErrorRPCTimedOut(
       'Error RPC has timed out',
       { cause: ctx.signal?.reason },
     );
@@ -335,14 +289,14 @@ class RPCClient<M extends ClientManifest> {
     } catch (e) {
       cleanUp();
       void streamFactoryProm.then((stream) =>
-        stream.cancel(ErrorRPCStreamEnded),
+        stream.cancel(errors.ErrorRPCStreamEnded),
       );
       throw e;
     }
     void timer.then(
       () => {
         rpcStream.cancel(
-          new rpcErrors.ErrorRPCTimedOut('RPC has timed out', {
+          new errors.ErrorRPCTimedOut('RPC has timed out', {
             cause: ctx.signal?.reason,
           }),
         );
@@ -358,9 +312,11 @@ class RPCClient<M extends ClientManifest> {
       ...(rpcStream.meta ?? {}),
       command: method,
     };
-    const outputMessageTransformStream =
-      rpcUtils.clientOutputTransformStream<O>(metadata, refreshingTimer);
-    const inputMessageTransformStream = rpcUtils.clientInputTransformStream<I>(
+    const outputMessageTransformStream = utils.clientOutputTransformStream<O>(
+      metadata,
+      refreshingTimer,
+    );
+    const inputMessageTransformStream = utils.clientInputTransformStream<I>(
       method,
       refreshingTimer,
     );
@@ -425,7 +381,7 @@ class RPCClient<M extends ClientManifest> {
     const abortController = new AbortController();
     const signal = abortController.signal;
     // A promise that will reject if there is an abort signal or timeout
-    const abortRaceProm = promise<never>();
+    const abortRaceProm = utils.promise<never>();
     // Prevent unhandled rejection when we're done with the promise
     abortRaceProm.p.catch(() => {});
     const abortRacePromHandler = () => {
@@ -459,7 +415,7 @@ class RPCClient<M extends ClientManifest> {
       signal.addEventListener('abort', abortRacePromHandler);
     };
     // Setting up abort events for timeout
-    const timeoutError = new rpcErrors.ErrorRPCTimedOut('RPC has timed out', {
+    const timeoutError = new errors.ErrorRPCTimedOut('RPC has timed out', {
       cause: ctx.signal?.reason,
     });
     void timer.then(
@@ -473,7 +429,7 @@ class RPCClient<M extends ClientManifest> {
       [JSONValue, RPCStream<Uint8Array, Uint8Array>]
     > => {
       if (signal.aborted) throw signal.reason;
-      const abortProm = promise<never>();
+      const abortProm = utils.promise<never>();
       // Ignore error if orphaned
       void abortProm.p.catch(() => {});
       signal.addEventListener(
@@ -497,8 +453,8 @@ class RPCClient<M extends ClientManifest> {
       };
       await tempWriter.write(Buffer.from(JSON.stringify(header)));
       tempWriter.releaseLock();
-      const headTransformStream = rpcUtils.parseHeadStream(
-        rpcUtils.parseJSONRPCResponse,
+      const headTransformStream = utils.parseHeadStream(
+        utils.parseJSONRPCResponse,
       );
       void rpcStream.readable
         // Allow us to re-use the readable after reading the first message
@@ -510,18 +466,18 @@ class RPCClient<M extends ClientManifest> {
       try {
         const message = await Promise.race([tempReader.read(), abortProm.p]);
         const messageValue = message.value as JSONRPCResponse;
-        if (message.done) never();
+        if (message.done) utils.never();
         if ('error' in messageValue) {
           const metadata = {
             ...(rpcStream.meta ?? {}),
             command: method,
           };
-          throw toError(messageValue.error.data, metadata);
+          throw utils.toError(messageValue.error, metadata);
         }
         leadingMessage = messageValue;
       } catch (e) {
         rpcStream.cancel(
-          new ErrorRPCStreamEnded('RPC Stream Ended', { cause: e }),
+          new errors.ErrorRPCStreamEnded('RPC Stream Ended', { cause: e }),
         );
         throw e;
       }

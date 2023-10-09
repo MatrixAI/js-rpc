@@ -12,14 +12,7 @@ import ServerCaller from '@/callers/ServerCaller';
 import ClientCaller from '@/callers/ClientCaller';
 import UnaryCaller from '@/callers/UnaryCaller';
 import * as rpcUtilsMiddleware from '@/middleware';
-import {
-  ErrorRPC,
-  ErrorRPCHandlerFailed,
-  ErrorRPCParse,
-  ErrorRPCRemote,
-  ErrorRPCTimedOut,
-  JSONRPCErrorCode,
-} from '@/errors';
+import { ErrorRPCRemote } from '@/errors';
 import * as rpcErrors from '@/errors';
 import RPCClient from '@/RPCClient';
 import RPCServer from '@/RPCServer';
@@ -29,8 +22,7 @@ import RawHandler from '@/handlers/RawHandler';
 import ServerHandler from '@/handlers/ServerHandler';
 import UnaryHandler from '@/handlers/UnaryHandler';
 import ClientHandler from '@/handlers/ClientHandler';
-import { RPCStream } from '@/types';
-import { fromError, promise, filterSensitive, toError } from '@/utils';
+import { fromError, filterSensitive, toError } from '@/utils';
 import * as rpcTestUtils from './utils';
 
 describe('RPC', () => {
@@ -62,19 +54,21 @@ describe('RPC', () => {
           });
         };
       }
-      const rpcServer = await RPCServer.start({
+      const rpcServer = new RPCServer({
+        logger,
+        idGen,
+      });
+      await rpcServer.start({
         manifest: {
           testMethod: new TestMethod({}),
         },
-        logger,
-        idGen,
       });
       rpcServer.handleStream({
         ...serverPair,
         cancel: () => {},
       });
 
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {
           testMethod: new RawCaller(),
         },
@@ -108,7 +102,6 @@ describe('RPC', () => {
       expect(await outputResult).toStrictEqual(values);
       await pipeProm;
       await rpcServer.stop({ force: true });
-      await rpcClient.destroy();
     },
   );
   test('RPC communication with raw stream times out waiting for leading message', async () => {
@@ -122,7 +115,7 @@ describe('RPC', () => {
       }
     })();
 
-    const rpcClient = await RPCClient.createRPCClient({
+    const rpcClient = new RPCClient({
       manifest: {
         testMethod: new RawCaller(),
       },
@@ -144,7 +137,6 @@ describe('RPC', () => {
         { timer: 100 },
       ),
     ).rejects.toThrow(rpcErrors.ErrorRPCTimedOut);
-    await rpcClient.destroy();
   });
   test('RPC communication with raw stream, raw handler throws', async () => {
     const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
@@ -163,19 +155,21 @@ describe('RPC', () => {
       };
     }
 
-    const rpcServer = await RPCServer.start({
+    const rpcServer = new RPCServer({
+      logger,
+      idGen,
+    });
+    await rpcServer.start({
       manifest: {
         testMethod: new TestMethod({}),
       },
-      logger,
-      idGen,
     });
     rpcServer.handleStream({
       ...serverPair,
       cancel: () => {},
     });
 
-    const rpcClient = await RPCClient.createRPCClient({
+    const rpcClient = new RPCClient({
       manifest: {
         testMethod: new RawCaller(),
       },
@@ -196,7 +190,6 @@ describe('RPC', () => {
     ).rejects.toThrow(rpcErrors.ErrorRPCRemote);
 
     await rpcServer.stop({ force: true });
-    await rpcClient.destroy();
   });
   testProp(
     'RPC communication with duplex stream',
@@ -216,19 +209,21 @@ describe('RPC', () => {
           yield* input;
         };
       }
-      const rpcServer = await RPCServer.start({
+      const rpcServer = new RPCServer({
+        logger,
+        idGen,
+      });
+      await rpcServer.start({
         manifest: {
           testMethod: new TestMethod({}),
         },
-        logger,
-        idGen,
       });
       rpcServer.handleStream({
         ...serverPair,
         cancel: () => {},
       });
 
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {
           testMethod: new DuplexCaller(),
         },
@@ -254,7 +249,6 @@ describe('RPC', () => {
       expect(result.value).toBeUndefined();
       expect(result.done).toBeTrue();
       await rpcServer.stop({ force: true });
-      await rpcClient.destroy();
     },
   );
   testProp(
@@ -276,19 +270,21 @@ describe('RPC', () => {
         };
       }
 
-      const rpcServer = await RPCServer.start({
+      const rpcServer = new RPCServer({
+        logger,
+        idGen,
+      });
+      await rpcServer.start({
         manifest: {
           testMethod: new TestMethod({}),
         },
-        logger,
-        idGen,
       });
       rpcServer.handleStream({
         ...serverPair,
         cancel: () => {},
       });
 
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {
           testMethod: new ServerCaller<number, number>(),
         },
@@ -310,7 +306,6 @@ describe('RPC', () => {
       }
       expect(outputs.length).toEqual(value);
       await rpcServer.stop({ force: true });
-      await rpcClient.destroy();
     },
   );
   testProp(
@@ -334,19 +329,21 @@ describe('RPC', () => {
         };
       }
 
-      const rpcServer = await RPCServer.start({
+      const rpcServer = new RPCServer({
+        logger,
+        idGen,
+      });
+      await rpcServer.start({
         manifest: {
           testMethod: new TestMethod({}),
         },
-        logger,
-        idGen,
       });
       rpcServer.handleStream({
         ...serverPair,
         cancel: () => {},
       });
 
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {
           testMethod: new ClientCaller<number, number>(),
         },
@@ -369,7 +366,6 @@ describe('RPC', () => {
       const expectedResult = values.reduce((p, c) => p + c);
       await expect(output).resolves.toEqual(expectedResult);
       await rpcServer.stop({ force: true });
-      await rpcClient.destroy();
     },
   );
   testProp(
@@ -386,19 +382,21 @@ describe('RPC', () => {
           return input;
         };
       }
-      const rpcServer = await RPCServer.start({
+      const rpcServer = new RPCServer({
+        logger,
+        idGen,
+      });
+      await rpcServer.start({
         manifest: {
           testMethod: new TestMethod({}),
         },
-        logger,
-        idGen,
       });
       rpcServer.handleStream({
         ...serverPair,
         cancel: () => {},
       });
 
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {
           testMethod: new UnaryCaller(),
         },
@@ -415,7 +413,6 @@ describe('RPC', () => {
       const result = await rpcClient.methods.testMethod(value);
       expect(result).toStrictEqual(value);
       await rpcServer.stop({ force: true });
-      await rpcClient.destroy();
     },
   );
   testProp(
@@ -441,16 +438,18 @@ describe('RPC', () => {
         };
       }
 
-      const rpcServer = await RPCServer.start({
-        manifest: {
-          testMethod: new TestMethod({}),
-        },
+      const rpcServer = new RPCServer({
         logger,
         idGen,
       });
+      await rpcServer.start({
+        manifest: {
+          testMethod: new TestMethod({}),
+        },
+      });
       rpcServer.handleStream({ ...serverPair, cancel: () => {} });
 
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {
           testMethod: new UnaryCaller(),
         },
@@ -473,7 +472,6 @@ describe('RPC', () => {
 
       // Cleanup
       await rpcServer.stop({ force: true });
-      await rpcClient.destroy();
     },
   );
 
@@ -500,16 +498,18 @@ describe('RPC', () => {
         };
       }
 
-      const rpcServer = await RPCServer.start({
-        manifest: {
-          testMethod: new TestMethod({}),
-        },
+      const rpcServer = new RPCServer({
         logger,
         idGen,
       });
+      await rpcServer.start({
+        manifest: {
+          testMethod: new TestMethod({}),
+        },
+      });
       rpcServer.handleStream({ ...serverPair, cancel: () => {} });
 
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {
           testMethod: new UnaryCaller(),
         },
@@ -527,7 +527,6 @@ describe('RPC', () => {
       await expect(callProm).rejects.not.toHaveProperty('cause.stack');
 
       await rpcServer.stop({ force: true });
-      await rpcClient.destroy();
     },
   );
 
@@ -562,20 +561,22 @@ describe('RPC', () => {
         }),
       };
     });
-    const rpcServer = await RPCServer.start({
-      manifest: {
-        testMethod: new TestMethod({}),
-      },
+    const rpcServer = new RPCServer({
       middlewareFactory: middleware,
       logger,
       idGen,
+    });
+    await rpcServer.start({
+      manifest: {
+        testMethod: new TestMethod({}),
+      },
     });
     rpcServer.handleStream({
       ...serverPair,
       cancel: () => {},
     });
 
-    const rpcClient = await RPCClient.createRPCClient({
+    const rpcClient = new RPCClient({
       manifest: {
         testMethod: new DuplexCaller(),
       },
@@ -600,7 +601,6 @@ describe('RPC', () => {
     await expect(writer.closed).toReject();
     await expect(reader.closed).toReject();
     await expect(rpcServer.stop({ force: false })).toResolve();
-    await rpcClient.destroy();
   });
   testProp(
     'RPC client and server timeout concurrently',
@@ -634,13 +634,15 @@ describe('RPC', () => {
       }
       const testMethodInstance = new TestMethod({});
       // Set up a client and server with matching timeout settings
-      const rpcServer = await RPCServer.start({
-        manifest: {
-          testMethod: testMethodInstance,
-        },
+      const rpcServer = new RPCServer({
         logger,
         idGen,
         handlerTimeoutTime: timeout,
+      });
+      await rpcServer.start({
+        manifest: {
+          testMethod: testMethodInstance,
+        },
       });
       // Register callback
       rpcServer.registerOnTimeoutCallback(() => {
@@ -651,7 +653,7 @@ describe('RPC', () => {
         cancel: () => {},
       });
 
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {
           testMethod: new DuplexCaller(),
         },
@@ -691,7 +693,6 @@ describe('RPC', () => {
       );
 
       await rpcServer.stop({ force: true });
-      await rpcClient.destroy();
     },
   );
   // Test description
@@ -725,12 +726,12 @@ describe('RPC', () => {
       }
 
       // Create an instance of the RPC server with a shorter timeout
-      const rpcServer = await RPCServer.start({
-        manifest: { testMethod: new TestMethod({}) },
+      const rpcServer = new RPCServer({
         logger,
         idGen,
         handlerTimeoutTime: 1,
       });
+      await rpcServer.start({ manifest: { testMethod: new TestMethod({}) } });
       // Register callback
       rpcServer.registerOnTimeoutCallback(() => {
         serverTimedOut = true;
@@ -738,7 +739,7 @@ describe('RPC', () => {
       rpcServer.handleStream({ ...serverPair, cancel: () => {} });
 
       // Create an instance of the RPC client with a longer timeout
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: { testMethod: new DuplexCaller() },
         streamFactory: async () => ({ ...clientPair, cancel: () => {} }),
         logger,
@@ -770,7 +771,6 @@ describe('RPC', () => {
 
       // Cleanup
       await rpcServer.stop({ force: true });
-      await rpcClient.destroy();
     },
     { numRuns: 1 },
   );
@@ -799,21 +799,23 @@ describe('RPC', () => {
         };
       }
       // Set up a client and server with matching timeout settings
-      const rpcServer = await RPCServer.start({
-        manifest: {
-          testMethod: new TestMethod({}),
-        },
+      const rpcServer = new RPCServer({
         logger,
         idGen,
 
         handlerTimeoutTime: 400,
+      });
+      await rpcServer.start({
+        manifest: {
+          testMethod: new TestMethod({}),
+        },
       });
       rpcServer.handleStream({
         ...serverPair,
         cancel: () => {},
       });
 
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {
           testMethod: new DuplexCaller(),
         },
@@ -836,7 +838,6 @@ describe('RPC', () => {
       await expect(reader.read()).toReject();
 
       await rpcServer.stop({ force: true });
-      await rpcClient.destroy();
     },
     { numRuns: 1 },
   );
@@ -867,15 +868,15 @@ describe('RPC', () => {
         };
       }
 
-      const rpcServer = await RPCServer.start({
-        manifest: { testMethod: new TestMethod({}) },
+      const rpcServer = new RPCServer({
         logger,
         idGen,
         handlerTimeoutTime: Infinity,
       });
+      await rpcServer.start({ manifest: { testMethod: new TestMethod({}) } });
       rpcServer.handleStream({ ...serverPair, cancel: () => {} });
 
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: { testMethod: new DuplexCaller() },
         streamFactory: async () => ({ ...clientPair, cancel: () => {} }),
         logger,
@@ -922,7 +923,6 @@ describe('RPC', () => {
 
       // Expect neither to time out and verify that they can still handle other operations #TODO
       await rpcServer.stop({ force: true });
-      await rpcClient.destroy();
     },
     { numRuns: 1 },
   );
@@ -949,16 +949,18 @@ describe('RPC', () => {
           throw error;
         };
       }
-      const rpcServer = await RPCServer.start({
-        manifest: {
-          testMethod: new TestMethod({}),
-        },
+      const rpcServer = new RPCServer({
         logger,
         idGen,
       });
+      await rpcServer.start({
+        manifest: {
+          testMethod: new TestMethod({}),
+        },
+      });
       rpcServer.handleStream({ ...serverPair, cancel: () => {} });
 
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {
           testMethod: new UnaryCaller(),
         },
@@ -969,11 +971,11 @@ describe('RPC', () => {
         idGen,
       });
 
-      const errorInstance = new ErrorRPCRemote(
-        { code: -32006 },
-        'Parse error',
-        { cause: error },
-      );
+      const errorInstance = new ErrorRPCRemote({
+        metadata: -123123,
+        message: 'parse error',
+        options: { cause: 'Random cause' },
+      });
 
       const serializedError = fromError(errorInstance);
       const callProm = rpcClient.methods.testMethod(serializedError);
@@ -988,7 +990,6 @@ describe('RPC', () => {
       expect(code).toBe(-32006);
 
       await rpcServer.stop({ force: true });
-      await rpcClient.destroy();
     },
   );
   testProp(
@@ -1013,16 +1014,18 @@ describe('RPC', () => {
           throw error;
         };
       }
-      const rpcServer = await RPCServer.start({
-        manifest: {
-          testMethod: new TestMethod({}),
-        },
+      const rpcServer = new RPCServer({
         logger,
         idGen,
       });
+      await rpcServer.start({
+        manifest: {
+          testMethod: new TestMethod({}),
+        },
+      });
       rpcServer.handleStream({ ...serverPair, cancel: () => {} });
 
-      const rpcClient = await RPCClient.createRPCClient({
+      const rpcClient = new RPCClient({
         manifest: {
           testMethod: new UnaryCaller(),
         },
@@ -1033,9 +1036,13 @@ describe('RPC', () => {
         idGen,
       });
 
-      const errorInstance = new ErrorRPCRemote({ code: -32006 }, '', {
-        cause: error,
-        data: 'asda',
+      const errorInstance = new ErrorRPCRemote({
+        metadata: -32006,
+        message: '',
+        options: {
+          cause: error,
+          data: 'asda',
+        },
       });
 
       const serializedError = JSON.parse(
@@ -1055,7 +1062,59 @@ describe('RPC', () => {
       expect(data).toBe(undefined);
 
       await rpcServer.stop({ force: true });
-      await rpcClient.destroy();
     },
   );
+  test('RPCServer force stop will propagate correct errors', async () => {
+    const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
+      Uint8Array,
+      Uint8Array
+    >();
+
+    const testReason = Error('test error');
+
+    class TestMethod extends UnaryHandler {
+      public handle = async (
+        _input: JSONValue,
+        _cancel: (reason?: any) => void,
+        _meta: Record<string, JSONValue> | undefined,
+        ctx: ContextTimed,
+      ): Promise<JSONValue> => {
+        const abortP = utils.promise<void>();
+        ctx.signal.addEventListener(
+          'abort',
+          () => abortP.resolveP(ctx.signal.reason),
+          { once: true },
+        );
+        throw await abortP.p;
+      };
+    }
+
+    const rpcServer = new RPCServer({
+      logger,
+      idGen,
+    });
+    await rpcServer.start({
+      manifest: {
+        testMethod: new TestMethod({}),
+      },
+    });
+    rpcServer.handleStream({ ...serverPair, cancel: () => {} });
+
+    const rpcClient = new RPCClient({
+      manifest: {
+        testMethod: new UnaryCaller(),
+      },
+      streamFactory: async () => {
+        return { ...clientPair, cancel: () => {} };
+      },
+      logger,
+      idGen,
+    });
+
+    const testProm = rpcClient.methods.testMethod({});
+
+    await rpcServer.stop({ force: true, reason: testReason });
+
+    await expect(testProm).toReject();
+  });
 });

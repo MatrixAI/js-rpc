@@ -1,5 +1,4 @@
 import type RPCServer from './RPCServer';
-import type RPCClient from './RPCClient';
 import type {
   ErrorRPCConnectionLocal,
   ErrorRPCConnectionPeer,
@@ -7,32 +6,12 @@ import type {
   ErrorRPCConnectionInternal,
 } from './errors';
 import { AbstractEvent } from '@matrixai/events';
-import * as rpcErrors from './errors';
-
-abstract class EventRPC<T = null> extends AbstractEvent<T> {}
 
 abstract class EventRPCClient<T = null> extends AbstractEvent<T> {}
 
 abstract class EventRPCServer<T = null> extends AbstractEvent<T> {}
 
 abstract class EventRPCConnection<T = null> extends AbstractEvent<T> {}
-
-// Client events
-class EventRPCClientDestroy extends EventRPCClient {}
-
-class EventRPCClientDestroyed extends EventRPCClient {}
-
-class EventRPCClientCreate extends EventRPCClient {}
-
-class EventRPCClientCreated extends EventRPCClient {}
-
-class EventRPCClientError extends EventRPCClient<Error> {}
-
-class EventRPCClientConnect extends EventRPCClient {}
-
-// Server events
-
-class EventRPCServerConnection extends EventRPCServer<RPCServer> {}
 
 class EventRPCServerStart extends EventRPCServer {}
 
@@ -65,17 +44,9 @@ class RPCErrorEvent extends Event {
 
 export {
   RPCErrorEvent,
-  EventRPC,
   EventRPCClient,
   EventRPCServer,
   EventRPCConnection,
-  EventRPCClientDestroy,
-  EventRPCClientDestroyed,
-  EventRPCClientCreate,
-  EventRPCClientCreated,
-  EventRPCClientError,
-  EventRPCClientConnect,
-  EventRPCServerConnection,
   EventRPCServerError,
   EventRPCConnectionError,
   EventRPCServerStopping,
