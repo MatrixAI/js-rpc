@@ -375,10 +375,11 @@ export type {
   ClientManifest,
   HandlerType,
   MapCallers,
+  Opaque,
   JSONValue,
   POJO,
   PromiseDeconstructed,
   HandlerTypes,
   FromError,
-  ToError
+  ToError,
 };

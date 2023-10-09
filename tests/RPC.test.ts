@@ -873,9 +873,7 @@ describe('RPC', () => {
 
   testProp(
     'RPC Serializes and Deserializes Error',
-    [
-      rpcTestUtils.errorArb(rpcTestUtils.errorArb()),
-    ],
+    [rpcTestUtils.errorArb(rpcTestUtils.errorArb())],
     async (error) => {
       const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
         Uint8Array,
@@ -924,9 +922,7 @@ describe('RPC', () => {
   );
   testProp(
     'RPC Serializes and Deserializes Error with Custom Replacer Function',
-    [
-      rpcTestUtils.errorArb(rpcTestUtils.errorArb()),
-    ],
+    [rpcTestUtils.errorArb(rpcTestUtils.errorArb())],
     async (error) => {
       const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
         Uint8Array,
@@ -1026,7 +1022,7 @@ describe('RPC', () => {
     const testProm = rpcClient.methods.testMethod({});
 
     await rpcServer.stop({ force: true, reason: testReason });
-    const rejection = await testProm.catch(e => e);
+    const rejection = await testProm.catch((e) => e);
     expect(rejection).toBeInstanceOf(ErrorRPCRemote);
     expect(rejection.cause).toBeInstanceOf(Error);
     expect(rejection.cause.message).toBe(errorMessage);

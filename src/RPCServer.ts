@@ -17,6 +17,7 @@ import type {
   MiddlewareFactory,
   FromError,
 } from './types';
+import type { POJO } from '@matrixai/errors';
 import { ReadableStream, TransformStream } from 'stream/web';
 import Logger from '@matrixai/logger';
 import { PromiseCancellable } from '@matrixai/async-cancellable';
@@ -34,7 +35,6 @@ import * as utils from './utils';
 import * as errors from './errors';
 import * as middleware from './middleware';
 import * as events from './events';
-import { POJO } from '@matrixai/errors';
 
 const cleanupReason = Symbol('CleanupReason');
 
@@ -321,18 +321,19 @@ class RPCServer {
             }
             controller.enqueue(value);
           } catch (e) {
-            let rpcError: JSONRPCError
+            let rpcError: JSONRPCError;
             if (e instanceof errors.ErrorRPCProtocol) {
               rpcError = e.toJSON();
-            }
-            else {
+            } else {
               rpcError = new errors.ErrorRPCRemote(e?.message).toJSON();
               try {
-                (rpcError.data as POJO).cause = JSON.stringify(this.fromError(e), this.replacer);
-              }
-              catch (e) {
+                (rpcError.data as POJO).cause = JSON.stringify(
+                  this.fromError(e),
+                  this.replacer,
+                );
+              } catch (e) {
                 (rpcError.data as POJO).cause = e;
-                // dispatch error in the case where the thrown value could not be parsed
+                // Dispatch error in the case where the thrown value could not be parsed
                 this.dispatchEvent(
                   new events.RPCErrorEvent({
                     detail: e,
@@ -520,7 +521,10 @@ class RPCServer {
         await timer.catch(() => {});
         this.dispatchEvent(
           new events.RPCErrorEvent({
-            detail: new errors.ErrorRPCOutputStreamError(),
+            detail: new errors.ErrorRPCOutputStreamError(
+              'Stream failed waiting for header',
+              { cause: newErr },
+            ),
           }),
         );
         return;
@@ -592,18 +596,19 @@ class RPCServer {
           { signal: abortController.signal, timer },
         );
       } catch (e) {
-        let rpcError: JSONRPCError
+        let rpcError: JSONRPCError;
         if (e instanceof errors.ErrorRPCProtocol) {
           rpcError = e.toJSON();
-        }
-        else {
+        } else {
           rpcError = new errors.ErrorRPCRemote(e?.message).toJSON();
           try {
-            (rpcError.data as POJO).cause = JSON.stringify(this.fromError(e), this.replacer);
-          }
-          catch (e) {
+            (rpcError.data as POJO).cause = JSON.stringify(
+              this.fromError(e),
+              this.replacer,
+            );
+          } catch (e) {
             (rpcError.data as POJO).cause = e;
-            // dispatch error in the case where the thrown value could not be parsed
+            // Dispatch error in the case where the thrown value could not be parsed
             this.dispatchEvent(
               new events.RPCErrorEvent({
                 detail: e,

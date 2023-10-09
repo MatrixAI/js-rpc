@@ -14,10 +14,12 @@ abstract class DuplexHandler<
    * `finally` block and check the abort signal for potential errors.
    */
   public async *handle(
+    /* eslint-disable */
     input: AsyncIterableIterator<Input>,
     cancel: (reason?: any) => void,
     meta: Record<string, JSONValue> | undefined,
     ctx: ContextTimed,
+    /* eslint-disable */
   ): AsyncIterableIterator<Output> {
     throw new ErrorRPCMethodNotImplemented('This method must be overwrtitten.');
   }

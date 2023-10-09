@@ -1,4 +1,4 @@
-import type { Class, POJO } from '@matrixai/errors';
+import type { Class } from '@matrixai/errors';
 import type { JSONRPCError, JSONValue } from '@/types';
 import { AbstractError } from '@matrixai/errors';
 
@@ -31,22 +31,24 @@ abstract class ErrorRPCProtocol<T> extends ErrorRPC<T> {
   static error = 'RPC Protocol Error';
   code: number;
 
-  public static fromJSON<T extends Class<any>>(
-    json: any,
-  ): InstanceType<T> {
+  public static fromJSON<T extends Class<any>>(json: any): InstanceType<T> {
     if (
       typeof json !== 'object' ||
       typeof json.code !== 'number' ||
       typeof json.message !== 'string' ||
       typeof json.data !== 'object'
     ) {
-      return new ErrorRPCUnknown<T>(`Cannot decode JSON to ${this.name}`) as InstanceType<T>;
+      return new ErrorRPCUnknown<T>(
+        `Cannot decode JSON to ${this.name}`,
+      ) as InstanceType<T>;
     }
 
     const errorC = rpcProtocolErrors[json.code];
 
     if (errorC == null) {
-      return new ErrorRPCUnknown<T>(`Unknown error.code found on RPC message`) as InstanceType<T>;
+      return new ErrorRPCUnknown<T>(
+        `Unknown error.code found on RPC message`,
+      ) as InstanceType<T>;
     }
 
     const e: InstanceType<T> = new errorC(json.message);
@@ -70,7 +72,7 @@ abstract class ErrorRPCProtocol<T> extends ErrorRPC<T> {
         data: this.data,
         stack: this.stack,
       },
-    }
+    };
   }
 }
 
@@ -83,7 +85,6 @@ class ErrorRPCInvalidParams<T> extends ErrorRPCProtocol<T> {
   static description = 'Invalid paramaters provided to RPC';
   code = JSONRPCErrorCode.InvalidParams;
 }
-
 
 class ErrorRPCStopping<T> extends ErrorRPCProtocol<T> {
   static description = 'RPC is stopping';
@@ -209,7 +210,7 @@ const rpcProtocolErrors = {
   [JSONRPCErrorCode.RPCConnectionLocal]: ErrorRPCConnectionLocal,
   [JSONRPCErrorCode.RPCConnectionPeer]: ErrorRPCConnectionPeer,
   [JSONRPCErrorCode.RPCConnectionKeepAliveTimeOut]:
-  ErrorRPCConnectionKeepAliveTimeOut,
+    ErrorRPCConnectionKeepAliveTimeOut,
   [JSONRPCErrorCode.RPCConnectionInternal]: ErrorRPCConnectionInternal,
   [JSONRPCErrorCode.MissingHeader]: ErrorMissingHeader,
   [JSONRPCErrorCode.HandlerAborted]: ErrorRPCHandlerFailed,
@@ -243,5 +244,5 @@ export {
   ErrorMissingCaller,
   ErrorRPCUnknown,
   JSONRPCErrorCode,
-  rpcProtocolErrors
+  rpcProtocolErrors,
 };

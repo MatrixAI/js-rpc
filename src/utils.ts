@@ -180,9 +180,7 @@ function parseJSONRPCResponse<T extends JSONValue>(
   } catch (e) {
     // Do nothing
   }
-  throw new errors.ErrorRPCParse(
-    'structure did not match a `JSONRPCResponse`',
-  );
+  throw new errors.ErrorRPCParse('structure did not match a `JSONRPCResponse`');
 }
 
 function parseJSONRPCMessage<T extends JSONValue>(
@@ -218,14 +216,12 @@ function parseJSONRPCMessage<T extends JSONValue>(
  * @param {Error} error - The Error instance to serialize.
  * @returns {JSONValue} The serialized ErrorRPC instance.
  */
-function fromError(
-  error: any,
-): JSONValue {
+function fromError(error: any): JSONValue {
   // TODO: Linked-List traversal must be done iteractively rather than recusively to prevent stack overflow.
   switch (typeof error) {
-    case "symbol":
-    case "bigint":
-    case "function":
+    case 'symbol':
+    case 'bigint':
+    case 'function':
       throw TypeError(`${error} cannot be serialized`);
   }
 
@@ -234,8 +230,7 @@ function fromError(
     const timestamp: string = ((error as any).timestamp ?? new Date()).toJSON();
     if (error instanceof AbstractError) {
       return error.toJSON();
-    }
-    else if (error instanceof AggregateError) {
+    } else if (error instanceof AggregateError) {
       // AggregateError has an `errors` property
       return {
         type: error.constructor.name,
@@ -244,8 +239,8 @@ function fromError(
           errors: error.errors.map(fromError),
           stack: error.stack,
           timestamp,
-          cause
-        }
+          cause,
+        },
       };
     }
 
@@ -258,7 +253,7 @@ function fromError(
         stack: error.stack,
         timestamp,
         cause,
-      }
+      },
     };
   }
 
@@ -269,7 +264,9 @@ function fromError(
  * Error constructors for non-Polykey rpcErrors
  * Allows these rpcErrors to be reconstructed from RPC metadata
  */
-const standardErrors: { [key: string]: typeof Error | typeof AggregateError | typeof AbstractError } = {
+const standardErrors: {
+  [key: string]: typeof Error | typeof AggregateError | typeof AbstractError;
+} = {
   Error,
   TypeError,
   SyntaxError,
@@ -334,7 +331,7 @@ function toError(errorData: JSONValue): any {
     typeof errorData.data === 'object'
   ) {
     try {
-      let eClass = standardErrors[errorData.type];
+      const eClass = standardErrors[errorData.type];
       if (eClass != null) {
         let e: Error;
         switch (eClass) {
@@ -352,7 +349,10 @@ function toError(errorData: JSONValue): any {
             ) {
               throw new TypeError(`cannot decode JSON to ${errorData.type}`);
             }
-            e = new eClass(errorData.data.errors.map(toError), errorData.message);
+            e = new eClass(
+              errorData.data.errors.map(toError),
+              errorData.message,
+            );
             e.stack = errorData.data.stack;
             break;
           default:
@@ -429,11 +429,12 @@ function clientOutputTransformStream<O extends JSONValue>(
       timer?.refresh();
       // `error` indicates it's an error message
       if ('error' in chunk) {
-        const e: errors.ErrorRPCProtocol<any> = errors.ErrorRPCProtocol.fromJSON(chunk.error);
+        const e: errors.ErrorRPCProtocol<any> =
+          errors.ErrorRPCProtocol.fromJSON(chunk.error);
         if (
           e instanceof errors.ErrorRPCRemote &&
           chunk.error.data != null &&
-          typeof chunk.error.data === "object" &&
+          typeof chunk.error.data === 'object' &&
           'cause' in chunk.error.data
         ) {
           e.metadata = clientMetadata;
