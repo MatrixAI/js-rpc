@@ -198,17 +198,11 @@ class RPCServer {
 
     // Your existing logic for stopping active streams and other cleanup
     const handlerPs = new Array<PromiseCancellable<void>>();
-    if (force) {
-      for await (const [activeStream] of this.activeStreams.entries()) {
-        if (force) activeStream.cancel(reason);
-        handlerPs.push(activeStream);
-      }
-      await Promise.all(handlerPs);
-    }
-
     for await (const [activeStream] of this.activeStreams.entries()) {
-      await activeStream;
+      if (force) activeStream.cancel(reason);
+      handlerPs.push(activeStream);
     }
+    await Promise.allSettled(handlerPs);
 
     // Removes handlers and default timeouts registered in `RPCServer.start()`
     this.handlerMap.clear();
