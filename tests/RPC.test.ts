@@ -22,7 +22,7 @@ import RawHandler from '@/handlers/RawHandler';
 import ServerHandler from '@/handlers/ServerHandler';
 import UnaryHandler from '@/handlers/UnaryHandler';
 import ClientHandler from '@/handlers/ClientHandler';
-import { fromError, filterSensitive, toError } from '@/utils';
+import { filterSensitive } from '@/utils';
 import * as rpcTestUtils from './utils';
 
 describe('RPC', () => {
@@ -146,10 +146,10 @@ describe('RPC', () => {
 
     class TestMethod extends RawHandler<ContainerType> {
       public handle = async (
-        input: [JSONRPCRequest<JSONValue>, ReadableStream<Uint8Array>],
-        cancel: (reason?: any) => void,
-        meta: Record<string, JSONValue> | undefined,
-        ctx: ContextTimed,
+        _input: [JSONRPCRequest, ReadableStream<Uint8Array>],
+        _cancel: (reason?: any) => void,
+        _meta: Record<string, JSONValue> | undefined,
+        _ctx: ContextTimed,
       ): Promise<[JSONValue, ReadableStream<Uint8Array>]> => {
         throw new Error('some error');
       };
@@ -202,9 +202,9 @@ describe('RPC', () => {
       class TestMethod extends DuplexHandler {
         public handle = async function* (
           input: AsyncGenerator<JSONValue>,
-          cancel: (reason?: any) => void,
-          meta: Record<string, JSONValue> | undefined,
-          ctx: ContextTimed,
+          _cancel: (reason?: any) => void,
+          _meta: Record<string, JSONValue> | undefined,
+          _ctx: ContextTimed,
         ): AsyncGenerator<JSONValue> {
           yield* input;
         };
@@ -482,9 +482,9 @@ describe('RPC', () => {
     class TestMethod extends DuplexHandler {
       public handle = async function* (
         input: AsyncIterableIterator<JSONValue>,
-        cancel: (reason?: any) => void,
-        meta: Record<string, JSONValue> | undefined,
-        ctx: ContextTimed,
+        _cancel: (reason?: any) => void,
+        _meta: Record<string, JSONValue> | undefined,
+        _ctx: ContextTimed,
       ): AsyncIterableIterator<JSONValue> {
         yield* input;
       };
