@@ -311,6 +311,7 @@ class RPCClient<M extends ClientManifest> {
     };
     const outputMessageTransformStream = utils.clientOutputTransformStream<O>(
       metadata,
+      this.toError,
       refreshingTimer,
     );
     const inputMessageTransformStream = utils.clientInputTransformStream<I>(

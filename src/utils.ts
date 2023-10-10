@@ -417,10 +417,12 @@ function clientInputTransformStream<I extends JSONValue>(
  * one is provided.
  * @param clientMetadata - Metadata that is attached to an error when one is
  * created.
+ * @param toError
  * @param timer - Timer that gets refreshed each time a message is provided.
  */
 function clientOutputTransformStream<O extends JSONValue>(
   clientMetadata: JSONValue,
+  toError: (errorData: JSONValue) => any,
   timer?: Timer,
 ): TransformStream<JSONRPCResponse<O>, O> {
   return new TransformStream<JSONRPCResponse<O>, O>({
