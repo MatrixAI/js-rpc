@@ -349,7 +349,7 @@ type HandlerTypes<T> = T extends Handler<
 
 type FromError = (error: any) => JSONValue;
 
-type ToError = (errorData: JSONValue) => any;
+type ToError = (errorData: JSONValue, clientMetadata: JSONValue) => any;
 
 export type {
   IdGen,

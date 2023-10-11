@@ -1,6 +1,7 @@
 import type { Class } from '@matrixai/errors';
 import type { JSONRPCError, JSONValue } from '@/types';
 import { AbstractError } from '@matrixai/errors';
+import {POJO} from "@matrixai/errors/dist/types";
 
 class ErrorRPC<T> extends AbstractError<T> {
   static description = 'RPC Error';
@@ -123,8 +124,21 @@ class ErrorRPCOutputStreamError<T> extends ErrorRPCProtocol<T> {
 class ErrorRPCRemote<T> extends ErrorRPCProtocol<T> {
   static description = 'Remote error from RPC call';
   static message: string = 'The server responded with an error';
-  metadata: JSONValue = {};
   code = JSONRPCErrorCode.RPCRemote;
+  metadata: JSONValue;
+
+  constructor(
+    metadata: JSONValue,
+    message?: string,
+    options?: {
+      timestamp?: Date;
+      data?: POJO;
+      cause?: T;
+    },
+  ) {
+    super(message, options);
+    this.metadata = metadata;
+  }
 }
 
 class ErrorRPCStreamEnded<T> extends ErrorRPCProtocol<T> {

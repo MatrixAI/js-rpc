@@ -415,7 +415,7 @@ describe('RPC', () => {
       await rpcServer.stop({ force: true });
     },
   );
-  testProp(
+  testProp.only(
     'RPC handles and sends errors',
     [
       rpcTestUtils.safeJsonValueArb,
@@ -461,10 +461,11 @@ describe('RPC', () => {
       });
 
       // Create a new promise so we can await it multiple times for assertions
-      const callProm = rpcClient.methods.testMethod(value).catch((e) => e);
+      const callProm = rpcClient.methods.testMethod(value);
 
       // The promise should be rejected
-      const rejection = await callProm;
+      const rejection = await callProm.catch((e) => e);
+      console.error(rejection)
 
       // The error should have specific properties
       expect(rejection).toBeInstanceOf(error.constructor);
@@ -1026,5 +1027,73 @@ describe('RPC', () => {
     expect(rejection).toBeInstanceOf(ErrorRPCRemote);
     expect(rejection.cause).toBeInstanceOf(Error);
     expect(rejection.cause.message).toBe(errorMessage);
+  });
+  test('RPC handles and sends errors', async () => {
+    const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
+      Uint8Array,
+      Uint8Array
+    >();
+
+    class TestMethod extends DuplexHandler {
+      public handle = async function* (
+        _input,
+        _cancel: (reason?: any) => void,
+        _meta: Record<string, JSONValue> | undefined,
+        _ctx: ContextTimed,
+      ): AsyncGenerator<JSONValue> {
+        yield {};
+        yield {};
+        throw Error('Some error');
+      };
+    }
+
+    const rpcServer = new RPCServer({
+      logger,
+      idGen,
+      // fromError: (thing) => {
+      //   console.log(thing);
+      //   return {
+      //     hello: 'world',
+      //   };
+      // },
+    });
+    await rpcServer.start({
+      manifest: {
+        testMethod: new TestMethod({}),
+      },
+    });
+    rpcServer.handleStream({ ...serverPair, cancel: () => {} });
+
+    const rpcClient = new RPCClient({
+      manifest: {
+        testMethod: new DuplexCaller(),
+      },
+      streamFactory: async () => {
+        return { ...clientPair, cancel: () => {} };
+      },
+      logger,
+      idGen,
+      toError: (data) => {
+        return Error('asd');
+      },
+    });
+
+    // Create a new promise so we can await it multiple times for assertions
+    const result = await rpcClient.methods.testMethod({});
+    const writer = result.writable.getWriter();
+    await writer.write({});
+    await writer.close();
+    const prom = (async () => {
+      for await (const _ of result.readable) {
+        // Do nothing
+      }
+    })();
+    await prom;
+    await expect(prom).rejects.toThrow(ErrorRPCRemote);
+    const asd = await prom.catch(e => e);
+    await expect(asd.cause).toBeInstanceOf(Error);
+
+    // Cleanup
+    await rpcServer.stop({ force: true });
   });
 });

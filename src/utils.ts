@@ -1,21 +1,22 @@
-import type { Timer } from '@matrixai/timer';
+import type {Timer} from '@matrixai/timer';
 import type {
   ClientManifest,
   HandlerType,
   JSONRPCError,
   JSONRPCMessage,
   JSONRPCRequest,
-  JSONValue,
   JSONRPCRequestMessage,
   JSONRPCRequestNotification,
   JSONRPCResponse,
   JSONRPCResponseError,
   JSONRPCResponseResult,
+  JSONValue,
   PromiseDeconstructed,
+  ToError,
 } from './types';
-import { TransformStream } from 'stream/web';
-import { JSONParser } from '@streamparser/json';
-import { AbstractError } from '@matrixai/errors';
+import {TransformStream} from 'stream/web';
+import {JSONParser} from '@streamparser/json';
+import {AbstractError} from '@matrixai/errors';
 import * as errors from './errors';
 
 // Importing PK funcs and utils which are essential for RPC
@@ -319,7 +320,7 @@ const filterSensitive = (keyToRemove) => {
  * @param {JSONValue} errorData - The error data object.
  * @returns {any} The deserialized error.
  */
-function toError(errorData: JSONValue): any {
+function toError(errorData: JSONValue,  clientMetadata: JSONValue): any {
   // If the value is an error then reconstruct it
   if (
     errorData != null &&
@@ -368,9 +369,15 @@ function toError(errorData: JSONValue): any {
             break;
         }
         if (errorData.data != null && 'cause' in errorData.data) {
-          e.cause = toError(errorData.data.cause);
+          e.cause = toError(errorData.data.cause, clientMetadata);
         }
-        return e;
+        return new errors.ErrorRPCRemote(
+          clientMetadata,
+          undefined,
+          {
+            cause: e
+          },
+        );
       }
     } catch (e) {
       // If `TypeError` which represents decoding failure
@@ -422,28 +429,19 @@ function clientInputTransformStream<I extends JSONValue>(
  */
 function clientOutputTransformStream<O extends JSONValue>(
   clientMetadata: JSONValue,
-  toError: (errorData: JSONValue) => any,
+  toError: ToError,
   timer?: Timer,
 ): TransformStream<JSONRPCResponse<O>, O> {
-  return new TransformStream<JSONRPCResponse<O>, O>({
+  return new TransformStream<JSONRPCResponse<O> | JSONRPCResponseError, O>({
     transform: (chunk, controller) => {
       timer?.refresh();
       // `error` indicates it's an error message
       if ('error' in chunk) {
-        const e: errors.ErrorRPCProtocol<any> =
-          errors.ErrorRPCProtocol.fromJSON(chunk.error);
-        if (
-          e instanceof errors.ErrorRPCRemote &&
-          chunk.error.data != null &&
-          typeof chunk.error.data === 'object' &&
-          'cause' in chunk.error.data
-        ) {
-          e.metadata = clientMetadata;
-          e.cause = toError(JSON.parse(chunk.error.data.cause as string));
-        }
-        throw e;
+        const e = toError(chunk.error.data, clientMetadata);
+        controller.error(e);
+      } else {
+        controller.enqueue(chunk.result);
       }
-      controller.enqueue(chunk.result);
     },
   });
 }

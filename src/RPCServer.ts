@@ -317,32 +317,31 @@ class RPCServer {
             }
             controller.enqueue(value);
           } catch (e) {
-            let rpcError: JSONRPCError;
             if (e instanceof errors.ErrorRPCProtocol) {
-              rpcError = e.toJSON();
+              // protocol level failure
+              controller.error(e);
             } else {
-              rpcError = new errors.ErrorRPCRemote(e?.message).toJSON();
               try {
-                (rpcError.data as POJO).cause = JSON.stringify(
-                  this.fromError(e),
-                  this.replacer,
-                );
+                const rpcError: JSONRPCError = {
+                  code: 0,
+                  message: e.message,
+                  data: this.fromError(e),
+                }
+                const rpcErrorMessage: JSONRPCResponseError = {
+                  jsonrpc: '2.0',
+                  error: rpcError,
+                  id,
+                };
+                controller.enqueue(rpcErrorMessage);
               } catch (e) {
-                (rpcError.data as POJO).cause = e;
-                // Dispatch error in the case where the thrown value could not be parsed
                 this.dispatchEvent(
                   new events.RPCErrorEvent({
                     detail: e,
                   }),
                 );
+                controller.error(e);
               }
             }
-            const rpcErrorMessage: JSONRPCResponseError = {
-              jsonrpc: '2.0',
-              error: rpcError,
-              id,
-            };
-            controller.enqueue(rpcErrorMessage);
             // Clean up the input stream here, ignore error if already ended
             await forwardStream
               .cancel(
