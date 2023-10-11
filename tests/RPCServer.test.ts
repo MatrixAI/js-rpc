@@ -371,10 +371,9 @@ describe(`${RPCServer.name}`, () => {
         if (iteration === 2) {
           // @ts-ignore: kidnap private property
           const activeStreams = rpcServer.activeStreams.values();
-          // @ts-ignore: kidnap private property
           for (const activeStream of activeStreams) {
             thing = activeStream;
-            activeStream.cancel(new rpcErrors.ErrorRPCStopping());
+            activeStream.cancel(Error('Some error'));
           }
         }
       },

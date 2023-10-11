@@ -17,7 +17,6 @@ import type {
   MiddlewareFactory,
   FromError,
 } from './types';
-import type { POJO } from '@matrixai/errors';
 import { ReadableStream, TransformStream } from 'stream/web';
 import Logger from '@matrixai/logger';
 import { PromiseCancellable } from '@matrixai/async-cancellable';
@@ -317,32 +316,26 @@ class RPCServer {
             }
             controller.enqueue(value);
           } catch (e) {
-            let rpcError: JSONRPCError;
-            if (e instanceof errors.ErrorRPCProtocol) {
-              rpcError = e.toJSON();
-            } else {
-              rpcError = new errors.ErrorRPCRemote(e?.message).toJSON();
-              try {
-                (rpcError.data as POJO).cause = JSON.stringify(
-                  this.fromError(e),
-                  this.replacer,
-                );
-              } catch (e) {
-                (rpcError.data as POJO).cause = e;
-                // Dispatch error in the case where the thrown value could not be parsed
-                this.dispatchEvent(
-                  new events.RPCErrorEvent({
-                    detail: e,
-                  }),
-                );
-              }
+            try {
+              const rpcError: JSONRPCError = {
+                code: errors.JSONRPCErrorCode.RPCRemote,
+                message: e.message,
+                data: this.fromError(e),
+              };
+              const rpcErrorMessage: JSONRPCResponseError = {
+                jsonrpc: '2.0',
+                error: rpcError,
+                id,
+              };
+              controller.enqueue(rpcErrorMessage);
+            } catch (e) {
+              this.dispatchEvent(
+                new events.RPCErrorEvent({
+                  detail: e,
+                }),
+              );
+              controller.error(e);
             }
-            const rpcErrorMessage: JSONRPCResponseError = {
-              jsonrpc: '2.0',
-              error: rpcError,
-              id,
-            };
-            controller.enqueue(rpcErrorMessage);
             // Clean up the input stream here, ignore error if already ended
             await forwardStream
               .cancel(
@@ -592,33 +585,29 @@ class RPCServer {
           { signal: abortController.signal, timer },
         );
       } catch (e) {
-        let rpcError: JSONRPCError;
-        if (e instanceof errors.ErrorRPCProtocol) {
-          rpcError = e.toJSON();
-        } else {
-          rpcError = new errors.ErrorRPCRemote(e?.message).toJSON();
-          try {
-            (rpcError.data as POJO).cause = JSON.stringify(
-              this.fromError(e),
-              this.replacer,
-            );
-          } catch (e) {
-            (rpcError.data as POJO).cause = e;
-            // Dispatch error in the case where the thrown value could not be parsed
-            this.dispatchEvent(
-              new events.RPCErrorEvent({
-                detail: e,
-              }),
-            );
-          }
+        try {
+          const rpcError: JSONRPCError = {
+            code: errors.JSONRPCErrorCode.RPCRemote,
+            message: e.message,
+            data: this.fromError(e),
+          };
+          const rpcErrorMessage: JSONRPCResponseError = {
+            jsonrpc: '2.0',
+            error: rpcError,
+            id,
+          };
+          await headerWriter.write(
+            Buffer.from(JSON.stringify(rpcErrorMessage)),
+          );
+          await headerWriter.close();
+        } catch (e) {
+          this.dispatchEvent(
+            new events.RPCErrorEvent({
+              detail: e,
+            }),
+          );
+          await headerWriter.abort(e);
         }
-        const rpcErrorMessage: JSONRPCResponseError = {
-          jsonrpc: '2.0',
-          error: rpcError,
-          id,
-        };
-        await headerWriter.write(Buffer.from(JSON.stringify(rpcErrorMessage)));
-        await headerWriter.close();
         // Clean up and return
         timer.cancel(cleanupReason);
         rpcStream.cancel(Error('TMP header message was an error'));

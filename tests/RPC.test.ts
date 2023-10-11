@@ -182,12 +182,12 @@ describe('RPC', () => {
       logger,
       idGen,
     });
-
-    await expect(
-      rpcClient.methods.testMethod({
-        hello: 'world',
-      }),
-    ).rejects.toHaveProperty('message', 'some error');
+    const callP = rpcClient.methods.testMethod({
+      hello: 'world',
+    });
+    await expect(callP).rejects.toThrow(rpcErrors.ErrorRPCRemote);
+    const result = await callP.catch((e) => e);
+    expect(result.cause.message).toBe('some error');
 
     await rpcServer.stop({ force: true });
   });
@@ -461,14 +461,14 @@ describe('RPC', () => {
       });
 
       // Create a new promise so we can await it multiple times for assertions
-      const callProm = rpcClient.methods.testMethod(value).catch((e) => e);
+      const callProm = rpcClient.methods.testMethod(value);
 
       // The promise should be rejected
-      const rejection = await callProm;
+      const rejection = await callProm.catch((e) => e);
 
       // The error should have specific properties
-      expect(rejection).toBeInstanceOf(error.constructor);
-      expect(rejection).toEqual(error);
+      expect(rejection.cause).toBeInstanceOf(error.constructor);
+      expect(rejection.cause).toEqual(error);
 
       // Cleanup
       await rpcServer.stop({ force: true });
@@ -914,8 +914,8 @@ describe('RPC', () => {
 
       const callProm = rpcClient.methods.testMethod({});
       const callError = await callProm.catch((e) => e);
-
-      expect(callError).toEqual(error);
+      await expect(callProm).rejects.toThrow(rpcErrors.ErrorRPCRemote);
+      expect(callError.cause).toEqual(error);
 
       await rpcServer.stop({ force: true });
     },
@@ -965,7 +965,8 @@ describe('RPC', () => {
       const callProm = rpcClient.methods.testMethod({});
       const callError = await callProm.catch((e) => e);
 
-      expect(callError).toEqual(error);
+      await expect(callProm).rejects.toThrow(rpcErrors.ErrorRPCRemote);
+      expect(callError.cause).toEqual(error);
 
       await rpcServer.stop({ force: true });
     },

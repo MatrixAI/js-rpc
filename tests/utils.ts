@@ -10,13 +10,13 @@ import type {
   JSONRPCResponse,
   JSONRPCRequest,
 } from '@/types';
+import type { ErrorRPC } from '@/errors';
 import { ReadableStream, WritableStream, TransformStream } from 'stream/web';
 import { fc } from '@fast-check/jest';
 import { AbstractError } from '@matrixai/errors';
 import * as utils from '@/utils';
 import { fromError } from '@/utils';
 import * as rpcErrors from '@/errors';
-import { ErrorRPC } from '@/errors';
 
 /**
  * This is used to convert regular chunks into randomly sized chunks based on
@@ -144,16 +144,14 @@ const jsonRpcResponseResultArb = (
     })
     .noShrink() as fc.Arbitrary<JSONRPCResponseResult>;
 const jsonRpcErrorArb = (
-  error: fc.Arbitrary<ErrorRPC<any>> = fc.constant(new ErrorRPC('test error')),
+  error: fc.Arbitrary<Error> = fc.constant(new Error('test error')),
 ) =>
   fc
     .record(
       {
         code: fc.constant(rpcErrors.JSONRPCErrorCode.RPCRemote),
         message: fc.string(),
-        data: fc.record({
-          cause: error.map((e) => JSON.stringify(fromError(e))),
-        }),
+        data: error.map((e) => fromError(e)),
       },
       {
         requiredKeys: ['code', 'message', 'data'],
@@ -259,18 +257,15 @@ const errorArb = (
   cause: fc.Arbitrary<Error | undefined> = fc.constant(undefined),
 ) =>
   cause.chain((cause) =>
-    fc.oneof(
-      fc.constant(new rpcErrors.ErrorRPCMessageLength(undefined)),
-      fc.constant(
-        new AbstractError('message', {
-          cause,
-          data: {
-            command: 'someCommand',
-            host: `someHost`,
-            port: 0,
-          },
-        }),
-      ),
+    fc.constant(
+      new AbstractError('message', {
+        cause,
+        data: {
+          command: 'someCommand',
+          host: `someHost`,
+          port: 0,
+        },
+      }),
     ),
   );
 

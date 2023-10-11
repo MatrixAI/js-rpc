@@ -1,18 +1,18 @@
-import type { WritableStream, ReadableStream } from 'stream/web';
+import type { ReadableStream, WritableStream } from 'stream/web';
 import type { ContextTimedInput } from '@matrixai/contexts';
 import type {
-  IdGen,
-  HandlerType,
-  JSONValue,
-  JSONRPCRequestMessage,
-  JSONRPCRequest,
-  JSONRPCResponse,
-  MiddlewareFactory,
-  MapCallers,
-  StreamFactory,
   ClientManifest,
-  RPCStream,
+  HandlerType,
+  IdGen,
+  JSONRPCRequest,
+  JSONRPCRequestMessage,
+  JSONRPCResponse,
   JSONRPCResponseResult,
+  JSONValue,
+  MapCallers,
+  MiddlewareFactory,
+  RPCStream,
+  StreamFactory,
   ToError,
 } from './types';
 import Logger from '@matrixai/logger';
@@ -470,20 +470,7 @@ class RPCClient<M extends ClientManifest> {
             ...(rpcStream.meta ?? {}),
             command: method,
           };
-          const e: errors.ErrorRPCProtocol<any> =
-            errors.ErrorRPCProtocol.fromJSON(messageValue.error);
-          if (
-            e instanceof errors.ErrorRPCRemote &&
-            messageValue.error.data != null &&
-            typeof messageValue.error.data === 'object' &&
-            'cause' in messageValue.error.data
-          ) {
-            e.metadata = metadata;
-            e.cause = this.toError(
-              JSON.parse(messageValue.error.data.cause as string),
-            );
-          }
-          throw e;
+          throw this.toError(messageValue.error.data, metadata);
         }
         leadingMessage = messageValue;
       } catch (e) {
