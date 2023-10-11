@@ -94,7 +94,7 @@ class RPCServer {
     middlewareFactory = middleware.defaultServerMiddlewareWrapper(),
     handlerTimeoutTime = Infinity,
     logger,
-    idGen = () => Promise.resolve(null),
+    idGen = () => null,
     fromError = utils.fromError,
     replacer,
   }: {

@@ -87,7 +87,7 @@ class RPCClient<M extends ClientManifest> {
     streamKeepAliveTimeoutTime = Infinity,
     logger,
     toError = utils.toError,
-    idGen = () => Promise.resolve(null),
+    idGen = () => null,
   }: {
     manifest: M;
     streamFactory: StreamFactory;

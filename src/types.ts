@@ -11,7 +11,7 @@ import type Handler from './handlers/Handler';
 /**
  * This is the type for the IdGenFunction. It is used to generate the request
  */
-type IdGen = () => PromiseLike<string | number | null>;
+type IdGen = () => PromiseLike<string | number | null> | string | number | null;
 
 /**
  * This is the JSON RPC request object. this is the generic message type used for the RPC.
