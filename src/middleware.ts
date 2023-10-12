@@ -4,7 +4,11 @@ import type {
   JSONRPCResponse,
   JSONRPCResponseResult,
   MiddlewareFactory,
+  JSONValue,
+  JSONRPCRequestMetadata,
+  JSONRPCResponseMetadata,
 } from './types';
+import type { ContextTimed } from '@matrixai/contexts';
 import { TransformStream } from 'stream/web';
 import { JSONParser } from '@streamparser/json';
 import * as utils from './utils';
@@ -75,6 +79,80 @@ function jsonMessageToBinaryStream(): TransformStream<
   });
 }
 
+function timeoutMiddlewareServer(
+  ctx: ContextTimed,
+  _cancel: (reason?: any) => void,
+  _meta: Record<string, JSONValue> | undefined,
+) {
+  const currentTimeout = ctx.timer.delay;
+  // Flags for tracking if the first message has been processed
+  let forwardFirst = true;
+  return {
+    forward: new TransformStream<
+      JSONRPCRequest<JSONRPCRequestMetadata>,
+      JSONRPCRequest<JSONRPCRequestMetadata>
+    >({
+      transform: (chunk, controller) => {
+        controller.enqueue(chunk);
+        if (forwardFirst) {
+          forwardFirst = false;
+          let clientTimeout = chunk.metadata?.timeout;
+          if (clientTimeout === undefined) return;
+          if (clientTimeout === null) clientTimeout = Infinity;
+          if (clientTimeout < currentTimeout) ctx.timer.reset(clientTimeout);
+        }
+      },
+    }),
+    reverse: new TransformStream<
+      JSONRPCResponse<JSONRPCResponseMetadata>,
+      JSONRPCResponse<JSONRPCResponseMetadata>
+    >({
+      transform: (chunk, controller) => {
+        // Passthrough chunk, no need for server to send ctx.timeout
+        controller.enqueue(chunk);
+      },
+    }),
+  };
+}
+
+/**
+ * This adds its own timeout to the forward metadata and updates it's timeout
+ * based on the reverse metadata.
+ * @param ctx
+ * @param _cancel
+ * @param _meta
+ */
+function timeoutMiddlewareClient(
+  ctx: ContextTimed,
+  _cancel: (reason?: any) => void,
+  _meta: Record<string, JSONValue> | undefined,
+) {
+  const currentTimeout = ctx.timer.delay;
+  // Flags for tracking if the first message has been processed
+  let forwardFirst = true;
+  return {
+    forward: new TransformStream<JSONRPCRequest, JSONRPCRequest>({
+      transform: (chunk, controller) => {
+        if (forwardFirst) {
+          forwardFirst = false;
+          if (chunk == null) chunk = { jsonrpc: '2.0', method: '' };
+          if (chunk.metadata == null) chunk.metadata = {};
+          (chunk.metadata as any).timeout = currentTimeout;
+        }
+        controller.enqueue(chunk);
+      },
+    }),
+    reverse: new TransformStream<
+      JSONRPCResponse<JSONRPCResponseMetadata>,
+      JSONRPCResponse<JSONRPCResponseMetadata>
+    >({
+      transform: (chunk, controller) => {
+        controller.enqueue(chunk); // Passthrough chunk, no need for client to set ctx.timeout
+      },
+    }),
+  };
+}
+
 /**
  * This function is a factory for creating a pass-through streamPair. It is used
  * as the default middleware for the middleware wrappers.
@@ -116,12 +194,14 @@ function defaultServerMiddlewareWrapper(
     >();
 
     const middleMiddleware = middlewareFactory(ctx, cancel, meta);
+    const timeoutMiddleware = timeoutMiddlewareServer(ctx, cancel, meta);
 
-    const forwardReadable = inputTransformStream.readable.pipeThrough(
-      middleMiddleware.forward,
-    ); // Usual middleware here
+    const forwardReadable = inputTransformStream.readable
+      .pipeThrough(timeoutMiddleware.forward) // Timeout middleware here
+      .pipeThrough(middleMiddleware.forward); // Usual middleware here
     const reverseReadable = outputTransformStream.readable
       .pipeThrough(middleMiddleware.reverse) // Usual middleware here
+      .pipeThrough(timeoutMiddleware.reverse) // Timeout middleware here
       .pipeThrough(jsonMessageToBinaryStream());
 
     return {
@@ -172,13 +252,15 @@ const defaultClientMiddlewareWrapper = (
       JSONRPCRequest
     >();
 
+    const timeoutMiddleware = timeoutMiddlewareClient(ctx, cancel, meta);
     const middleMiddleware = middleware(ctx, cancel, meta);
     const forwardReadable = inputTransformStream.readable
+      .pipeThrough(timeoutMiddleware.forward)
       .pipeThrough(middleMiddleware.forward) // Usual middleware here
       .pipeThrough(jsonMessageToBinaryStream());
-    const reverseReadable = outputTransformStream.readable.pipeThrough(
-      middleMiddleware.reverse,
-    ); // Usual middleware here
+    const reverseReadable = outputTransformStream.readable
+      .pipeThrough(middleMiddleware.reverse)
+      .pipeThrough(timeoutMiddleware.reverse); // Usual middleware here
 
     return {
       forward: {
@@ -199,4 +281,6 @@ export {
   defaultMiddleware,
   defaultServerMiddlewareWrapper,
   defaultClientMiddlewareWrapper,
+  timeoutMiddlewareClient,
+  timeoutMiddlewareServer,
 };

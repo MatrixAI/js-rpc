@@ -1,5 +1,6 @@
 import { fc, testProp } from '@fast-check/jest';
 import { AsyncIterableX as AsyncIterable } from 'ix/asynciterable';
+import { Timer } from '@matrixai/timer';
 import * as rpcUtils from '@/utils';
 import 'ix/add/asynciterable-operators/toarray';
 import * as rpcErrors from '@/errors';
@@ -98,5 +99,141 @@ describe('Middleware tests', () => {
       );
     },
     { numRuns: 1000 },
+  );
+  testProp(
+    'timeoutMiddlewareServer should set ctx.timeout if timeout is lower',
+    [rpcTestUtils.jsonMessagesArb, fc.integer({ min: 0 })],
+    async (messages, timeout) => {
+      messages[0].metadata = { ...messages[0].metadata, timeout };
+      const abortController = new AbortController();
+      const timer = new Timer(undefined, Infinity);
+      const ctx = {
+        signal: abortController.signal,
+        timer,
+      };
+      const timeoutMiddleware = rpcUtilsMiddleware.timeoutMiddlewareServer(
+        ctx,
+        () => {},
+        {},
+      );
+      const parsedStream = rpcTestUtils
+        .messagesToReadableStream(messages)
+        .pipeThrough(
+          rpcUtilsMiddleware.binaryToJsonMessageStream(
+            rpcUtils.parseJSONRPCMessage,
+          ),
+        ) // Converting back.
+        .pipeThrough(timeoutMiddleware.forward);
+
+      const asd = await AsyncIterable.as(parsedStream).toArray();
+      expect(asd).toEqual(messages);
+      expect(timer.delay).toBe(timeout);
+      timer.cancel();
+      await timer.catch(() => {});
+    },
+  );
+  testProp(
+    'timeoutMiddlewareServer wont set ctx.timeout if timeout is higher',
+    [rpcTestUtils.jsonMessagesArb, fc.integer({ min: 1 })],
+    async (messages, timeout) => {
+      messages[0].metadata = { ...messages[0].metadata, timeout };
+      const abortController = new AbortController();
+      const timer = new Timer(undefined, 0);
+      const ctx = {
+        signal: abortController.signal,
+        timer,
+      };
+      const timeoutMiddleware = rpcUtilsMiddleware.timeoutMiddlewareServer(
+        ctx,
+        () => {},
+        {},
+      );
+      const parsedStream = rpcTestUtils
+        .messagesToReadableStream(messages)
+        .pipeThrough(
+          rpcUtilsMiddleware.binaryToJsonMessageStream(
+            rpcUtils.parseJSONRPCMessage,
+          ),
+        ) // Converting back.
+        .pipeThrough(timeoutMiddleware.forward);
+
+      const asd = await AsyncIterable.as(parsedStream).toArray();
+      expect(asd).toEqual(messages);
+      expect(timer.delay).toBe(0);
+      timer.cancel();
+      await timer.catch(() => {});
+    },
+  );
+  testProp(
+    'timeoutMiddlewareServer should set ctx.timeout if timeout is infinity/null',
+    [rpcTestUtils.jsonMessagesArb],
+    async (messages) => {
+      messages[0].metadata = { ...messages[0].metadata, timeout: Infinity };
+      const abortController = new AbortController();
+      const timer = new Timer(undefined, Infinity);
+      const ctx = {
+        signal: abortController.signal,
+        timer,
+      };
+      const timeoutMiddleware = rpcUtilsMiddleware.timeoutMiddlewareServer(
+        ctx,
+        () => {},
+        {},
+      );
+      const parsedStream = rpcTestUtils
+        .messagesToReadableStream(messages)
+        .pipeThrough(
+          rpcUtilsMiddleware.binaryToJsonMessageStream(
+            rpcUtils.parseJSONRPCMessage,
+          ),
+        )
+        .pipeThrough(timeoutMiddleware.forward); // Converting back.
+
+      const expectedMessages = [...messages];
+      if (expectedMessages[0].metadata != null) {
+        expectedMessages[0].metadata.timeout = null;
+      }
+      const asd = await AsyncIterable.as(parsedStream).toArray();
+      expect(asd).toEqual(expectedMessages);
+      expect(timer.delay).toBe(Infinity);
+      timer.cancel();
+      await timer.catch(() => {});
+    },
+  );
+  testProp(
+    'timeoutMiddlewareClient can encode ctx.timeout',
+    [rpcTestUtils.jsonMessagesArb, fc.integer({ min: 0 })],
+    async (messages, timeout) => {
+      const abortController = new AbortController();
+      const timer = new Timer(undefined, timeout);
+      const ctx = {
+        signal: abortController.signal,
+        timer,
+      };
+      const timeoutMiddleware = rpcUtilsMiddleware.timeoutMiddlewareClient(
+        ctx,
+        () => {},
+        {},
+      );
+      const parsedStream = rpcTestUtils
+        .messagesToReadableStream(messages)
+        .pipeThrough(
+          rpcUtilsMiddleware.binaryToJsonMessageStream(
+            rpcUtils.parseJSONRPCMessage,
+          ),
+        )
+        .pipeThrough(timeoutMiddleware.forward); // Converting back.
+
+      const expectedMessages = [...messages];
+      expectedMessages[0].metadata = {
+        ...expectedMessages[0].metadata,
+        timeout,
+      };
+      const asd = await AsyncIterable.as(parsedStream).toArray();
+      expect(asd).toEqual(expectedMessages);
+      expect(timer.delay).toBe(timeout);
+      timer.cancel();
+      await timer.catch(() => {});
+    },
   );
 });
