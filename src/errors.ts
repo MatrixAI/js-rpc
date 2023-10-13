@@ -1,6 +1,5 @@
 import type { Class } from '@matrixai/errors';
-import type { JSONRPCError, JSONValue } from '@/types';
-import type { POJO } from '@matrixai/errors/dist/types';
+import type { JSONRPCError, JSONValue, POJO } from './types';
 import { AbstractError } from '@matrixai/errors';
 
 class ErrorRPC<T> extends AbstractError<T> {
