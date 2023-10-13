@@ -141,6 +141,11 @@ class RPCClient<M extends ClientManifest> {
         });
       }
       await writer.close();
+      // Release lock of previous reader to ready for flush
+      reader.releaseLock();
+      for await (const _ of callerInterface.readable) {
+        // Noop so that stream can close after flushing
+      }
       return output.value;
     } finally {
       // Attempt clean up, ignore errors if already cleaned up

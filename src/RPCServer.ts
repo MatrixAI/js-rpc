@@ -390,6 +390,9 @@ class RPCServer {
         yield await handler(inputVal, cancel, meta, ctx);
         break;
       }
+      for await (const _ of input) {
+        // Noop so that stream can close after flushing
+      }
     };
     this.registerDuplexStreamHandler(method, wrapperDuplex, timeout);
   }
