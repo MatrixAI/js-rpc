@@ -140,12 +140,10 @@ class RPCClient<M extends ClientManifest> {
           cause: ctx.signal?.reason,
         });
       }
-      await reader.cancel();
       await writer.close();
       return output.value;
     } finally {
       // Attempt clean up, ignore errors if already cleaned up
-      await reader.cancel().catch(() => {});
       await writer.close().catch(() => {});
     }
   }
