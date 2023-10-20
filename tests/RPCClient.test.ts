@@ -750,7 +750,7 @@ describe(`${RPCClient.name}`, () => {
           // Should never reach this when testing
           return {} as RPCStream<Uint8Array, Uint8Array>;
         },
-        streamKeepAliveTimeoutTime: 100,
+        timeoutTime: 100,
         logger,
         idGen,
       });
@@ -919,7 +919,7 @@ describe(`${RPCClient.name}`, () => {
           // Should never reach this when testing
           return {} as RPCStream<Uint8Array, Uint8Array>;
         },
-        streamKeepAliveTimeoutTime: 100,
+        timeoutTime: 100,
         logger,
         idGen,
       });
@@ -1006,7 +1006,7 @@ describe(`${RPCClient.name}`, () => {
           ctx = ctx_;
           return streamPair;
         },
-        streamKeepAliveTimeoutTime: 100,
+        timeoutTime: 100,
         logger,
         idGen,
       });
@@ -1149,7 +1149,7 @@ describe(`${RPCClient.name}`, () => {
       { numRuns: 5 },
     );
     testProp(
-      'Check that ctx is provided to the middleWare and that the middleware can reset the timer',
+      'Check that ctx is provided to the middleware and that the middleware can reset the timer',
       [specificMessageArb],
       async (messages) => {
         const inputStream = rpcTestUtils.messagesToReadableStream(messages);
@@ -1195,6 +1195,113 @@ describe(`${RPCClient.name}`, () => {
         await outputResult;
       },
       { numRuns: 1 },
+    );
+  });
+  describe('timeout priority', () => {
+    testProp(
+      'check that call with ctx can override higher timeout of RPCClient',
+      [rpcTestUtils.timeoutsArb],
+      async ([lowerTimeoutTime, higherTimeoutTime]) => {
+        const streamPair: RPCStream<Uint8Array, Uint8Array> = {
+          cancel: () => {},
+          meta: undefined,
+          readable: new ReadableStream(),
+          writable: new WritableStream(),
+        };
+        const { p: ctxP, resolveP: resolveCtxP } = promise<ContextTimed>();
+        const rpcClient = new RPCClient({
+          manifest: {},
+          streamFactory: async (ctx) => {
+            resolveCtxP(ctx);
+            return streamPair;
+          },
+          logger,
+          idGen,
+          timeoutTime: higherTimeoutTime,
+        });
+
+        await rpcClient.duplexStreamCaller<JSONRPCParams, JSONRPCResult>(
+          methodName,
+          {
+            timer: lowerTimeoutTime,
+          },
+        );
+
+        const ctx = await ctxP;
+        expect(ctx.timer.delay).toBe(lowerTimeoutTime);
+        ctx.timer.cancel();
+        await ctx.timer.catch(() => {});
+      },
+    );
+    testProp(
+      'check that call with ctx can override lower timeout of RPCClient',
+      [rpcTestUtils.timeoutsArb],
+      async ([lowerTimeoutTime, higherTimeoutTime]) => {
+        const streamPair: RPCStream<Uint8Array, Uint8Array> = {
+          cancel: () => {},
+          meta: undefined,
+          readable: new ReadableStream(),
+          writable: new WritableStream(),
+        };
+        const { p: ctxP, resolveP: resolveCtxP } = promise<ContextTimed>();
+        const rpcClient = new RPCClient({
+          manifest: {},
+          streamFactory: async (ctx) => {
+            resolveCtxP(ctx);
+            return streamPair;
+          },
+          logger,
+          idGen,
+          timeoutTime: lowerTimeoutTime,
+        });
+
+        await rpcClient.duplexStreamCaller<JSONRPCParams, JSONRPCResult>(
+          methodName,
+          {
+            timer: higherTimeoutTime,
+          },
+        );
+
+        const ctx = await ctxP;
+        expect(ctx.timer.delay).toBe(higherTimeoutTime);
+        ctx.timer.cancel();
+        await ctx.timer.catch(() => {});
+      },
+    );
+    testProp(
+      'check that call with ctx can override lower timeout of RPCClient with Infinity',
+      [fc.integer({ min: 0 })],
+      async (timeoutTime) => {
+        const streamPair: RPCStream<Uint8Array, Uint8Array> = {
+          cancel: () => {},
+          meta: undefined,
+          readable: new ReadableStream(),
+          writable: new WritableStream(),
+        };
+        const { p: ctxP, resolveP: resolveCtxP } = promise<ContextTimed>();
+        const rpcClient = new RPCClient({
+          manifest: {},
+          streamFactory: async (ctx) => {
+            resolveCtxP(ctx);
+            return streamPair;
+          },
+          logger,
+          idGen,
+          timeoutTime,
+        });
+
+        await rpcClient.duplexStreamCaller<JSONRPCParams, JSONRPCResult>(
+          methodName,
+          {
+            timer: Infinity,
+          },
+        );
+
+        const ctx = await ctxP;
+        expect(ctx.timer.delay).toBe(Infinity);
+        ctx.timer.cancel();
+        await ctx.timer.catch(() => {});
+      },
     );
   });
 });

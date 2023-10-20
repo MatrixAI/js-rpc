@@ -58,7 +58,7 @@ class RPCServer {
   protected logger: Logger;
   protected handlerMap: Map<string, RawHandlerImplementation> = new Map();
   protected defaultTimeoutMap: Map<string, number | undefined> = new Map();
-  protected handlerTimeoutTime: number;
+  protected timeoutTime: number;
   protected activeStreams: Set<PromiseCancellable<void>> = new Set();
   protected fromError: FromError;
   protected replacer?: (key: string, value: any) => any;
@@ -80,18 +80,15 @@ class RPCServer {
    * The middlewareFactory needs to be a function that creates a pair of
    * transform streams that convert `Uint8Array` to `JSONRPCRequest` on the forward
    * path and `JSONRPCResponse` to `Uint8Array` on the reverse path.
-   * @param obj.streamKeepAliveTimeoutTime - Time before a connection is cleaned up due to no activity. This is the
+   * @param obj.timeoutTime - Time before a stream is cleaned up due to no activity. This is the
    * value used if the handler doesn't specify its own timeout time. This timeout is advisory and only results in a
    * signal sent to the handler. Stream is forced to end after the timeoutForceCloseTime. Defaults to 60,000
    * milliseconds.
-   * @param obj.timeoutForceCloseTime - Time before the stream is forced to end after the initial timeout time.
-   * The stream will be forced to close after this amount of time after the initial timeout. This is a grace period for
-   * the handler to handle timeout before it is forced to end. Defaults to 2,000 milliseconds.
    * @param obj.logger
    */
   public constructor({
     middlewareFactory = middleware.defaultServerMiddlewareWrapper(),
-    handlerTimeoutTime = Infinity,
+    timeoutTime = Infinity,
     logger,
     idGen = () => null,
     fromError = utils.fromError,
@@ -103,7 +100,7 @@ class RPCServer {
       Uint8Array,
       JSONRPCResponseResult
     >;
-    handlerTimeoutTime?: number;
+    timeoutTime?: number;
     logger?: Logger;
     idGen?: IdGen;
     fromError?: FromError;
@@ -111,7 +108,7 @@ class RPCServer {
   }) {
     this.idGen = idGen;
     this.middlewareFactory = middlewareFactory;
-    this.handlerTimeoutTime = handlerTimeoutTime;
+    this.timeoutTime = timeoutTime;
     this.fromError = fromError;
     this.replacer = replacer;
     this.logger = logger ?? new Logger(this.constructor.name);
@@ -453,7 +450,7 @@ class RPCServer {
     const abortController = new AbortController();
     // Setting up timeout timer logic
     const timer = new Timer({
-      delay: this.handlerTimeoutTime,
+      delay: this.timeoutTime,
       handler: () => {
         abortController.abort(new errors.ErrorRPCTimedOut());
         if (this.onTimeoutCallback) {
@@ -575,7 +572,7 @@ class RPCServer {
       // Setting up Timeout logic
       const timeout = this.defaultTimeoutMap.get(method);
       if (timer.status !== 'settled') {
-        if (timeout != null && timeout < this.handlerTimeoutTime) {
+        if (timeout != null) {
           // Reset timeout with new delay if it is less than the default
           timer.reset(timeout);
         } else {

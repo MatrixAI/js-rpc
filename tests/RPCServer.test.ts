@@ -57,7 +57,6 @@ describe(`${RPCServer.name}`, () => {
       data: rpcTestUtils.safeJsonValueArb,
     }),
   );
-
   testProp(
     'can stream data with raw duplex stream handler',
     [specificMessageArb],
@@ -884,7 +883,7 @@ describe(`${RPCServer.name}`, () => {
     }
 
     const rpcServer = new RPCServer({
-      handlerTimeoutTime: 100,
+      timeoutTime: 100,
       logger,
       idGen,
     });
@@ -930,7 +929,7 @@ describe(`${RPCServer.name}`, () => {
   });
   test('timeout with default time before handler selected', async () => {
     const rpcServer = new RPCServer({
-      handlerTimeoutTime: 100,
+      timeoutTime: 100,
       logger,
       idGen,
     });
@@ -957,85 +956,6 @@ describe(`${RPCServer.name}`, () => {
     }
     await rpcServer.stop({ force: true });
   });
-  test('handler overrides timeout', async () => {
-    {
-      const waitProm = promise();
-      const ctxShortProm = promise<ContextTimed>();
-      class TestMethodShortTimeout extends UnaryHandler {
-        timeout = 25;
-        public handle = async (
-          input: JSONRPCParams,
-          _cancel,
-          _meta,
-          ctx_,
-        ): Promise<JSONRPCResult> => {
-          ctxShortProm.resolveP(ctx_);
-          await waitProm.p;
-          return input;
-        };
-      }
-      const ctxLongProm = promise<ContextTimed>();
-      class TestMethodLongTimeout extends UnaryHandler {
-        timeout = 100;
-        public handle = async (
-          input: JSONRPCParams,
-          _cancel,
-          _meta,
-          ctx_,
-        ): Promise<JSONRPCResult> => {
-          ctxLongProm.resolveP(ctx_);
-          await waitProm.p;
-          return input;
-        };
-      }
-      const rpcServer = new RPCServer({
-        handlerTimeoutTime: 50,
-        logger,
-        idGen,
-      });
-      await rpcServer.start({
-        manifest: {
-          testShort: new TestMethodShortTimeout({}),
-          testLong: new TestMethodLongTimeout({}),
-        },
-      });
-      const streamShort = rpcTestUtils.messagesToReadableStream([
-        {
-          jsonrpc: '2.0',
-          method: 'testShort',
-          params: {},
-        },
-      ]);
-      const readWriteStreamShort: RPCStream<Uint8Array, Uint8Array> = {
-        cancel: () => {},
-        readable: streamShort,
-        writable: new WritableStream(),
-      };
-      rpcServer.handleStream(readWriteStreamShort);
-      // Shorter timeout is updated
-      const ctxShort = await ctxShortProm.p;
-      expect(ctxShort.timer.delay).toEqual(25);
-      const streamLong = rpcTestUtils.messagesToReadableStream([
-        {
-          jsonrpc: '2.0',
-          method: 'testLong',
-          params: {},
-        },
-      ]);
-      const readWriteStreamLong: RPCStream<Uint8Array, Uint8Array> = {
-        cancel: () => {},
-        readable: streamLong,
-        writable: new WritableStream(),
-      };
-      rpcServer.handleStream(readWriteStreamLong);
-
-      // Longer timeout is set to server's default
-      const ctxLong = await ctxLongProm.p;
-      expect(ctxLong.timer.delay).toEqual(50);
-      waitProm.resolveP();
-      await rpcServer.stop({ force: true });
-    }
-  });
   test('duplex handler refreshes timeout when messages are sent', async () => {
     const contextProm = promise<ContextTimed>();
     const stepProm1 = promise();
@@ -1061,7 +981,7 @@ describe(`${RPCServer.name}`, () => {
     const rpcServer = new RPCServer({
       logger,
       idGen,
-      handlerTimeoutTime: 1000,
+      timeoutTime: 1000,
     });
     await rpcServer.start({
       manifest: {
@@ -1207,6 +1127,134 @@ describe(`${RPCServer.name}`, () => {
       await outputResult;
       const ctx = await ctxProm.p;
       expect(ctx.timer.delay).toBe(12345);
+    },
+  );
+  describe('timeout priority', () => {
+    testProp(
+      'check that handler can override higher timeout of RPCServer',
+      [specificMessageArb, rpcTestUtils.timeoutsArb],
+      async (messages, [lowerTimeoutTime, higherTimeoutTime]) => {
+        const stream = rpcTestUtils.messagesToReadableStream(messages);
+        const { p: ctxP, resolveP: resolveCtxP } = promise<ContextTimed>();
+        class TestMethod extends DuplexHandler {
+          public timeout = lowerTimeoutTime;
+          public handle = async function* (
+            input: AsyncGenerator<JSONRPCParams>,
+            _cancel: (reason?: any) => void,
+            _meta: Record<string, JSONValue> | undefined,
+            ctx: ContextTimed,
+          ): AsyncGenerator<JSONRPCResult> {
+            resolveCtxP(ctx);
+            yield* input;
+          };
+        }
+        const rpcServer = new RPCServer({
+          logger,
+          timeoutTime: higherTimeoutTime,
+          idGen,
+        });
+        await rpcServer.start({
+          manifest: {
+            testMethod: new TestMethod({}),
+          },
+        });
+        const [outputResult, outputStream] = rpcTestUtils.streamToArray();
+        const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
+          cancel: () => {},
+          readable: stream,
+          writable: outputStream,
+        };
+        rpcServer.handleStream(readWriteStream);
+        await outputResult;
+        const ctx = await ctxP;
+        expect(ctx.timer.delay).toBe(lowerTimeoutTime);
+        ctx.timer.cancel();
+        await ctx.timer.catch(() => {});
+      },
+    );
+    testProp(
+      'check that handler can override lower timeout of RPCServer',
+      [specificMessageArb, rpcTestUtils.timeoutsArb],
+      async (messages, [lowerTimeoutTime, higherTimeoutTime]) => {
+        const stream = rpcTestUtils.messagesToReadableStream(messages);
+        const { p: ctxP, resolveP: resolveCtxP } = promise<ContextTimed>();
+        class TestMethod extends DuplexHandler {
+          public timeout = higherTimeoutTime;
+          public handle = async function* (
+            input: AsyncGenerator<JSONRPCParams>,
+            _cancel: (reason?: any) => void,
+            _meta: Record<string, JSONValue> | undefined,
+            ctx: ContextTimed,
+          ): AsyncGenerator<JSONRPCResult> {
+            resolveCtxP(ctx);
+            yield* input;
+          };
+        }
+        const rpcServer = new RPCServer({
+          logger,
+          timeoutTime: lowerTimeoutTime,
+          idGen,
+        });
+        await rpcServer.start({
+          manifest: {
+            testMethod: new TestMethod({}),
+          },
+        });
+        const [outputResult, outputStream] = rpcTestUtils.streamToArray();
+        const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
+          cancel: () => {},
+          readable: stream,
+          writable: outputStream,
+        };
+        rpcServer.handleStream(readWriteStream);
+        await outputResult;
+        const ctx = await ctxP;
+        expect(ctx.timer.delay).toBe(higherTimeoutTime);
+        ctx.timer.cancel();
+        await ctx.timer.catch(() => {});
+      },
+    );
+  });
+  testProp(
+    'check that handler can override lower timeout of RPCServer with Infinity',
+    [specificMessageArb, fc.integer({ min: 0 })],
+    async (messages, timeoutTime) => {
+      const stream = rpcTestUtils.messagesToReadableStream(messages);
+      const { p: ctxP, resolveP: resolveCtxP } = promise<ContextTimed>();
+      class TestMethod extends DuplexHandler {
+        public timeout = Infinity;
+        public handle = async function* (
+          input: AsyncGenerator<JSONRPCParams>,
+          _cancel: (reason?: any) => void,
+          _meta: Record<string, JSONValue> | undefined,
+          ctx: ContextTimed,
+        ): AsyncGenerator<JSONRPCResult> {
+          resolveCtxP(ctx);
+          yield* input;
+        };
+      }
+      const rpcServer = new RPCServer({
+        logger,
+        timeoutTime,
+        idGen,
+      });
+      await rpcServer.start({
+        manifest: {
+          testMethod: new TestMethod({}),
+        },
+      });
+      const [outputResult, outputStream] = rpcTestUtils.streamToArray();
+      const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
+        cancel: () => {},
+        readable: stream,
+        writable: outputStream,
+      };
+      rpcServer.handleStream(readWriteStream);
+      await outputResult;
+      const ctx = await ctxP;
+      expect(ctx.timer.delay).toBe(Infinity);
+      ctx.timer.cancel();
+      await ctx.timer.catch(() => {});
     },
   );
 });
