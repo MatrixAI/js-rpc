@@ -927,6 +927,70 @@ describe('RPC', () => {
     await rpcServer.stop({ force: true });
   });
   testProp(
+    'RPC client times out and server is able to ignore exception',
+    [fc.string()],
+    async (message) => {
+      // Setup server and client communication pairs
+      const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
+        Uint8Array,
+        Uint8Array
+      >();
+      const { p: ctxP, resolveP: resolveCtxP } = utils.promise<ContextTimed>();
+      class TestMethod extends UnaryHandler {
+        public handle = async (
+          input: JSONValue,
+          cancel: (reason?: any) => void,
+          meta: Record<string, JSONValue> | undefined,
+          ctx: ContextTimed,
+        ): Promise<JSONValue> => {
+          const abortProm = utils.promise<never>();
+          ctx.signal.addEventListener('abort', () => {
+            resolveCtxP(ctx);
+            abortProm.resolveP(ctx.signal.reason);
+          });
+          await abortProm.p;
+          return input;
+        };
+      }
+      // Set up a client and server with matching timeout settings
+      const rpcServer = new RPCServer({
+        logger,
+        idGen,
+        handlerTimeoutTime: 150,
+      });
+      await rpcServer.start({
+        manifest: {
+          testMethod: new TestMethod({}),
+        },
+      });
+      rpcServer.handleStream({
+        ...serverPair,
+        cancel: () => {},
+      });
+
+      const rpcClient = new RPCClient({
+        manifest: {
+          testMethod: new UnaryCaller(),
+        },
+        streamFactory: async () => {
+          return {
+            ...clientPair,
+            cancel: () => {},
+          };
+        },
+        logger,
+        idGen,
+      });
+      await expect(
+        rpcClient.methods.testMethod(message, { timer: 100 }),
+      ).resolves.toBe(message);
+      await expect(ctxP).resolves.toHaveProperty(['timer', 'delay'], 100);
+
+      await rpcServer.stop({ force: true });
+    },
+    { numRuns: 1 },
+  );
+  testProp(
     'RPC Serializes and Deserializes Error',
     [rpcTestUtils.errorArb(rpcTestUtils.errorArb())],
     async (error) => {

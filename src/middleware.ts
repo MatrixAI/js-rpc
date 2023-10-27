@@ -278,9 +278,9 @@ const defaultClientMiddlewareWrapper = (
 export {
   binaryToJsonMessageStream,
   jsonMessageToBinaryStream,
+  timeoutMiddlewareClient,
+  timeoutMiddlewareServer,
   defaultMiddleware,
   defaultServerMiddlewareWrapper,
   defaultClientMiddlewareWrapper,
-  timeoutMiddlewareClient,
-  timeoutMiddlewareServer,
 };

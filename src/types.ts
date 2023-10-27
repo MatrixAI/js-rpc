@@ -110,7 +110,12 @@ type JSONRPCResponseError = {
   id: string | number | null;
 };
 
-type ObjectEmpty = NonNullable<unknown>;
+/**
+ * Used when an empty object is needed.
+ * Defined here with a linter override to avoid a false positive.
+ */
+// eslint-disable-next-line
+type ObjectEmpty = {};
 
 // Prevent overwriting the metadata type with `Omit<>`
 type JSONRPCRequestMetadata<T extends Record<string, JSONValue> = ObjectEmpty> =

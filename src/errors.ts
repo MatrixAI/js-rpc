@@ -148,6 +148,13 @@ class ErrorRPCStreamEnded<T> extends ErrorRPCProtocol<T> {
 class ErrorRPCTimedOut<T> extends ErrorRPCProtocol<T> {
   static description = 'RPC handler has timed out';
   code = JSONRPCErrorCode.RPCTimedOut;
+  public toJSON(): JSONRPCError {
+    const json = super.toJSON();
+    if (typeof json === 'object' && !Array.isArray(json)) {
+      (json as POJO).type = this.constructor.name;
+    }
+    return json;
+  }
 }
 
 class ErrorUtilsUndefinedBehaviour<T> extends ErrorRPCProtocol<T> {
