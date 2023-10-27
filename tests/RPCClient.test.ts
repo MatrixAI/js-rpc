@@ -1149,6 +1149,28 @@ describe(`${RPCClient.name}`, () => {
       { numRuns: 5 },
     );
     testProp(
+      'RPCClient constructor should throw when passed a negative timeoutTime',
+      [fc.integer({ max: -1 })],
+      async (timeoutTime) => {
+        const streamPair: RPCStream<Uint8Array, Uint8Array> = {
+          cancel: () => {},
+          meta: undefined,
+          readable: new ReadableStream(),
+          writable: new WritableStream(),
+        };
+        const constructorF = () =>
+          new RPCClient({
+            timeoutTime,
+            streamFactory: () => Promise.resolve(streamPair),
+            manifest: {},
+            logger,
+            idGen,
+          });
+
+        expect(constructorF).toThrowError(rpcErrors.ErrorRPCInvalidTimeout);
+      },
+    );
+    testProp(
       'Check that ctx is provided to the middleware and that the middleware can reset the timer',
       [specificMessageArb],
       async (messages) => {
@@ -1220,12 +1242,9 @@ describe(`${RPCClient.name}`, () => {
           timeoutTime: higherTimeoutTime,
         });
 
-        await rpcClient.duplexStreamCaller<JSONRPCParams, JSONRPCResult>(
-          methodName,
-          {
-            timer: lowerTimeoutTime,
-          },
-        );
+        await rpcClient.duplexStreamCaller<JSONRPCParams, JSONRPCResult>(methodName, {
+          timer: lowerTimeoutTime,
+        });
 
         const ctx = await ctxP;
         expect(ctx.timer.delay).toBe(lowerTimeoutTime);
@@ -1255,12 +1274,9 @@ describe(`${RPCClient.name}`, () => {
           timeoutTime: lowerTimeoutTime,
         });
 
-        await rpcClient.duplexStreamCaller<JSONRPCParams, JSONRPCResult>(
-          methodName,
-          {
-            timer: higherTimeoutTime,
-          },
-        );
+        await rpcClient.duplexStreamCaller<JSONRPCParams, JSONRPCResult>(methodName, {
+          timer: higherTimeoutTime,
+        });
 
         const ctx = await ctxP;
         expect(ctx.timer.delay).toBe(higherTimeoutTime);

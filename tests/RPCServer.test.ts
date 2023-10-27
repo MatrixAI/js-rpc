@@ -1083,6 +1083,54 @@ describe(`${RPCServer.name}`, () => {
     await rpcServer.stop({ force: true });
   });
   testProp(
+    'RPCServer constructor should throw when passed a negative timeoutTime',
+    [fc.integer({ max: -1 })],
+    async (timeoutTime) => {
+      const constructorF = () =>
+        new RPCServer({
+          timeoutTime,
+          logger,
+          idGen,
+        });
+
+      expect(constructorF).toThrowError(rpcErrors.ErrorRPCInvalidTimeout);
+    },
+  );
+  testProp(
+    'RPCServer.start should throw when passed a handler with negative timeout',
+    [fc.integer({ max: -1 })],
+    async (timeoutTime) => {
+      const waitProm = promise();
+      const ctxLongProm = promise<ContextTimed>();
+
+      class TestMethodArbitraryTimeout extends UnaryHandler {
+        timeout = timeoutTime;
+        public handle = async (
+          input: JSONRPCParams,
+          _cancel,
+          _meta,
+          ctx_,
+        ): Promise<JSONRPCResult> => {
+          ctxLongProm.resolveP(ctx_);
+          await waitProm.p;
+          return input;
+        };
+      }
+      const rpcServer = new RPCServer({
+        logger,
+        idGen,
+      });
+
+      await expect(
+        rpcServer.start({
+          manifest: {
+            testArbitrary: new TestMethodArbitraryTimeout({}),
+          },
+        }),
+      ).rejects.toBeInstanceOf(rpcErrors.ErrorRPCInvalidHandlerTimeout);
+    },
+  );
+  testProp(
     'middleware can update timeout timer',
     [specificMessageArb],
     async (messages) => {

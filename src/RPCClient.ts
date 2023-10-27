@@ -103,6 +103,9 @@ class RPCClient<M extends ClientManifest> {
     idGen?: IdGen;
     toError?: ToError;
   }) {
+    if (timeoutTime < 0) {
+      throw new errors.ErrorRPCInvalidTimeout();
+    }
     this.idGen = idGen;
     this.callerTypes = utils.getHandlerTypes(manifest);
     this.streamFactory = streamFactory;

@@ -106,6 +106,9 @@ class RPCServer {
     fromError?: FromError;
     replacer?: (key: string, value: any) => any;
   }) {
+    if (timeoutTime < 0) {
+      throw new errors.ErrorRPCInvalidTimeout();
+    }
     this.idGen = idGen;
     this.middlewareFactory = middlewareFactory;
     this.timeoutTime = timeoutTime;
@@ -126,58 +129,68 @@ class RPCServer {
     manifest: ServerManifest;
   }): Promise<void> {
     this.logger.info(`Start ${this.constructor.name}`);
-    for (const [key, manifestItem] of Object.entries(manifest)) {
-      if (manifestItem instanceof RawHandler) {
-        this.registerRawStreamHandler(
-          key,
-          manifestItem.handle,
-          manifestItem.timeout,
-        );
-        continue;
+    try {
+      for (const [key, manifestItem] of Object.entries(manifest)) {
+        if (manifestItem.timeout != null && manifestItem.timeout < 0) {
+          throw new errors.ErrorRPCInvalidHandlerTimeout();
+        }
+        if (manifestItem instanceof RawHandler) {
+          this.registerRawStreamHandler(
+            key,
+            manifestItem.handle,
+            manifestItem.timeout,
+          );
+          continue;
+        }
+        if (manifestItem instanceof DuplexHandler) {
+          this.registerDuplexStreamHandler(
+            key,
+            // Bind the `this` to the generator handler to make the container available
+            manifestItem.handle.bind(manifestItem),
+            manifestItem.timeout,
+          );
+          continue;
+        }
+        if (manifestItem instanceof ServerHandler) {
+          this.registerServerStreamHandler(
+            key,
+            // Bind the `this` to the generator handler to make the container available
+            manifestItem.handle.bind(manifestItem),
+            manifestItem.timeout,
+          );
+          continue;
+        }
+        if (manifestItem instanceof ClientHandler) {
+          this.registerClientStreamHandler(
+            key,
+            manifestItem.handle,
+            manifestItem.timeout,
+          );
+          continue;
+        }
+        if (manifestItem instanceof ClientHandler) {
+          this.registerClientStreamHandler(
+            key,
+            manifestItem.handle,
+            manifestItem.timeout,
+          );
+          continue;
+        }
+        if (manifestItem instanceof UnaryHandler) {
+          this.registerUnaryHandler(
+            key,
+            manifestItem.handle,
+            manifestItem.timeout,
+          );
+          continue;
+        }
+        utils.never();
       }
-      if (manifestItem instanceof DuplexHandler) {
-        this.registerDuplexStreamHandler(
-          key,
-          // Bind the `this` to the generator handler to make the container available
-          manifestItem.handle.bind(manifestItem),
-          manifestItem.timeout,
-        );
-        continue;
-      }
-      if (manifestItem instanceof ServerHandler) {
-        this.registerServerStreamHandler(
-          key,
-          // Bind the `this` to the generator handler to make the container available
-          manifestItem.handle.bind(manifestItem),
-          manifestItem.timeout,
-        );
-        continue;
-      }
-      if (manifestItem instanceof ClientHandler) {
-        this.registerClientStreamHandler(
-          key,
-          manifestItem.handle,
-          manifestItem.timeout,
-        );
-        continue;
-      }
-      if (manifestItem instanceof ClientHandler) {
-        this.registerClientStreamHandler(
-          key,
-          manifestItem.handle,
-          manifestItem.timeout,
-        );
-        continue;
-      }
-      if (manifestItem instanceof UnaryHandler) {
-        this.registerUnaryHandler(
-          key,
-          manifestItem.handle,
-          manifestItem.timeout,
-        );
-        continue;
-      }
-      utils.never();
+    } catch (e) {
+      // No need to clean up streams, as streams can only be handled after RPCServer has been started.
+      this.handlerMap.clear();
+      this.defaultTimeoutMap.clear();
+      throw e;
     }
     this.logger.info(`Started ${this.constructor.name}`);
   }
