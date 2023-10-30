@@ -924,6 +924,35 @@ class TestMethod extends UnaryHandler {
 }
 ```
 
+### Timeout Priority
+
+A `timeoutTime` can be passed both to the constructors of `RPCServer` and `RPCClient`. This is the default `timeoutTime` for all callers/handlers.
+
+In the case of `RPCServer`, a `timeout` can be specified when extending any `Handler` class. This will override the default `timeoutTime` set on `RPCServer` for that handler only.
+
+```ts
+class TestMethodArbitraryTimeout extends UnaryHandler {
+  public timeout = 100;
+  public handle = async (
+    input: JSONValue,
+    _cancel,
+    _meta,
+    ctx_,
+  ): Promise<JSONValue> => {
+    return input;
+  };
+}
+```
+
+In the case of `RPCClient`, a `ctx` with the property `timer` can be supplied with a `Timer` instance or `number` when making making an RPC call. This will override the default `timeoutTime` set on `RPCClient` for that call only.
+
+```ts
+await rpcClient.methods.testMethod({}, { timer: 100 });
+await rpcClient.methods.testMethod({}, { timer: new Timer(undefined, 100) });
+```
+
+It's important to note that any of these timeouts will ultimately be overridden by the shortest timeout of the server and client combined using the timeout middleware below.
+
 ### Timeout Middleware
 
 The `timeoutMiddleware` sets an RPCServer's timeout based on the lowest timeout between the Client and the Server. This is so that handlers can eagerly time out and stop processing as soon as it is known that the client has timed out.
