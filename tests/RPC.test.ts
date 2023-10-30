@@ -924,7 +924,7 @@ describe('RPC', () => {
     const rpcServer = new RPCServer({
       logger,
       idGen,
-      handlerTimeoutTime: 150,
+      timeoutTime: 150,
     });
     await rpcServer.start({
       manifest: {
@@ -984,7 +984,7 @@ describe('RPC', () => {
       const rpcServer = new RPCServer({
         logger,
         idGen,
-        handlerTimeoutTime: 150,
+        timeoutTime: 150,
       });
       await rpcServer.start({
         manifest: {

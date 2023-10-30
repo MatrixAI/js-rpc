@@ -268,7 +268,7 @@ class Sum extends ClientHandler<ContainerType, number, number> {
 async function startServer() {
   const rpcServer = new RPCServer({
     logger: new Logger('rpc-server'),
-    handlerTimeoutTime: 60000,
+    timeoutTime: 60000,
     idGen,
   });
 
@@ -421,7 +421,7 @@ function factorialOf(n: number): number {
 
 async function startServer() {
   const rpcServer = new RPCServer({
-    handlerTimeoutTime: 200,
+    timeoutTime: 200,
     logger,
     idGen,
   });
@@ -671,7 +671,7 @@ async function startServer() {
   const wss = new WebSocket.Server({ port: 8080 });
   const rpcServer = new RPCServer({
     logger: new Logger('rpc-server'),
-    handlerTimeoutTime: 1000,
+    timeoutTime: 1000,
     idGen,
   });
   rpcServer.start({
@@ -835,7 +835,7 @@ function createSyntheticStreams() {
 async function startServer() {
   const rpcServer = new RPCServer({
     logger: new Logger('rpc-server'),
-    handlerTimeoutTime: 1000,
+    timeoutTime: 1000,
     idGen,
   });
 
