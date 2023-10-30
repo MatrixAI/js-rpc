@@ -123,18 +123,20 @@ describe(`${RPCClient.name}`, () => {
     }
     await writable.close();
 
-    const expectedMessages: Array<JSONRPCRequestMessage> = messages.map((v) => {
-      const request: JSONRPCRequestMessage = {
+    const expectedMessages: Array<JSONRPCRequestMessage> = messages.map(
+      (v, i) => ({
         jsonrpc: '2.0',
         method: methodName,
         id: null,
         ...(v.result === undefined ? {} : { params: v.result }),
-      };
-      return request;
-    });
+        ...(i === 0 ? { metadata: { timeout: null } } : {}),
+      }),
+    );
+
     const outputMessages = (await outputResult).map((v) =>
       JSON.parse(v.toString()),
     );
+
     expect(outputMessages).toStrictEqual(expectedMessages);
   });
   testProp(
@@ -171,6 +173,9 @@ describe(`${RPCClient.name}`, () => {
           jsonrpc: '2.0',
           id: null,
           params,
+          metadata: {
+            timeout: null,
+          },
         }),
       );
     },
@@ -207,14 +212,16 @@ describe(`${RPCClient.name}`, () => {
       }
       await writer.close();
       expect(await output).toStrictEqual(message.result);
-      const expectedOutput = params.map((v) =>
+      const expectedOutput = params.map((v, i) =>
         JSON.stringify({
           method: methodName,
           jsonrpc: '2.0',
           id: null,
           params: v,
+          ...(i === 0 ? { metadata: { timeout: null } } : {}),
         }),
       );
+
       expect((await outputResult).map((v) => v.toString())).toStrictEqual(
         expectedOutput,
       );
@@ -249,6 +256,7 @@ describe(`${RPCClient.name}`, () => {
           jsonrpc: '2.0',
           id: null,
           params: params,
+          metadata: { timeout: null },
         }),
       );
     },
@@ -423,19 +431,19 @@ describe(`${RPCClient.name}`, () => {
       }
 
       const expectedMessages: Array<JSONRPCRequestMessage> = messages.map(
-        () => {
-          const request: JSONRPCRequestMessage = {
-            jsonrpc: '2.0',
-            method: methodName,
-            id: null,
-            params: 'one',
-          };
-          return request;
-        },
+        (_, i) => ({
+          jsonrpc: '2.0',
+          method: methodName,
+          id: null,
+          params: 'one',
+          ...(i === 0 ? { metadata: { timeout: null } } : {}),
+        }),
       );
+
       const outputMessages = (await outputResult).map((v) =>
         JSON.parse(v.toString()),
       );
+
       expect(outputMessages).toStrictEqual(expectedMessages);
     },
   );
@@ -527,6 +535,7 @@ describe(`${RPCClient.name}`, () => {
           jsonrpc: '2.0',
           id: null,
           params,
+          metadata: { timeout: null },
         }),
       );
     },
@@ -562,12 +571,13 @@ describe(`${RPCClient.name}`, () => {
       }
       expect(await output).toStrictEqual(message.result);
       await writer.close();
-      const expectedOutput = params.map((v) =>
+      const expectedOutput = params.map((v, i) =>
         JSON.stringify({
           method: 'client',
           jsonrpc: '2.0',
           id: null,
           params: v,
+          ...(i === 0 ? { metadata: { timeout: null } } : {}),
         }),
       );
       expect((await outputResult).map((v) => v.toString())).toStrictEqual(
@@ -603,6 +613,7 @@ describe(`${RPCClient.name}`, () => {
           jsonrpc: '2.0',
           id: null,
           params: params,
+          metadata: { timeout: null },
         }),
       );
     },

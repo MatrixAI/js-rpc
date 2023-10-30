@@ -287,7 +287,9 @@ class RPCServer {
         // Input generator derived from the forward stream
         const inputGen = async function* (): AsyncIterable<I> {
           for await (const data of forwardStream) {
-            ctx.timer.refresh();
+            if (ctx.timer.status !== 'settled') {
+              ctx.timer.refresh();
+            }
             yield data.params as I;
           }
         };
@@ -296,7 +298,9 @@ class RPCServer {
           timer: ctx.timer,
         });
         for await (const response of handlerG) {
-          ctx.timer.refresh();
+          if (ctx.timer.status !== 'settled') {
+            ctx.timer.refresh();
+          }
           const responseMessage: JSONRPCResponseResult = {
             jsonrpc: '2.0',
             result: response,
@@ -570,13 +574,16 @@ class RPCServer {
       }
       // Setting up Timeout logic
       const timeout = this.defaultTimeoutMap.get(method);
-      if (timeout != null && timeout < this.handlerTimeoutTime) {
-        // Reset timeout with new delay if it is less than the default
-        timer.reset(timeout);
-      } else {
-        // Otherwise refresh
-        timer.refresh();
+      if (timer.status !== 'settled') {
+        if (timeout != null && timeout < this.handlerTimeoutTime) {
+          // Reset timeout with new delay if it is less than the default
+          timer.reset(timeout);
+        } else {
+          // Otherwise refresh
+          timer.refresh();
+        }
       }
+
       this.logger.info(`Handling stream with method (${method})`);
       let handlerResult: [JSONValue | undefined, ReadableStream<Uint8Array>];
       const headerWriter = rpcStream.writable.getWriter();

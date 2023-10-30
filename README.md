@@ -899,6 +899,45 @@ main();
 
 ```
 ![img.png](images/unaryTest.png)
+
+## Specifications
+
+### Throwing Timeouts
+
+By default, a timeout will not cause an RPC call to automatically throw, this must be manually done by the handler when it receives the abort signal from `ctx.signal`. An example of this is like so:
+
+```ts
+class TestMethod extends UnaryHandler {
+  public handle = async (
+    input: JSONValue,
+    cancel: (reason?: any) => void,
+    meta: Record<string, JSONValue> | undefined,
+    ctx: ContextTimed,
+  ): Promise<JSONValue> => {
+    const abortProm = utils.promise<never>();
+    ctx.signal.addEventListener('abort', () => {
+      resolveCtxP(ctx);
+      abortProm.resolveP(ctx.signal.reason);
+    });
+    throw await abortProm.p;
+  };
+}
+```
+
+### Timeout Middleware
+
+The `timeoutMiddleware` sets an RPCServer's timeout based on the lowest timeout between the Client and the Server. This is so that handlers can eagerly time out and stop processing as soon as it is known that the client has timed out.
+
+This case can be seen in the first diagram, where the server is able to stop the processing of the handler, and close the associated stream of the RPC call based on the shorter timeout sent by the client:
+
+![RPCServer sets timeout based on RPCClient](images/timeoutMiddlewareClientTimeout.svg)
+
+Where the `RPCClient` sends a timeout that is longer than that set on the `RPCServer`, it will be rejected. This is as the timeout of the client should never be expected to exceed that of the server, so that the server's timeout is an absolute limit.
+
+![RPCServer rejects longer timeout sent by RPCClient](images/timeoutMiddlewareServerTimeout.svg)
+
+The `timeoutMiddleware` is enabled by default, and uses the `.metadata.timeout` property on a JSON-RPC request object for the client to send it's timeout.
+
 ## Development
 
 Run `nix-shell`, and once you're inside, you can use:

@@ -278,6 +278,7 @@ const standardErrors: {
   URIError,
   AggregateError,
   AbstractError,
+  ErrorRPCTimedOut: errors.ErrorRPCTimedOut,
 };
 
 /**
@@ -342,6 +343,7 @@ function toError(
         let e: Error;
         switch (eClass) {
           case AbstractError:
+          case errors.ErrorRPCTimedOut:
             e = eClass.fromJSON(errorData);
             break;
           case AggregateError:

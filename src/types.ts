@@ -38,7 +38,7 @@ type JSONRPCRequestMessage<T extends JSONValue = JSONValue> = {
    *  SHOULD NOT contain fractional parts [2]
    */
   id: string | number | null;
-};
+} & JSONRPCRequestMetadata;
 
 /**
  * This is the JSON RPC notification object. this is used for a request that
@@ -60,7 +60,7 @@ type JSONRPCRequestNotification<T extends JSONValue = JSONValue> = {
    *  This member MAY be omitted.
    */
   params?: T;
-};
+} & JSONRPCRequestMetadata;
 
 /**
  * This is the JSON RPC response result object. It contains the response data for a
@@ -84,7 +84,7 @@ type JSONRPCResponseResult<T extends JSONValue = JSONValue> = {
    *  it MUST be Null.
    */
   id: string | number | null;
-};
+} & JSONRPCResponseMetadata;
 
 /**
  * This is the JSON RPC response Error object. It contains any errors that have
@@ -109,6 +109,34 @@ type JSONRPCResponseError = {
    */
   id: string | number | null;
 };
+
+/**
+ * Used when an empty object is needed.
+ * Defined here with a linter override to avoid a false positive.
+ */
+// eslint-disable-next-line
+type ObjectEmpty = {};
+
+// Prevent overwriting the metadata type with `Omit<>`
+type JSONRPCRequestMetadata<T extends Record<string, JSONValue> = ObjectEmpty> =
+  {
+    metadata?: {
+      [Key: string]: JSONValue;
+    } & Partial<{
+      timeout: number | null;
+    }>;
+  } & Omit<T, 'metadata'>;
+
+// Prevent overwriting the metadata type with `Omit<>`
+type JSONRPCResponseMetadata<
+  T extends Record<string, JSONValue> = ObjectEmpty,
+> = {
+  metadata?: {
+    [Key: string]: JSONValue;
+  } & Partial<{
+    timeout: number | null;
+  }>;
+} & Omit<T, 'metadata'>;
 
 /**
  * This is a JSON RPC error object, it encodes the error data for the JSONRPCResponseError object.
@@ -357,6 +385,8 @@ export type {
   JSONRPCRequestNotification,
   JSONRPCResponseResult,
   JSONRPCResponseError,
+  JSONRPCRequestMetadata,
+  JSONRPCResponseMetadata,
   JSONRPCError,
   JSONRPCRequest,
   JSONRPCResponse,
