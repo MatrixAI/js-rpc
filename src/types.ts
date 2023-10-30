@@ -16,7 +16,7 @@ type IdGen = () => PromiseLike<string | number | null> | string | number | null;
 /**
  * This is the JSON RPC request object. this is the generic message type used for the RPC.
  */
-type JSONRPCRequestMessage<T extends JSONValue = JSONValue> = {
+type JSONRPCRequestMessage<T extends JSONObject = JSONObject> = {
   /**
    * A String specifying the version of the JSON-RPC protocol. MUST be exactly "2.0"
    */
@@ -31,20 +31,20 @@ type JSONRPCRequestMessage<T extends JSONValue = JSONValue> = {
    * A Structured value that holds the parameter values to be used during the invocation of the method.
    *  This member MAY be omitted.
    */
-  params?: T;
+  params?: JSONRPCParams<T>;
   /**
    * An identifier established by the Client that MUST contain a String, Number, or NULL value if included.
    *  If it is not included it is assumed to be a notification. The value SHOULD normally not be Null [1] and Numbers
    *  SHOULD NOT contain fractional parts [2]
    */
   id: string | number | null;
-} & JSONRPCRequestMetadata;
+};
 
 /**
  * This is the JSON RPC notification object. this is used for a request that
  * doesn't expect a response.
  */
-type JSONRPCRequestNotification<T extends JSONValue = JSONValue> = {
+type JSONRPCRequestNotification<T extends JSONObject = JSONObject> = {
   /**
    * A String specifying the version of the JSON-RPC protocol. MUST be exactly "2.0"
    */
@@ -59,14 +59,14 @@ type JSONRPCRequestNotification<T extends JSONValue = JSONValue> = {
    * A Structured value that holds the parameter values to be used during the invocation of the method.
    *  This member MAY be omitted.
    */
-  params?: T;
-} & JSONRPCRequestMetadata;
+  params: JSONRPCParams<T>;
+};
 
 /**
  * This is the JSON RPC response result object. It contains the response data for a
  * corresponding request.
  */
-type JSONRPCResponseResult<T extends JSONValue = JSONValue> = {
+type JSONRPCResponseResult<T extends JSONObject = JSONObject> = {
   /**
    * A String specifying the version of the JSON-RPC protocol. MUST be exactly "2.0".
    */
@@ -76,7 +76,7 @@ type JSONRPCResponseResult<T extends JSONValue = JSONValue> = {
    *  This member MUST NOT exist if there was an error invoking the method.
    *  The value of this member is determined by the method invoked on the Server.
    */
-  result: T;
+  result: JSONRPCResult<T>;
   /**
    * This member is REQUIRED.
    *  It MUST be the same as the value of the id member in the Request Object.
@@ -84,7 +84,7 @@ type JSONRPCResponseResult<T extends JSONValue = JSONValue> = {
    *  it MUST be Null.
    */
   id: string | number | null;
-} & JSONRPCResponseMetadata;
+};
 
 /**
  * This is the JSON RPC response Error object. It contains any errors that have
@@ -110,27 +110,17 @@ type JSONRPCResponseError = {
   id: string | number | null;
 };
 
-/**
- * Used when an empty object is needed.
- * Defined here with a linter override to avoid a false positive.
- */
-// eslint-disable-next-line
-type ObjectEmpty = {};
+// Prevent overwriting the metadata type with `Omit<>`
+type JSONRPCParams<T extends JSONObject = JSONObject> = {
+  metadata?: {
+    [Key: string]: JSONValue;
+  } & Partial<{
+    timeout: number | null;
+  }>;
+} & Omit<T, 'metadata'>;
 
 // Prevent overwriting the metadata type with `Omit<>`
-type JSONRPCRequestMetadata<T extends Record<string, JSONValue> = ObjectEmpty> =
-  {
-    metadata?: {
-      [Key: string]: JSONValue;
-    } & Partial<{
-      timeout: number | null;
-    }>;
-  } & Omit<T, 'metadata'>;
-
-// Prevent overwriting the metadata type with `Omit<>`
-type JSONRPCResponseMetadata<
-  T extends Record<string, JSONValue> = ObjectEmpty,
-> = {
+type JSONRPCResult<T extends JSONObject = JSONObject> = {
   metadata?: {
     [Key: string]: JSONValue;
   } & Partial<{
@@ -164,14 +154,14 @@ type JSONRPCError = {
  * This is the JSON RPC Request object. It can be a request message or
  * notification.
  */
-type JSONRPCRequest<T extends JSONValue = JSONValue> =
+type JSONRPCRequest<T extends JSONObject = JSONObject> =
   | JSONRPCRequestMessage<T>
   | JSONRPCRequestNotification<T>;
 
 /**
  * This is a JSON RPC response object. It can be a response result or error.
  */
-type JSONRPCResponse<T extends JSONValue = JSONValue> =
+type JSONRPCResponse<T extends JSONObject = JSONObject> =
   | JSONRPCResponseResult<T>
   | JSONRPCResponseError;
 
@@ -179,7 +169,7 @@ type JSONRPCResponse<T extends JSONValue = JSONValue> =
  * This is a JSON RPC Message object. This is top level and can be any kind of
  * message.
  */
-type JSONRPCMessage<T extends JSONValue = JSONValue> =
+type JSONRPCMessage<T extends JSONObject = JSONObject> =
   | JSONRPCRequest<T>
   | JSONRPCResponse<T>;
 
@@ -193,27 +183,27 @@ type HandlerImplementation<I, O> = (
 
 type RawHandlerImplementation = HandlerImplementation<
   [JSONRPCRequest, ReadableStream<Uint8Array>],
-  Promise<[JSONValue | undefined, ReadableStream<Uint8Array>]>
+  Promise<[JSONObject | undefined, ReadableStream<Uint8Array>]>
 >;
 
 type DuplexHandlerImplementation<
-  I extends JSONValue = JSONValue,
-  O extends JSONValue = JSONValue,
+  I extends JSONObject = JSONObject,
+  O extends JSONObject = JSONObject,
 > = HandlerImplementation<AsyncIterable<I>, AsyncIterable<O>>;
 
 type ServerHandlerImplementation<
-  I extends JSONValue = JSONValue,
-  O extends JSONValue = JSONValue,
+  I extends JSONObject = JSONObject,
+  O extends JSONObject = JSONObject,
 > = HandlerImplementation<I, AsyncIterable<O>>;
 
 type ClientHandlerImplementation<
-  I extends JSONValue = JSONValue,
-  O extends JSONValue = JSONValue,
+  I extends JSONObject = JSONObject,
+  O extends JSONObject = JSONObject,
 > = HandlerImplementation<AsyncIterable<I>, Promise<O>>;
 
 type UnaryHandlerImplementation<
-  I extends JSONValue = JSONValue,
-  O extends JSONValue = JSONValue,
+  I extends JSONObject = JSONObject,
+  O extends JSONObject = JSONObject,
 > = HandlerImplementation<I, Promise<O>>;
 
 type ContainerType = Record<string, any>;
@@ -263,28 +253,28 @@ type MiddlewareFactory<FR, FW, RR, RW> = (
 // Convenience callers
 
 type UnaryCallerImplementation<
-  I extends JSONValue = JSONValue,
-  O extends JSONValue = JSONValue,
+  I extends JSONObject = JSONObject,
+  O extends JSONObject = JSONObject,
 > = (parameters: I, ctx?: Partial<ContextTimedInput>) => Promise<O>;
 
 type ServerCallerImplementation<
-  I extends JSONValue = JSONValue,
-  O extends JSONValue = JSONValue,
+  I extends JSONObject = JSONObject,
+  O extends JSONObject = JSONObject,
 > = (
   parameters: I,
   ctx?: Partial<ContextTimedInput>,
 ) => Promise<ReadableStream<O>>;
 
 type ClientCallerImplementation<
-  I extends JSONValue = JSONValue,
-  O extends JSONValue = JSONValue,
+  I extends JSONObject = JSONObject,
+  O extends JSONObject = JSONObject,
 > = (
   ctx?: Partial<ContextTimedInput>,
 ) => Promise<{ output: Promise<O>; writable: WritableStream<I> }>;
 
 type DuplexCallerImplementation<
-  I extends JSONValue = JSONValue,
-  O extends JSONValue = JSONValue,
+  I extends JSONObject = JSONObject,
+  O extends JSONObject = JSONObject,
 > = (ctx?: Partial<ContextTimedInput>) => Promise<RPCStream<O, I>>;
 
 type RawCallerImplementation = (
@@ -346,8 +336,10 @@ declare const brand: unique symbol;
 
 type Opaque<K, T> = T & { readonly [brand]: K };
 
+type JSONObject = { [key: string]: JSONValue };
+
 type JSONValue =
-  | { [key: string]: JSONValue | undefined }
+  | JSONObject
   | Array<JSONValue>
   | string
   | number
@@ -385,8 +377,8 @@ export type {
   JSONRPCRequestNotification,
   JSONRPCResponseResult,
   JSONRPCResponseError,
-  JSONRPCRequestMetadata,
-  JSONRPCResponseMetadata,
+  JSONRPCParams,
+  JSONRPCResult,
   JSONRPCError,
   JSONRPCRequest,
   JSONRPCResponse,
@@ -406,6 +398,7 @@ export type {
   HandlerType,
   MapCallers,
   Opaque,
+  JSONObject,
   JSONValue,
   POJO,
   PromiseDeconstructed,

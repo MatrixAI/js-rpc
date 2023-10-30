@@ -104,7 +104,8 @@ describe('Middleware tests', () => {
     'timeoutMiddlewareServer should set ctx.timeout if timeout is lower',
     [rpcTestUtils.jsonMessagesArb, fc.integer({ min: 0 })],
     async (messages, timeout) => {
-      messages[0].metadata = { ...messages[0].metadata, timeout };
+      if (messages[0].params == null) messages[0].params = {};
+      messages[0].params.metadata = { ...messages[0].params.metadata, timeout };
       const abortController = new AbortController();
       const timer = new Timer(undefined, Infinity);
       const ctx = {
@@ -136,7 +137,8 @@ describe('Middleware tests', () => {
     'timeoutMiddlewareServer wont set ctx.timeout if timeout is higher',
     [rpcTestUtils.jsonMessagesArb, fc.integer({ min: 1 })],
     async (messages, timeout) => {
-      messages[0].metadata = { ...messages[0].metadata, timeout };
+      if (messages[0].params == null) messages[0].params = {};
+      messages[0].params.metadata = { ...messages[0].params.metadata, timeout };
       const abortController = new AbortController();
       const timer = new Timer(undefined, 0);
       const ctx = {
@@ -168,7 +170,11 @@ describe('Middleware tests', () => {
     'timeoutMiddlewareServer should set ctx.timeout if timeout is infinity/null',
     [rpcTestUtils.jsonMessagesArb],
     async (messages) => {
-      messages[0].metadata = { ...messages[0].metadata, timeout: Infinity };
+      if (messages[0].params == null) messages[0].params = {};
+      messages[0].params.metadata = {
+        ...messages[0].params.metadata,
+        timeout: Infinity,
+      };
       const abortController = new AbortController();
       const timer = new Timer(undefined, Infinity);
       const ctx = {
@@ -190,8 +196,8 @@ describe('Middleware tests', () => {
         .pipeThrough(timeoutMiddleware.forward); // Converting back.
 
       const expectedMessages = [...messages];
-      if (expectedMessages[0].metadata != null) {
-        expectedMessages[0].metadata.timeout = null;
+      if (expectedMessages[0].params?.metadata != null) {
+        expectedMessages[0].params.metadata.timeout = null;
       }
       const asd = await AsyncIterable.as(parsedStream).toArray();
       expect(asd).toEqual(expectedMessages);
@@ -225,8 +231,9 @@ describe('Middleware tests', () => {
         .pipeThrough(timeoutMiddleware.forward); // Converting back.
 
       const expectedMessages = [...messages];
-      expectedMessages[0].metadata = {
-        ...expectedMessages[0].metadata,
+      if (expectedMessages[0].params == null) expectedMessages[0].params = {};
+      expectedMessages[0].params.metadata = {
+        ...expectedMessages[0].params.metadata,
         timeout,
       };
       const asd = await AsyncIterable.as(parsedStream).toArray();

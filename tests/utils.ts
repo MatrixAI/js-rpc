@@ -1,5 +1,5 @@
 import type { ReadableWritablePair } from 'stream/web';
-import type { JSONValue } from '@/types';
+import type { JSONObject, JSONValue } from '@/types';
 import type {
   JSONRPCError,
   JSONRPCMessage,
@@ -85,11 +85,16 @@ const safeJsonValueArb = fc
   .json()
   .map((value) => JSON.parse(value.replace('__proto__', 'proto')) as JSONValue);
 
+const safeJsonObjectArb = fc.dictionary(
+  fc.string().map((s) => s.replace('__proto__', 'proto')),
+  safeJsonValueArb,
+) as fc.Arbitrary<JSONObject>;
+
 const idArb = fc.oneof(fc.string(), fc.integer(), fc.constant(null));
 
 const jsonRpcRequestMessageArb = (
   method: fc.Arbitrary<string> = fc.string(),
-  params: fc.Arbitrary<JSONValue> = safeJsonValueArb,
+  params: fc.Arbitrary<JSONObject> = safeJsonObjectArb,
 ) =>
   fc
     .record(
@@ -124,7 +129,7 @@ const jsonRpcRequestNotificationArb = (
 
 const jsonRpcRequestArb = (
   method: fc.Arbitrary<string> = fc.string(),
-  params: fc.Arbitrary<JSONValue> = safeJsonValueArb,
+  params: fc.Arbitrary<JSONObject> = safeJsonObjectArb,
 ) =>
   fc
     .oneof(
@@ -134,7 +139,7 @@ const jsonRpcRequestArb = (
     .noShrink() as fc.Arbitrary<JSONRPCRequest>;
 
 const jsonRpcResponseResultArb = (
-  result: fc.Arbitrary<JSONValue> = safeJsonValueArb,
+  result: fc.Arbitrary<JSONObject> = safeJsonObjectArb,
 ) =>
   fc
     .record({
@@ -169,7 +174,7 @@ const jsonRpcResponseErrorArb = (error?: fc.Arbitrary<ErrorRPC<any>>) =>
     .noShrink() as fc.Arbitrary<JSONRPCResponseError>;
 
 const jsonRpcResponseArb = (
-  result: fc.Arbitrary<JSONValue> = safeJsonValueArb,
+  result: fc.Arbitrary<JSONObject> = safeJsonObjectArb,
 ) =>
   fc
     .oneof(jsonRpcResponseResultArb(result), jsonRpcResponseErrorArb())
@@ -177,8 +182,8 @@ const jsonRpcResponseArb = (
 
 const jsonRpcMessageArb = (
   method: fc.Arbitrary<string> = fc.string(),
-  params: fc.Arbitrary<JSONValue> = safeJsonValueArb,
-  result: fc.Arbitrary<JSONValue> = safeJsonValueArb,
+  params: fc.Arbitrary<JSONObject> = safeJsonObjectArb,
+  result: fc.Arbitrary<JSONObject> = safeJsonObjectArb,
 ) =>
   fc
     .oneof(jsonRpcRequestArb(method, params), jsonRpcResponseArb(result))
@@ -274,6 +279,7 @@ export {
   binaryStreamToNoisyStream,
   messagesToReadableStream,
   safeJsonValueArb,
+  safeJsonObjectArb,
   jsonRpcRequestMessageArb,
   jsonRpcRequestNotificationArb,
   jsonRpcRequestArb,

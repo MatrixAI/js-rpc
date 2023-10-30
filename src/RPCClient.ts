@@ -4,6 +4,7 @@ import type {
   ClientManifest,
   HandlerType,
   IdGen,
+  JSONObject,
   JSONRPCRequest,
   JSONRPCRequestMessage,
   JSONRPCResponse,
@@ -124,7 +125,7 @@ class RPCClient<M extends ClientManifest> {
    * the provided I type.
    * @param ctx - ContextTimed used for timeouts and cancellation.
    */
-  public async unaryCaller<I extends JSONValue, O extends JSONValue>(
+  public async unaryCaller<I extends JSONObject, O extends JSONObject>(
     method: string,
     parameters: I,
     ctx: Partial<ContextTimedInput> = {},
@@ -163,7 +164,7 @@ class RPCClient<M extends ClientManifest> {
    * the provided I type.
    * @param ctx - ContextTimed used for timeouts and cancellation.
    */
-  public async serverStreamCaller<I extends JSONValue, O extends JSONValue>(
+  public async serverStreamCaller<I extends JSONObject, O extends JSONObject>(
     method: string,
     parameters: I,
     ctx: Partial<ContextTimedInput> = {},
@@ -191,7 +192,7 @@ class RPCClient<M extends ClientManifest> {
    * @param method - Method name of the RPC call
    * @param ctx - ContextTimed used for timeouts and cancellation.
    */
-  public async clientStreamCaller<I extends JSONValue, O extends JSONValue>(
+  public async clientStreamCaller<I extends JSONObject, O extends JSONObject>(
     method: string,
     ctx: Partial<ContextTimedInput> = {},
   ): Promise<{
@@ -225,7 +226,7 @@ class RPCClient<M extends ClientManifest> {
    * @param method - Method name of the RPC call
    * @param ctx - ContextTimed used for timeouts and cancellation.
    */
-  public async duplexStreamCaller<I extends JSONValue, O extends JSONValue>(
+  public async duplexStreamCaller<I extends JSONObject, O extends JSONObject>(
     method: string,
     ctx: Partial<ContextTimedInput> = {},
   ): Promise<RPCStream<O, I>> {
@@ -369,7 +370,7 @@ class RPCClient<M extends ClientManifest> {
    */
   public async rawStreamCaller(
     method: string,
-    headerParams: JSONValue,
+    headerParams: JSONObject,
     ctx: Partial<ContextTimedInput> = {},
   ): Promise<
     RPCStream<

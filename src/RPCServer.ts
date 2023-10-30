@@ -3,7 +3,6 @@ import type {
   IdGen,
   ClientHandlerImplementation,
   DuplexHandlerImplementation,
-  JSONValue,
   JSONRPCError,
   JSONRPCRequest,
   JSONRPCResponse,
@@ -16,6 +15,7 @@ import type {
   RPCStream,
   MiddlewareFactory,
   FromError,
+  JSONObject,
 } from './types';
 import { ReadableStream, TransformStream } from 'stream/web';
 import Logger from '@matrixai/logger';
@@ -242,8 +242,8 @@ class RPCServer {
    * same ID, which is consistent with the originating request.
    */
   protected registerDuplexStreamHandler<
-    I extends JSONValue,
-    O extends JSONValue,
+    I extends JSONObject,
+    O extends JSONObject,
   >(
     method: string,
     handler: DuplexHandlerImplementation<I, O>,
@@ -376,7 +376,7 @@ class RPCServer {
     this.registerRawStreamHandler(method, rawSteamHandler, timeout);
   }
 
-  protected registerUnaryHandler<I extends JSONValue, O extends JSONValue>(
+  protected registerUnaryHandler<I extends JSONObject, O extends JSONObject>(
     method: string,
     handler: UnaryHandlerImplementation<I, O>,
     timeout: number | undefined,
@@ -402,8 +402,8 @@ class RPCServer {
   }
 
   protected registerServerStreamHandler<
-    I extends JSONValue,
-    O extends JSONValue,
+    I extends JSONObject,
+    O extends JSONObject,
   >(
     method: string,
     handler: ServerHandlerImplementation<I, O>,
@@ -424,8 +424,8 @@ class RPCServer {
   }
 
   protected registerClientStreamHandler<
-    I extends JSONValue,
-    O extends JSONValue,
+    I extends JSONObject,
+    O extends JSONObject,
   >(
     method: string,
     handler: ClientHandlerImplementation<I, O>,
@@ -585,7 +585,7 @@ class RPCServer {
       }
 
       this.logger.info(`Handling stream with method (${method})`);
-      let handlerResult: [JSONValue | undefined, ReadableStream<Uint8Array>];
+      let handlerResult: [JSONObject | undefined, ReadableStream<Uint8Array>];
       const headerWriter = rpcStream.writable.getWriter();
       try {
         handlerResult = await handler(

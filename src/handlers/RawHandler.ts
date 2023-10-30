@@ -1,6 +1,11 @@
 import type { ContextTimed } from '@matrixai/contexts';
 import type { ReadableStream } from 'stream/web';
-import type { ContainerType, JSONRPCRequest, JSONValue } from '../types';
+import type {
+  ContainerType,
+  JSONRPCRequest,
+  JSONRPCResult,
+  JSONValue,
+} from '../types';
 import Handler from './Handler';
 import { ErrorRPCMethodNotImplemented } from '../errors';
 
@@ -14,7 +19,7 @@ abstract class RawHandler<
     meta: Record<string, JSONValue> | undefined,
     ctx: ContextTimed,
     /* eslint-disable */
-  ): Promise<[JSONValue, ReadableStream<Uint8Array>]> {
+  ): Promise<[JSONRPCResult, ReadableStream<Uint8Array>]> {
     throw new ErrorRPCMethodNotImplemented('This method must be overridden');
   }
 }

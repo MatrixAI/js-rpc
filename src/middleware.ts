@@ -5,8 +5,6 @@ import type {
   JSONRPCResponseResult,
   MiddlewareFactory,
   JSONValue,
-  JSONRPCRequestMetadata,
-  JSONRPCResponseMetadata,
 } from './types';
 import type { ContextTimed } from '@matrixai/contexts';
 import { TransformStream } from 'stream/web';
@@ -89,14 +87,14 @@ function timeoutMiddlewareServer(
   let forwardFirst = true;
   return {
     forward: new TransformStream<
-      JSONRPCRequest<JSONRPCRequestMetadata>,
-      JSONRPCRequest<JSONRPCRequestMetadata>
+      JSONRPCRequest<JSONRPCRequest>,
+      JSONRPCRequest<JSONRPCRequest>
     >({
       transform: (chunk, controller) => {
         controller.enqueue(chunk);
         if (forwardFirst) {
           forwardFirst = false;
-          let clientTimeout = chunk.metadata?.timeout;
+          let clientTimeout = chunk.params?.metadata?.timeout;
           if (clientTimeout === undefined) return;
           if (clientTimeout === null) clientTimeout = Infinity;
           if (clientTimeout < currentTimeout) ctx.timer.reset(clientTimeout);
@@ -104,8 +102,8 @@ function timeoutMiddlewareServer(
       },
     }),
     reverse: new TransformStream<
-      JSONRPCResponse<JSONRPCResponseMetadata>,
-      JSONRPCResponse<JSONRPCResponseMetadata>
+      JSONRPCResponse<JSONRPCResponse>,
+      JSONRPCResponse<JSONRPCResponse>
     >({
       transform: (chunk, controller) => {
         // Passthrough chunk, no need for server to send ctx.timeout
@@ -135,16 +133,17 @@ function timeoutMiddlewareClient(
       transform: (chunk, controller) => {
         if (forwardFirst) {
           forwardFirst = false;
-          if (chunk == null) chunk = { jsonrpc: '2.0', method: '' };
-          if (chunk.metadata == null) chunk.metadata = {};
-          (chunk.metadata as any).timeout = currentTimeout;
+          if (chunk == null) chunk = { jsonrpc: '2.0', params: {}, method: '' };
+          if (chunk.params == null) chunk.params = {};
+          if (chunk.params.metadata == null) chunk.params.metadata = {};
+          chunk.params.metadata.timeout = currentTimeout;
         }
         controller.enqueue(chunk);
       },
     }),
     reverse: new TransformStream<
-      JSONRPCResponse<JSONRPCResponseMetadata>,
-      JSONRPCResponse<JSONRPCResponseMetadata>
+      JSONRPCResponse<JSONRPCResponse>,
+      JSONRPCResponse<JSONRPCResponse>
     >({
       transform: (chunk, controller) => {
         controller.enqueue(chunk); // Passthrough chunk, no need for client to set ctx.timeout

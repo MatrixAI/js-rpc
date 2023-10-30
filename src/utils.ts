@@ -2,6 +2,7 @@ import type { Timer } from '@matrixai/timer';
 import type {
   ClientManifest,
   HandlerType,
+  JSONObject,
   JSONRPCError,
   JSONRPCMessage,
   JSONRPCRequest,
@@ -40,7 +41,7 @@ async function sleep(ms: number): Promise<void> {
   return await new Promise<void>((r) => setTimeout(r, ms));
 }
 
-function parseJSONRPCRequest<T extends JSONValue>(
+function parseJSONRPCRequest<T extends JSONObject>(
   message: unknown,
 ): JSONRPCRequest<T> {
   if (!isObject(message)) {
@@ -58,7 +59,7 @@ function parseJSONRPCRequest<T extends JSONValue>(
   return message as JSONRPCRequest<T>;
 }
 
-function parseJSONRPCRequestMessage<T extends JSONValue>(
+function parseJSONRPCRequestMessage<T extends JSONObject>(
   message: unknown,
 ): JSONRPCRequestMessage<T> {
   const jsonRequest = parseJSONRPCRequest(message);
@@ -77,7 +78,7 @@ function parseJSONRPCRequestMessage<T extends JSONValue>(
   return jsonRequest as JSONRPCRequestMessage<T>;
 }
 
-function parseJSONRPCRequestNotification<T extends JSONValue>(
+function parseJSONRPCRequestNotification<T extends JSONObject>(
   message: unknown,
 ): JSONRPCRequestNotification<T> {
   const jsonRequest = parseJSONRPCRequest(message);
@@ -87,7 +88,7 @@ function parseJSONRPCRequestNotification<T extends JSONValue>(
   return jsonRequest as JSONRPCRequestNotification<T>;
 }
 
-function parseJSONRPCResponseResult<T extends JSONValue>(
+function parseJSONRPCResponseResult<T extends JSONObject>(
   message: unknown,
 ): JSONRPCResponseResult<T> {
   if (!isObject(message)) {
@@ -165,7 +166,7 @@ function parseJSONRPCError(message: unknown): JSONRPCError {
   return message as JSONRPCError;
 }
 
-function parseJSONRPCResponse<T extends JSONValue>(
+function parseJSONRPCResponse<T extends JSONObject>(
   message: unknown,
 ): JSONRPCResponse<T> {
   if (!isObject(message)) {
@@ -184,7 +185,7 @@ function parseJSONRPCResponse<T extends JSONValue>(
   throw new errors.ErrorRPCParse('structure did not match a `JSONRPCResponse`');
 }
 
-function parseJSONRPCMessage<T extends JSONValue>(
+function parseJSONRPCMessage<T extends JSONObject>(
   message: unknown,
 ): JSONRPCMessage<T> {
   if (!isObject(message)) {
@@ -411,7 +412,7 @@ function toError(
  * server side.
  * @param timer - Timer that gets refreshed each time a message is provided.
  */
-function clientInputTransformStream<I extends JSONValue>(
+function clientInputTransformStream<I extends JSONObject>(
   method: string,
   timer?: Timer,
 ): TransformStream<I, JSONRPCRequest> {
@@ -438,7 +439,7 @@ function clientInputTransformStream<I extends JSONValue>(
  * @param toError
  * @param timer - Timer that gets refreshed each time a message is provided.
  */
-function clientOutputTransformStream<O extends JSONValue>(
+function clientOutputTransformStream<O extends JSONObject>(
   clientMetadata: JSONValue,
   toError: ToError,
   timer?: Timer,
@@ -451,7 +452,8 @@ function clientOutputTransformStream<O extends JSONValue>(
         const e = toError(chunk.error.data, clientMetadata);
         controller.error(e);
       } else {
-        controller.enqueue(chunk.result);
+        chunk.result;
+        controller.enqueue(chunk.result as O);
       }
     },
   });

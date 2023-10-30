@@ -1,8 +1,13 @@
-import type { HandlerType, JSONValue } from '../types';
+import type {
+  HandlerType,
+  JSONObject,
+  JSONRPCParams,
+  JSONRPCResult,
+} from '../types';
 
 abstract class Caller<
-  Input extends JSONValue = JSONValue,
-  Output extends JSONValue = JSONValue,
+  Input extends JSONObject = JSONRPCParams,
+  Output extends JSONObject = JSONRPCResult,
 > {
   protected _inputType: Input;
   protected _outputType: Output;

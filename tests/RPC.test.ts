@@ -1,4 +1,10 @@
-import type { ContainerType, JSONRPCRequest } from '@/types';
+import type {
+  ContainerType,
+  JSONObject,
+  JSONRPCParams,
+  JSONRPCRequest,
+  JSONRPCResult,
+} from '@/types';
 import type { ReadableStream } from 'stream/web';
 import type { JSONValue, IdGen } from '@/types';
 import type { ContextTimed } from '@matrixai/contexts';
@@ -43,14 +49,14 @@ describe('RPC', () => {
 
       class TestMethod extends RawHandler<ContainerType> {
         public handle = async (
-          input: [JSONRPCRequest<JSONValue>, ReadableStream<Uint8Array>],
+          input: [JSONRPCRequest<JSONObject>, ReadableStream<Uint8Array>],
           _cancel: (reason?: any) => void,
           _meta: Record<string, JSONValue> | undefined,
-        ): Promise<[JSONValue, ReadableStream<Uint8Array>]> => {
+        ): Promise<[JSONObject, ReadableStream<Uint8Array>]> => {
           return new Promise((resolve) => {
             const [header_, stream] = input;
             header = header_;
-            resolve(['some leading data', stream]);
+            resolve([{ value: 'some leading data' }, stream]);
           });
         };
       }
@@ -98,7 +104,9 @@ describe('RPC', () => {
         id: null,
       };
       expect(header).toStrictEqual(expectedHeader);
-      expect(callerInterface.meta?.result).toBe('some leading data');
+      expect(callerInterface.meta?.result).toStrictEqual({
+        value: 'some leading data',
+      });
       expect(await outputResult).toStrictEqual(values);
       await pipeProm;
       await rpcServer.stop({ force: true });
@@ -150,7 +158,7 @@ describe('RPC', () => {
         _cancel: (reason?: any) => void,
         _meta: Record<string, JSONValue> | undefined,
         _ctx: ContextTimed,
-      ): Promise<[JSONValue, ReadableStream<Uint8Array>]> => {
+      ): Promise<[JSONObject, ReadableStream<Uint8Array>]> => {
         throw new Error('some error');
       };
     }
@@ -193,7 +201,7 @@ describe('RPC', () => {
   });
   testProp(
     'RPC communication with duplex stream',
-    [fc.array(rpcTestUtils.safeJsonValueArb, { minLength: 1 })],
+    [fc.array(rpcTestUtils.safeJsonObjectArb, { minLength: 1 })],
     async (values) => {
       const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
         Uint8Array,
@@ -201,11 +209,11 @@ describe('RPC', () => {
       >();
       class TestMethod extends DuplexHandler {
         public handle = async function* (
-          input: AsyncGenerator<JSONValue>,
+          input: AsyncGenerator<JSONObject>,
           _cancel: (reason?: any) => void,
           _meta: Record<string, JSONValue> | undefined,
           _ctx: ContextTimed,
-        ): AsyncGenerator<JSONValue> {
+        ): AsyncGenerator<JSONObject> {
           yield* input;
         };
       }
@@ -242,7 +250,14 @@ describe('RPC', () => {
       const reader = callerInterface.readable.getReader();
       for (const value of values) {
         await writer.write(value);
-        expect((await reader.read()).value).toStrictEqual(value);
+        const receivedValue = (await reader.read()).value;
+        if (
+          receivedValue?.metadata != null &&
+          receivedValue.metadata.timeout === null
+        ) {
+          receivedValue.metadata.timeout = Infinity;
+        }
+        expect(receivedValue).toStrictEqual(value);
       }
       await writer.close();
       const result = await reader.read();
@@ -260,12 +275,16 @@ describe('RPC', () => {
         Uint8Array
       >();
 
-      class TestMethod extends ServerHandler<ContainerType, number, number> {
-        public handle = async function* (
-          input: number,
-        ): AsyncGenerator<number> {
-          for (let i = 0; i < input; i++) {
-            yield i;
+      class TestMethod extends ServerHandler<
+        ContainerType,
+        { value: number },
+        { value: number }
+      > {
+        public handle = async function* (input: {
+          value: number;
+        }): AsyncGenerator<{ value: number }> {
+          for (let i = 0; i < input.value; i++) {
+            yield { value: i };
           }
         };
       }
@@ -286,7 +305,7 @@ describe('RPC', () => {
 
       const rpcClient = new RPCClient({
         manifest: {
-          testMethod: new ServerCaller<number, number>(),
+          testMethod: new ServerCaller<{ value: number }, { value: number }>(),
         },
         streamFactory: async () => {
           return {
@@ -298,11 +317,11 @@ describe('RPC', () => {
         idGen,
       });
 
-      const callerInterface = await rpcClient.methods.testMethod(value);
+      const callerInterface = await rpcClient.methods.testMethod({ value });
 
       const outputs: Array<number> = [];
       for await (const num of callerInterface) {
-        outputs.push(num);
+        outputs.push(num.value);
       }
       expect(outputs.length).toEqual(value);
       await rpcServer.stop({ force: true });
@@ -317,15 +336,19 @@ describe('RPC', () => {
         Uint8Array
       >();
 
-      class TestMethod extends ClientHandler<ContainerType, number, number> {
+      class TestMethod extends ClientHandler<
+        ContainerType,
+        { value: number },
+        { value: number }
+      > {
         public handle = async (
-          input: AsyncIterable<number>,
-        ): Promise<number> => {
+          input: AsyncIterable<{ value: number }>,
+        ): Promise<{ value: number }> => {
           let acc = 0;
           for await (const number of input) {
-            acc += number;
+            acc += number.value;
           }
-          return acc;
+          return { value: acc };
         };
       }
 
@@ -345,7 +368,7 @@ describe('RPC', () => {
 
       const rpcClient = new RPCClient({
         manifest: {
-          testMethod: new ClientCaller<number, number>(),
+          testMethod: new ClientCaller<{ value: number }, { value: number }>(),
         },
         streamFactory: async () => {
           return {
@@ -360,17 +383,17 @@ describe('RPC', () => {
       const { output, writable } = await rpcClient.methods.testMethod();
       const writer = writable.getWriter();
       for (const value of values) {
-        await writer.write(value);
+        await writer.write({ value });
       }
       await writer.close();
       const expectedResult = values.reduce((p, c) => p + c);
-      await expect(output).resolves.toEqual(expectedResult);
+      await expect(output).resolves.toHaveProperty('value', expectedResult);
       await rpcServer.stop({ force: true });
     },
   );
   testProp(
     'RPC communication with unary call',
-    [rpcTestUtils.safeJsonValueArb],
+    [rpcTestUtils.safeJsonObjectArb],
     async (value) => {
       const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
         Uint8Array,
@@ -378,7 +401,9 @@ describe('RPC', () => {
       >();
 
       class TestMethod extends UnaryHandler {
-        public handle = async (input: JSONValue): Promise<JSONValue> => {
+        public handle = async (
+          input: JSONRPCParams,
+        ): Promise<JSONRPCResult> => {
           return input;
         };
       }
@@ -411,7 +436,10 @@ describe('RPC', () => {
       });
 
       const result = await rpcClient.methods.testMethod(value);
-      expect(result).toStrictEqual(value);
+      if (result.metadata != null && result.metadata.timeout === null) {
+        result.metadata.timeout = Infinity;
+      }
+      expect(result).toEqual(value);
       await rpcServer.stop({ force: true });
     },
   );
@@ -429,11 +457,11 @@ describe('RPC', () => {
 
       class TestMethod extends UnaryHandler {
         public handle = async (
-          _input: JSONValue,
+          _input: JSONObject,
           _cancel: (reason?: any) => void,
-          _meta: Record<string, JSONValue> | undefined,
+          _meta: Record<string, JSONObject> | undefined,
           _ctx: ContextTimed,
-        ): Promise<JSONValue> => {
+        ): Promise<JSONObject> => {
           throw error;
         };
       }
@@ -461,7 +489,7 @@ describe('RPC', () => {
       });
 
       // Create a new promise so we can await it multiple times for assertions
-      const callProm = rpcClient.methods.testMethod(value);
+      const callProm = rpcClient.methods.testMethod({ value });
 
       // The promise should be rejected
       const rejection = await callProm.catch((e) => e);
@@ -481,11 +509,11 @@ describe('RPC', () => {
     >();
     class TestMethod extends DuplexHandler {
       public handle = async function* (
-        input: AsyncIterableIterator<JSONValue>,
+        input: AsyncIterableIterator<JSONObject>,
         _cancel: (reason?: any) => void,
         _meta: Record<string, JSONValue> | undefined,
         _ctx: ContextTimed,
-      ): AsyncIterableIterator<JSONValue> {
+      ): AsyncIterableIterator<JSONObject> {
         yield* input;
       };
     }
@@ -562,11 +590,11 @@ describe('RPC', () => {
       const timeout = 1;
       class TestMethod extends DuplexHandler {
         public handle = async function* (
-          input: AsyncIterableIterator<JSONValue>,
+          input: AsyncIterableIterator<JSONObject>,
           cancel: (reason?: any) => void,
           meta: Record<string, JSONValue> | undefined,
           ctx: ContextTimed,
-        ): AsyncIterableIterator<JSONValue> {
+        ): AsyncIterableIterator<JSONObject> {
           // Check for abort event
           ctx.signal.throwIfAborted();
           const abortProm = utils.promise<never>();
@@ -628,7 +656,7 @@ describe('RPC', () => {
         checkFlag();
       });
       // Expect both the client and the server to time out
-      await expect(writer.write(inputData)).rejects.toThrow(
+      await expect(writer.write({ value: inputData })).rejects.toThrow(
         'Timed out waiting for header',
       );
 
@@ -655,7 +683,7 @@ describe('RPC', () => {
       // Define the server's method behavior
       class TestMethod extends DuplexHandler {
         public handle = async function* (
-          input: AsyncIterableIterator<JSONValue>,
+          input: AsyncIterableIterator<JSONObject>,
           cancel: (reason?: any) => void,
           meta: Record<string, JSONValue> | undefined,
           ctx: ContextTimed,
@@ -706,7 +734,7 @@ describe('RPC', () => {
       });
 
       // We expect server to timeout before the client
-      await expect(writer.write(inputData)).rejects.toThrow(
+      await expect(writer.write({ value: inputData })).rejects.toThrow(
         'Timed out waiting for header',
       );
       await expect(reader.read()).rejects.toThrow(
@@ -729,11 +757,11 @@ describe('RPC', () => {
       >();
       class TestMethod extends DuplexHandler {
         public handle = async function* (
-          input: AsyncIterableIterator<JSONValue>,
+          input: AsyncIterableIterator<JSONObject>,
           cancel: (reason?: any) => void,
           meta: Record<string, JSONValue> | undefined,
           ctx: ContextTimed,
-        ): AsyncIterableIterator<JSONValue> {
+        ): AsyncIterableIterator<JSONObject> {
           ctx.signal.throwIfAborted();
           const abortProm = utils.promise<never>();
           ctx.signal.addEventListener('abort', () => {
@@ -778,7 +806,7 @@ describe('RPC', () => {
       const writer = callerInterface.writable.getWriter();
       const reader = callerInterface.readable.getReader();
       // Expect the client to time out first
-      await expect(writer.write(value)).toResolve();
+      await expect(writer.write({ value })).toResolve();
       await expect(reader.read()).toReject();
 
       await rpcServer.stop({ force: true });
@@ -798,7 +826,7 @@ describe('RPC', () => {
 
       class TestMethod extends DuplexHandler {
         public handle = async function* (
-          input: AsyncIterableIterator<JSONValue>,
+          input: AsyncIterableIterator<JSONObject>,
           cancel: (reason?: any) => void,
           meta: Record<string, JSONValue> | undefined,
           ctx: ContextTimed,
@@ -839,7 +867,7 @@ describe('RPC', () => {
       // Trigger a call that will hang indefinitely or for a long time #TODO
 
       // Write a value to the stream
-      await writer.write(inputData);
+      await writer.write({ value: inputData });
 
       // Trigger a read that will hang indefinitely
 
@@ -879,11 +907,11 @@ describe('RPC', () => {
     const { p: ctxP, resolveP: resolveCtxP } = utils.promise<ContextTimed>();
     class TestMethod extends UnaryHandler {
       public handle = async (
-        input: JSONValue,
+        input: JSONObject,
         cancel: (reason?: any) => void,
         meta: Record<string, JSONValue> | undefined,
         ctx: ContextTimed,
-      ): Promise<JSONValue> => {
+      ): Promise<JSONObject> => {
         const abortProm = utils.promise<never>();
         ctx.signal.addEventListener('abort', () => {
           resolveCtxP(ctx);
@@ -938,11 +966,11 @@ describe('RPC', () => {
       const { p: ctxP, resolveP: resolveCtxP } = utils.promise<ContextTimed>();
       class TestMethod extends UnaryHandler {
         public handle = async (
-          input: JSONValue,
+          input: JSONObject,
           cancel: (reason?: any) => void,
           meta: Record<string, JSONValue> | undefined,
           ctx: ContextTimed,
-        ): Promise<JSONValue> => {
+        ): Promise<JSONObject> => {
           const abortProm = utils.promise<never>();
           ctx.signal.addEventListener('abort', () => {
             resolveCtxP(ctx);
@@ -982,8 +1010,8 @@ describe('RPC', () => {
         idGen,
       });
       await expect(
-        rpcClient.methods.testMethod(message, { timer: 100 }),
-      ).resolves.toBe(message);
+        rpcClient.methods.testMethod({ value: message }, { timer: 100 }),
+      ).resolves.toHaveProperty('value', message);
       await expect(ctxP).resolves.toHaveProperty(['timer', 'delay'], 100);
 
       await rpcServer.stop({ force: true });
@@ -1001,11 +1029,11 @@ describe('RPC', () => {
 
       class TestMethod extends UnaryHandler {
         public handle = async (
-          _input: JSONValue,
+          _input: JSONObject,
           _cancel: (reason?: any) => void,
           _meta: Record<string, JSONValue> | undefined,
           _ctx: ContextTimed,
-        ): Promise<JSONValue> => {
+        ): Promise<JSONObject> => {
           throw error;
         };
       }
@@ -1050,11 +1078,11 @@ describe('RPC', () => {
 
       class TestMethod extends UnaryHandler {
         public handle = async (
-          _input: JSONValue,
+          _input: JSONObject,
           _cancel: (reason?: any) => void,
           _meta: Record<string, JSONValue> | undefined,
           _ctx: ContextTimed,
-        ): Promise<JSONValue> => {
+        ): Promise<JSONObject> => {
           throw error;
         };
       }
@@ -1102,11 +1130,11 @@ describe('RPC', () => {
 
     class TestMethod extends UnaryHandler {
       public handle = async (
-        _input: JSONValue,
+        _input: JSONObject,
         _cancel: (reason?: any) => void,
         _meta: Record<string, JSONValue> | undefined,
         ctx: ContextTimed,
-      ): Promise<JSONValue> => {
+      ): Promise<JSONObject> => {
         const abortP = utils.promise<void>();
         ctx.signal.addEventListener(
           'abort',
