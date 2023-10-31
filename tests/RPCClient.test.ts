@@ -1242,9 +1242,12 @@ describe(`${RPCClient.name}`, () => {
           timeoutTime: higherTimeoutTime,
         });
 
-        await rpcClient.duplexStreamCaller<JSONRPCParams, JSONRPCResult>(methodName, {
-          timer: lowerTimeoutTime,
-        });
+        await rpcClient.duplexStreamCaller<JSONRPCParams, JSONRPCResult>(
+          methodName,
+          {
+            timer: lowerTimeoutTime,
+          },
+        );
 
         const ctx = await ctxP;
         expect(ctx.timer.delay).toBe(lowerTimeoutTime);
@@ -1274,9 +1277,12 @@ describe(`${RPCClient.name}`, () => {
           timeoutTime: lowerTimeoutTime,
         });
 
-        await rpcClient.duplexStreamCaller<JSONRPCParams, JSONRPCResult>(methodName, {
-          timer: higherTimeoutTime,
-        });
+        await rpcClient.duplexStreamCaller<JSONRPCParams, JSONRPCResult>(
+          methodName,
+          {
+            timer: higherTimeoutTime,
+          },
+        );
 
         const ctx = await ctxP;
         expect(ctx.timer.delay).toBe(higherTimeoutTime);
