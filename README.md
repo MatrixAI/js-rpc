@@ -268,7 +268,7 @@ class Sum extends ClientHandler<ContainerType, number, number> {
 async function startServer() {
   const rpcServer = new RPCServer({
     logger: new Logger('rpc-server'),
-    handlerTimeoutTime: 60000,
+    timeoutTime: 60000,
     idGen,
   });
 
@@ -421,7 +421,7 @@ function factorialOf(n: number): number {
 
 async function startServer() {
   const rpcServer = new RPCServer({
-    handlerTimeoutTime: 200,
+    timeoutTime: 200,
     logger,
     idGen,
   });
@@ -671,7 +671,7 @@ async function startServer() {
   const wss = new WebSocket.Server({ port: 8080 });
   const rpcServer = new RPCServer({
     logger: new Logger('rpc-server'),
-    handlerTimeoutTime: 1000,
+    timeoutTime: 1000,
     idGen,
   });
   rpcServer.start({
@@ -835,7 +835,7 @@ function createSyntheticStreams() {
 async function startServer() {
   const rpcServer = new RPCServer({
     logger: new Logger('rpc-server'),
-    handlerTimeoutTime: 1000,
+    timeoutTime: 1000,
     idGen,
   });
 
@@ -923,6 +923,35 @@ class TestMethod extends UnaryHandler {
   };
 }
 ```
+
+### Timeout Priority
+
+A `timeoutTime` can be passed both to the constructors of `RPCServer` and `RPCClient`. This is the default `timeoutTime` for all callers/handlers.
+
+In the case of `RPCServer`, a `timeout` can be specified when extending any `Handler` class. This will override the default `timeoutTime` set on `RPCServer` for that handler only.
+
+```ts
+class TestMethodArbitraryTimeout extends UnaryHandler {
+  public timeout = 100;
+  public handle = async (
+    input: JSONValue,
+    _cancel,
+    _meta,
+    ctx_,
+  ): Promise<JSONValue> => {
+    return input;
+  };
+}
+```
+
+In the case of `RPCClient`, a `ctx` with the property `timer` can be supplied with a `Timer` instance or `number` when making making an RPC call. This will override the default `timeoutTime` set on `RPCClient` for that call only.
+
+```ts
+await rpcClient.methods.testMethod({}, { timer: 100 });
+await rpcClient.methods.testMethod({}, { timer: new Timer(undefined, 100) });
+```
+
+It's important to note that any of these timeouts will ultimately be overridden by the shortest timeout of the server and client combined using the timeout middleware below.
 
 ### Timeout Middleware
 

@@ -27,6 +27,14 @@ class ErrorRPCCallerFailed<T> extends ErrorRPC<T> {
   static description = 'Failed to call stream';
 }
 
+class ErrorRPCInvalidTimeout<T> extends ErrorRPC<T> {
+  static description = 'Invalid timeout provided';
+}
+
+class ErrorRPCInvalidHandlerTimeout<T> extends ErrorRPC<T> {
+  static description = 'Invalid handler timeout provided';
+}
+
 abstract class ErrorRPCProtocol<T> extends ErrorRPC<T> {
   static error = 'RPC Protocol Error';
   code: number;
@@ -257,6 +265,8 @@ export {
   ErrorRPCConnectionLocal,
   ErrorRPCConnectionPeer,
   ErrorRPCConnectionKeepAliveTimeOut,
+  ErrorRPCInvalidTimeout,
+  ErrorRPCInvalidHandlerTimeout,
   ErrorRPCConnectionInternal,
   ErrorMissingHeader,
   ErrorHandlerAborted,

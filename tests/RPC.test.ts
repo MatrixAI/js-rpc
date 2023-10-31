@@ -609,7 +609,7 @@ describe('RPC', () => {
       const rpcServer = new RPCServer({
         logger,
         idGen,
-        handlerTimeoutTime: timeout,
+        timeoutTime: timeout,
       });
       await rpcServer.start({
         manifest: {
@@ -701,7 +701,7 @@ describe('RPC', () => {
       const rpcServer = new RPCServer({
         logger,
         idGen,
-        handlerTimeoutTime: 1,
+        timeoutTime: 1,
       });
       await rpcServer.start({ manifest: { testMethod: new TestMethod({}) } });
       // Register callback
@@ -774,8 +774,7 @@ describe('RPC', () => {
       const rpcServer = new RPCServer({
         logger,
         idGen,
-
-        handlerTimeoutTime: 400,
+        timeoutTime: 400,
       });
       await rpcServer.start({
         manifest: {
@@ -839,11 +838,10 @@ describe('RPC', () => {
           await abortProm.p;
         };
       }
-
       const rpcServer = new RPCServer({
         logger,
         idGen,
-        handlerTimeoutTime: Infinity,
+        timeoutTime: Infinity,
       });
       await rpcServer.start({ manifest: { testMethod: new TestMethod({}) } });
       rpcServer.handleStream({ ...serverPair, cancel: () => {} });
@@ -924,7 +922,7 @@ describe('RPC', () => {
     const rpcServer = new RPCServer({
       logger,
       idGen,
-      handlerTimeoutTime: 150,
+      timeoutTime: 150,
     });
     await rpcServer.start({
       manifest: {
@@ -984,7 +982,7 @@ describe('RPC', () => {
       const rpcServer = new RPCServer({
         logger,
         idGen,
-        handlerTimeoutTime: 150,
+        timeoutTime: 150,
       });
       await rpcServer.start({
         manifest: {

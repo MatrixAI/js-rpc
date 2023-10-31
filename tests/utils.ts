@@ -274,6 +274,15 @@ const errorArb = (
     ),
   );
 
+const timeoutsArb = fc
+  .integer({ min: 0 })
+  .chain((lowerTimeoutTime) =>
+    fc.tuple(
+      fc.constant(lowerTimeoutTime),
+      fc.integer({ min: lowerTimeoutTime }),
+    ),
+  );
+
 export {
   binaryStreamToSnippedStream,
   binaryStreamToNoisyStream,
@@ -295,4 +304,5 @@ export {
   tapTransformStream,
   createTapPairs,
   errorArb,
+  timeoutsArb,
 };

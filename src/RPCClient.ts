@@ -41,7 +41,7 @@ class RPCClient<M extends ClientManifest> {
     this.onTimeoutCallback = callback;
   }
   // Method proxies
-  public readonly streamKeepAliveTimeoutTime: number;
+  public readonly timeoutTime: number;
   public readonly methodsProxy = new Proxy(
     {},
     {
@@ -76,7 +76,7 @@ class RPCClient<M extends ClientManifest> {
    * The middlewareFactory needs to be a function that creates a pair of
    * transform streams that convert `JSONRPCRequest` to `Uint8Array` on the forward
    * path and `Uint8Array` to `JSONRPCResponse` on the reverse path.
-   * @param obj.streamKeepAliveTimeoutTime - Timeout time used if no timeout timer was provided when making a call.
+   * @param obj.timeoutTime - Timeout time used if no timeout timer was provided when making a call.
    * Defaults to 60,000 milliseconds.
    * for a client call.
    * @param obj.logger
@@ -85,7 +85,7 @@ class RPCClient<M extends ClientManifest> {
     manifest,
     streamFactory,
     middlewareFactory = middleware.defaultClientMiddlewareWrapper(),
-    streamKeepAliveTimeoutTime = Infinity,
+    timeoutTime = Infinity,
     logger,
     toError = utils.toError,
     idGen = () => null,
@@ -98,16 +98,19 @@ class RPCClient<M extends ClientManifest> {
       JSONRPCResponse,
       Uint8Array
     >;
-    streamKeepAliveTimeoutTime?: number;
+    timeoutTime?: number;
     logger?: Logger;
     idGen?: IdGen;
     toError?: ToError;
   }) {
+    if (timeoutTime < 0) {
+      throw new errors.ErrorRPCInvalidTimeout();
+    }
     this.idGen = idGen;
     this.callerTypes = utils.getHandlerTypes(manifest);
     this.streamFactory = streamFactory;
     this.middlewareFactory = middlewareFactory;
-    this.streamKeepAliveTimeoutTime = streamKeepAliveTimeoutTime;
+    this.timeoutTime = timeoutTime;
     this.logger = logger ?? new Logger(this.constructor.name);
     this.toError = toError;
   }
@@ -254,7 +257,7 @@ class RPCClient<M extends ClientManifest> {
     let timer: Timer;
     if (!(ctx.timer instanceof Timer)) {
       timer = new Timer({
-        delay: ctx.timer ?? this.streamKeepAliveTimeoutTime,
+        delay: ctx.timer ?? this.timeoutTime,
       });
     } else {
       timer = ctx.timer;
@@ -403,7 +406,7 @@ class RPCClient<M extends ClientManifest> {
     let timer: Timer;
     if (!(ctx.timer instanceof Timer)) {
       timer = new Timer({
-        delay: ctx.timer ?? this.streamKeepAliveTimeoutTime,
+        delay: ctx.timer ?? this.timeoutTime,
       });
     } else {
       timer = ctx.timer;
