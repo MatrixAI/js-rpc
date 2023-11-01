@@ -110,23 +110,21 @@ type JSONRPCResponseError = {
   id: string | number | null;
 };
 
-// Prevent overwriting the metadata type with `Omit<>`
 type JSONRPCParams<T extends JSONObject = JSONObject> = {
   metadata?: {
     [Key: string]: JSONValue;
   } & Partial<{
     timeout: number | null;
   }>;
-} & Omit<T, 'metadata'>;
+} & T;
 
-// Prevent overwriting the metadata type with `Omit<>`
 type JSONRPCResult<T extends JSONObject = JSONObject> = {
   metadata?: {
     [Key: string]: JSONValue;
   } & Partial<{
     timeout: number | null;
   }>;
-} & Omit<T, 'metadata'>;
+} & T;
 
 /**
  * This is a JSON RPC error object, it encodes the error data for the JSONRPCResponseError object.
