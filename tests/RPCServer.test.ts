@@ -17,7 +17,7 @@ import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import RPCServer from '@/RPCServer';
 import * as rpcErrors from '@/errors';
 import * as rpcUtils from '@/utils';
-import { promise, sleep } from '@/utils';
+import { promise } from '@/utils';
 import * as rpcUtilsMiddleware from '@/middleware';
 import ServerHandler from '@/handlers/ServerHandler';
 import DuplexHandler from '@/handlers/DuplexHandler';
@@ -849,7 +849,54 @@ describe(`${RPCServer.name}`, () => {
       await rpcServer.stop({ force: true });
     },
   );
+  testProp(
+    'constructor should throw when passed a negative timeout',
+    [fc.integer({ max: -1 })],
+    async (timeoutTime) => {
+      const constructorF = () =>
+        new RPCServer({
+          timeoutTime,
+          logger,
+          idGen,
+        });
 
+      expect(constructorF).toThrowError(rpcErrors.ErrorRPCInvalidTimeout);
+    },
+  );
+  testProp(
+    'start should throw when passed a handler with negative timeout',
+    [fc.integer({ max: -1 })],
+    async (timeoutTime) => {
+      const waitProm = promise();
+      const ctxLongProm = promise<ContextTimed>();
+
+      class TestMethodArbitraryTimeout extends UnaryHandler {
+        timeout = timeoutTime;
+        public handle = async (
+          input: JSONRPCParams,
+          _cancel,
+          _meta,
+          ctx_,
+        ): Promise<JSONRPCResult> => {
+          ctxLongProm.resolveP(ctx_);
+          await waitProm.p;
+          return input;
+        };
+      }
+      const rpcServer = new RPCServer({
+        logger,
+        idGen,
+      });
+
+      await expect(
+        rpcServer.start({
+          manifest: {
+            testArbitrary: new TestMethodArbitraryTimeout({}),
+          },
+        }),
+      ).rejects.toBeInstanceOf(rpcErrors.ErrorRPCInvalidHandlerTimeout);
+    },
+  );
   test('timeout with default time after handler selected', async () => {
     const ctxProm = promise<ContextTimed>();
 
@@ -956,10 +1003,8 @@ describe(`${RPCServer.name}`, () => {
     }
     await rpcServer.stop({ force: true });
   });
-  test('duplex handler refreshes timeout when messages are sent', async () => {
+  test('duplex handler cancels timeout when messages are sent', async () => {
     const contextProm = promise<ContextTimed>();
-    const stepProm1 = promise();
-    const stepProm2 = promise();
     const passthroughStream = new TransformStream<Uint8Array, Uint8Array>();
     class TestHandler extends DuplexHandler {
       public handle = async function* (
@@ -970,12 +1015,9 @@ describe(`${RPCServer.name}`, () => {
       ): AsyncGenerator<JSONRPCResult<{ value: number }>> {
         contextProm.resolveP(ctx);
         for await (const _ of input) {
-          // Do nothing, just consume
+          // Do nothing
         }
-        await stepProm1.p;
         yield { value: 1 };
-        await stepProm2.p;
-        yield { value: 2 };
       };
     }
     const rpcServer = new RPCServer({
@@ -1003,26 +1045,14 @@ describe(`${RPCServer.name}`, () => {
     };
     rpcServer.handleStream(readWriteStream);
     const writer = passthroughStream.writable.getWriter();
+    // Send request for method
     await writer.write(requestMessage);
     const ctx = await contextProm.p;
-    const scheduled: Date | undefined = ctx.timer.scheduled;
-    // Checking writing refreshes timer
-    await sleep(25);
+    // Send data
     await writer.write(requestMessage);
-    expect(ctx.timer.scheduled).toBeAfter(scheduled!);
-    expect(
-      ctx.timer.scheduled!.getTime() - scheduled!.getTime(),
-    ).toBeGreaterThanOrEqual(25);
     await writer.close();
-    // Checking reading refreshes timer
-    await sleep(25);
-    stepProm1.resolveP();
-    expect(ctx.timer.scheduled).toBeAfter(scheduled!);
-    expect(
-      ctx.timer.scheduled!.getTime() - scheduled!.getTime(),
-    ).toBeGreaterThanOrEqual(25);
-    stepProm2.resolveP();
     await outputResult;
+    await expect(ctx.timer).rejects.toBe(rpcUtils.timeoutCancelledReason);
     await rpcServer.stop({ force: true });
   });
   test('stream ending cleans up timer and abortSignal', async () => {
@@ -1082,54 +1112,6 @@ describe(`${RPCServer.name}`, () => {
     await expect(ctx.timer).toReject();
     await rpcServer.stop({ force: true });
   });
-  testProp(
-    'RPCServer constructor should throw when passed a negative timeoutTime',
-    [fc.integer({ max: -1 })],
-    async (timeoutTime) => {
-      const constructorF = () =>
-        new RPCServer({
-          timeoutTime,
-          logger,
-          idGen,
-        });
-
-      expect(constructorF).toThrowError(rpcErrors.ErrorRPCInvalidTimeout);
-    },
-  );
-  testProp(
-    'RPCServer.start should throw when passed a handler with negative timeout',
-    [fc.integer({ max: -1 })],
-    async (timeoutTime) => {
-      const waitProm = promise();
-      const ctxLongProm = promise<ContextTimed>();
-
-      class TestMethodArbitraryTimeout extends UnaryHandler {
-        timeout = timeoutTime;
-        public handle = async (
-          input: JSONRPCParams,
-          _cancel,
-          _meta,
-          ctx_,
-        ): Promise<JSONRPCResult> => {
-          ctxLongProm.resolveP(ctx_);
-          await waitProm.p;
-          return input;
-        };
-      }
-      const rpcServer = new RPCServer({
-        logger,
-        idGen,
-      });
-
-      await expect(
-        rpcServer.start({
-          manifest: {
-            testArbitrary: new TestMethodArbitraryTimeout({}),
-          },
-        }),
-      ).rejects.toBeInstanceOf(rpcErrors.ErrorRPCInvalidHandlerTimeout);
-    },
-  );
   testProp(
     'middleware can update timeout timer',
     [specificMessageArb],

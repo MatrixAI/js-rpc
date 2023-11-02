@@ -307,10 +307,11 @@ class RPCClient<M extends ClientManifest> {
       },
       () => {}, // Ignore cancellation error
     );
-    // Deciding if we want to allow refreshing
-    // We want to refresh timer if none was provided
-    const refreshingTimer: Timer | undefined =
-      ctx.timer == null ? timer : undefined;
+    // Deciding if we want to allow cancelling
+    // We want to cancel timer if none was provided
+    const cancellingTimer: Timer | undefined = !(ctx.timer instanceof Timer)
+      ? timer
+      : undefined;
     // Composing stream transforms and middleware
     const metadata = {
       ...(rpcStream.meta ?? {}),
@@ -319,12 +320,10 @@ class RPCClient<M extends ClientManifest> {
     const outputMessageTransformStream = utils.clientOutputTransformStream<O>(
       metadata,
       this.toError,
-      refreshingTimer,
+      cancellingTimer,
     );
-    const inputMessageTransformStream = utils.clientInputTransformStream<I>(
-      method,
-      refreshingTimer,
-    );
+    const inputMessageTransformStream =
+      utils.clientInputTransformStream<I>(method);
     const middleware = this.middlewareFactory(
       { signal, timer },
       rpcStream.cancel,
