@@ -391,6 +391,14 @@ If the client were to time out, the stream is forcibly closed and `ErrorRPCTimed
 
 If the server were to time out, is is advisory. Meaning that the server may choose to optionally eagerly throw `ErrorRPCTimedOut`, or continue processing as normal.
 
+After the client receives the subsequent message from the server, the timeout timer is cancelled.
+
+Likewise on the server, the timeout timer is cancelled after the first message is sent to the client.
+
+This means that the timeout for Streaming calls acts as a Proof of Life, and after it is established, the timeout no longer applies. This allows for long-running Streaming calls.
+
+Note that when supplying a `Timer` instance to the call-site in `RPCClient`, the timeout timer will not be cancelled. As it is expected for the library to not mutate the passed-in `Timer`, and for the user to expect that receiving a messsage will have meaned that the timer no longer matters.
+
 #### Throwing Timeouts Server-Side
 
 By default, a timeout will not cause an RPC call to automatically throw, this must be manually done by the handler when it receives the abort signal from `ctx.signal`. An example of this is like so:

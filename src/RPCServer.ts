@@ -297,9 +297,6 @@ class RPCServer {
         // Input generator derived from the forward stream
         const inputGen = async function* (): AsyncIterable<I> {
           for await (const data of forwardStream) {
-            if (ctx.timer.status !== 'settled') {
-              ctx.timer.refresh();
-            }
             yield data.params as I;
           }
         };
@@ -309,7 +306,7 @@ class RPCServer {
         });
         for await (const response of handlerG) {
           if (ctx.timer.status !== 'settled') {
-            ctx.timer.refresh();
+            ctx.timer.cancel(utils.timeoutCancelledReason);
           }
           const responseMessage: JSONRPCResponseResult = {
             jsonrpc: '2.0',

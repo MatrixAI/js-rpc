@@ -10,6 +10,7 @@ import type {
 import type { IdGen } from '@/types';
 import { TransformStream, ReadableStream } from 'stream/web';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
+import { Timer } from '@matrixai/timer';
 import { testProp, fc } from '@fast-check/jest';
 import RawCaller from '@/callers/RawCaller';
 import DuplexCaller from '@/callers/DuplexCaller';
@@ -20,7 +21,7 @@ import RPCClient from '@/RPCClient';
 import RPCServer from '@/RPCServer';
 import * as rpcErrors from '@/errors';
 import * as rpcUtilsMiddleware from '@/middleware';
-import { promise, sleep } from '@/utils';
+import { promise, timeoutCancelledReason } from '@/utils';
 import * as rpcTestUtils from './utils';
 
 describe(`${RPCClient.name}`, () => {
@@ -738,6 +739,28 @@ describe(`${RPCClient.name}`, () => {
     // @ts-ignore: ignoring type safety here
     expect(() => rpcClient.withMethods.someMethod()).toThrow();
   });
+  testProp(
+    'constructor should throw when passed a negative timeoutTime',
+    [fc.integer({ max: -1 })],
+    async (timeoutTime) => {
+      const streamPair: RPCStream<Uint8Array, Uint8Array> = {
+        cancel: () => {},
+        meta: undefined,
+        readable: new ReadableStream(),
+        writable: new WritableStream(),
+      };
+      const constructorF = () =>
+        new RPCClient({
+          timeoutTime,
+          streamFactory: () => Promise.resolve(streamPair),
+          manifest: {},
+          logger,
+          idGen,
+        });
+
+      expect(constructorF).toThrowError(rpcErrors.ErrorRPCInvalidTimeout);
+    },
+  );
   describe('raw caller', () => {
     test('raw caller uses default timeout when creating stream', async () => {
       const holdProm = promise();
@@ -1097,17 +1120,15 @@ describe(`${RPCClient.name}`, () => {
       stream.cancel(Error('asd'));
     });
     testProp(
-      'duplex caller timeout is refreshed when sending message',
+      'duplex caller timeout is cancelled when receiving message',
       [specificMessageArb],
       async (messages) => {
         const inputStream = rpcTestUtils.messagesToReadableStream(messages);
-        const [outputResult, outputStream] =
-          rpcTestUtils.streamToArray<Uint8Array>();
         const streamPair: RPCStream<Uint8Array, Uint8Array> = {
           cancel: () => {},
           meta: undefined,
           readable: inputStream,
-          writable: outputStream,
+          writable: new WritableStream(),
         };
         const ctxProm = promise<ContextTimed>();
         const rpcClient = new RPCClient({
@@ -1125,100 +1146,53 @@ describe(`${RPCClient.name}`, () => {
         >(methodName, { timer: 200 });
 
         const ctx = await ctxProm.p;
-        // Reading refreshes timer
         const reader = callerInterface.readable.getReader();
-        await sleep(50);
-        let timeLeft = ctx.timer.getTimeout();
-        const message = await reader.read();
-        expect(ctx.timer.getTimeout() + 2).toBeGreaterThanOrEqual(timeLeft);
         reader.releaseLock();
         for await (const _ of callerInterface.readable) {
           // Do nothing
         }
-
-        // Writing should refresh timer
-        const writer = callerInterface.writable.getWriter();
-        await sleep(50);
-        timeLeft = ctx.timer.getTimeout();
-        await writer.write(message.value);
-        expect(ctx.timer.getTimeout() + 1).toBeGreaterThanOrEqual(timeLeft);
-        await writer.close();
-
-        await outputResult;
+        await expect(ctx.timer).rejects.toBe(timeoutCancelledReason);
       },
       { numRuns: 5 },
     );
-    testProp(
-      'RPCClient constructor should throw when passed a negative timeoutTime',
-      [fc.integer({ max: -1 })],
-      async (timeoutTime) => {
-        const streamPair: RPCStream<Uint8Array, Uint8Array> = {
-          cancel: () => {},
-          meta: undefined,
-          readable: new ReadableStream(),
-          writable: new WritableStream(),
-        };
-        const constructorF = () =>
-          new RPCClient({
-            timeoutTime,
-            streamFactory: () => Promise.resolve(streamPair),
-            manifest: {},
-            logger,
-            idGen,
-          });
-
-        expect(constructorF).toThrowError(rpcErrors.ErrorRPCInvalidTimeout);
-      },
-    );
-    testProp(
-      'Check that ctx is provided to the middleware and that the middleware can reset the timer',
-      [specificMessageArb],
-      async (messages) => {
-        const inputStream = rpcTestUtils.messagesToReadableStream(messages);
-        const [outputResult, outputStream] =
-          rpcTestUtils.streamToArray<Uint8Array>();
-        const streamPair: RPCStream<Uint8Array, Uint8Array> = {
-          cancel: () => {},
-          meta: undefined,
-          readable: inputStream,
-          writable: outputStream,
-        };
-        const ctxProm = promise<ContextTimed>();
-        const rpcClient = new RPCClient({
-          manifest: {},
-          streamFactory: async (ctx) => {
-            ctxProm.resolveP(ctx);
-            return streamPair;
-          },
-          middlewareFactory: rpcUtilsMiddleware.defaultClientMiddlewareWrapper(
-            (ctx) => {
-              ctx.timer.reset(123);
-              return {
-                forward: new TransformStream(),
-                reverse: new TransformStream(),
-              };
-            },
-          ),
-          logger,
-          idGen,
-        });
-        const callerInterface = await rpcClient.duplexStreamCaller<
-          JSONRPCParams,
-          JSONRPCResult
-        >(methodName);
-
-        const ctx = await ctxProm.p;
-        // Writing should refresh timer engage the middleware
-        const writer = callerInterface.writable.getWriter();
-        await writer.write({});
-        expect(ctx.timer.delay).toBe(123);
-        await writer.close();
-
-        await outputResult;
-      },
-      { numRuns: 1 },
-    );
   });
+  testProp(
+    'duplex caller timeout is not cancelled when receiving message with provided ctx',
+    [specificMessageArb],
+    async (messages) => {
+      const inputStream = rpcTestUtils.messagesToReadableStream(messages);
+      const streamPair: RPCStream<Uint8Array, Uint8Array> = {
+        cancel: () => {},
+        meta: undefined,
+        readable: inputStream,
+        writable: new WritableStream(),
+      };
+      const ctxProm = promise<ContextTimed>();
+      const rpcClient = new RPCClient({
+        manifest: {},
+        streamFactory: async (ctx) => {
+          ctxProm.resolveP(ctx);
+          return streamPair;
+        },
+        logger,
+        idGen,
+      });
+      const callerInterface = await rpcClient.duplexStreamCaller<
+        JSONRPCParams,
+        JSONRPCResult
+      >(methodName, { timer: new Timer(undefined, 200) });
+
+      const ctx = await ctxProm.p;
+      const reader = callerInterface.readable.getReader();
+      reader.releaseLock();
+      for await (const _ of callerInterface.readable) {
+        // Do nothing
+      }
+      await ctx.timer;
+      expect(ctx.signal.reason).toBeInstanceOf(rpcErrors.ErrorRPCTimedOut);
+    },
+    { numRuns: 5 },
+  );
   describe('timeout priority', () => {
     testProp(
       'check that call with ctx can override higher timeout of RPCClient',
@@ -1324,6 +1298,54 @@ describe(`${RPCClient.name}`, () => {
         ctx.timer.cancel();
         await ctx.timer.catch(() => {});
       },
+    );
+    testProp(
+      'Check that ctx is provided to the middleware and that the middleware can reset the timer',
+      [specificMessageArb],
+      async (messages) => {
+        const inputStream = rpcTestUtils.messagesToReadableStream(messages);
+        const [outputResult, outputStream] =
+          rpcTestUtils.streamToArray<Uint8Array>();
+        const streamPair: RPCStream<Uint8Array, Uint8Array> = {
+          cancel: () => {},
+          meta: undefined,
+          readable: inputStream,
+          writable: outputStream,
+        };
+        const ctxProm = promise<ContextTimed>();
+        const rpcClient = new RPCClient({
+          manifest: {},
+          streamFactory: async (ctx) => {
+            ctxProm.resolveP(ctx);
+            return streamPair;
+          },
+          middlewareFactory: rpcUtilsMiddleware.defaultClientMiddlewareWrapper(
+            (ctx) => {
+              ctx.timer.reset(123);
+              return {
+                forward: new TransformStream(),
+                reverse: new TransformStream(),
+              };
+            },
+          ),
+          logger,
+          idGen,
+        });
+        const callerInterface = await rpcClient.duplexStreamCaller<
+          JSONRPCParams,
+          JSONRPCResult
+        >(methodName);
+
+        const ctx = await ctxProm.p;
+        // Writing should refresh timer engage the middleware
+        const writer = callerInterface.writable.getWriter();
+        await writer.write({});
+        expect(ctx.timer.delay).toBe(123);
+        await writer.close();
+
+        await outputResult;
+      },
+      { numRuns: 1 },
     );
   });
 });

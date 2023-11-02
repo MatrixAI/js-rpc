@@ -20,6 +20,8 @@ import { JSONParser } from '@streamparser/json';
 import { AbstractError } from '@matrixai/errors';
 import * as errors from './errors';
 
+const timeoutCancelledReason = Symbol('timeoutCancelledReason');
+
 // Importing PK funcs and utils which are essential for RPC
 function isObject(o: unknown): o is object {
   return o !== null && typeof o === 'object';
@@ -410,15 +412,12 @@ function toError(
  * one is provided.
  * @param method - Name of the method that was called, used to select the
  * server side.
- * @param timer - Timer that gets refreshed each time a message is provided.
  */
 function clientInputTransformStream<I extends JSONObject>(
   method: string,
-  timer?: Timer,
 ): TransformStream<I, JSONRPCRequest> {
   return new TransformStream<I, JSONRPCRequest>({
     transform: (chunk, controller) => {
-      timer?.refresh();
       const message: JSONRPCRequest = {
         method,
         jsonrpc: '2.0',
@@ -446,7 +445,9 @@ function clientOutputTransformStream<O extends JSONObject>(
 ): TransformStream<JSONRPCResponse<O>, O> {
   return new TransformStream<JSONRPCResponse<O> | JSONRPCResponseError, O>({
     transform: (chunk, controller) => {
-      timer?.refresh();
+      if (timer?.status !== 'settled') {
+        timer?.cancel(timeoutCancelledReason);
+      }
       // `error` indicates it's an error message
       if ('error' in chunk) {
         const e = toError(chunk.error.data, clientMetadata);
@@ -542,6 +543,7 @@ function never(): never {
 }
 
 export {
+  timeoutCancelledReason,
   parseJSONRPCRequest,
   parseJSONRPCRequestMessage,
   parseJSONRPCRequestNotification,
