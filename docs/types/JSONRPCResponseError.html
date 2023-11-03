@@ -15,32 +15,30 @@
 <li><a href="../modules.html">@matrixai/rpc</a></li>
 <li><a href="JSONRPCResponseError.html">JSONRPCResponseError</a></li></ul>
 <h1>Type alias JSONRPCResponseError</h1></div>
-<div class="tsd-signature">JSONRPCResponse<wbr/>Error<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">{ </span><br/><span>    </span>error<span class="tsd-signature-symbol">: </span><a href="JSONRPCError.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONRPCError</a><span class="tsd-signature-symbol">; </span><br/><span>    </span>id<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">null</span><span class="tsd-signature-symbol">; </span><br/><span>    </span>jsonrpc<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">&quot;2.0&quot;</span><span class="tsd-signature-symbol">; </span><br/><span class="tsd-signature-symbol">}</span></div>
-<div class="tsd-comment tsd-typography"><p>This is the JSON RPC response Error object. It contains any errors that have
-occurred when responding to a request.</p>
+<div class="tsd-signature">JSONRPCResponse<wbr/>Error<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">{ </span><br/><span>    </span>code<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">; </span><br/><span>    </span>data<span class="tsd-signature-symbol">?: </span><a href="JSONValue.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONValue</a><span class="tsd-signature-symbol">; </span><br/><span>    </span>message<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">; </span><br/><span class="tsd-signature-symbol">}</span></div>
+<div class="tsd-comment tsd-typography"><p>This is a JSON RPC error object, it encodes the error data for the JSONRPCResponseFailed object.</p>
 </div>
 <div class="tsd-type-declaration">
 <h4>Type declaration</h4>
 <ul class="tsd-parameters">
 <li class="tsd-parameter">
-<h5>error<span class="tsd-signature-symbol">: </span><a href="JSONRPCError.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONRPCError</a></h5>
-<div class="tsd-comment tsd-typography"><p>This member is REQUIRED on error.
- This member MUST NOT exist if there was no error triggered during invocation.
- The value for this member MUST be an Object as defined in section 5.1.</p>
+<h5>code<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></h5>
+<div class="tsd-comment tsd-typography"><p>A Number that indicates the error type that occurred.
+ This MUST be an integer.</p>
 </div></li>
 <li class="tsd-parameter">
-<h5>id<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">null</span></h5>
-<div class="tsd-comment tsd-typography"><p>This member is REQUIRED.
- It MUST be the same as the value of the id member in the Request Object.
- If there was an error in detecting the id in the Request object (e.g. Parse error/Invalid Request),
- it MUST be Null.</p>
+<h5><code class="tsd-tag ts-flagOptional">Optional</code> data<span class="tsd-signature-symbol">?: </span><a href="JSONValue.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONValue</a></h5>
+<div class="tsd-comment tsd-typography"><p>A Primitive or Structured value that contains additional information about the error.
+ This may be omitted.
+ The value of this member is defined by the Server (e.g. detailed error information, nested errors etc.).</p>
 </div></li>
 <li class="tsd-parameter">
-<h5>jsonrpc<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">&quot;2.0&quot;</span></h5>
-<div class="tsd-comment tsd-typography"><p>A String specifying the version of the JSON-RPC protocol. MUST be exactly &quot;2.0&quot;.</p>
+<h5>message<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span></h5>
+<div class="tsd-comment tsd-typography"><p>A String providing a short description of the error.
+ The message SHOULD be limited to a concise single sentence.</p>
 </div></li></ul></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-rpc/blob/master/src/types.ts#L94">src/types.ts:94</a></li></ul></aside></div>
+<li>Defined in <a href="https://github.com/MatrixAI/js-rpc/blob/master/src/types.ts#L162">src/types.ts:162</a></li></ul></aside></div>
 <div class="col-4 col-menu menu-sticky-wrap menu-highlight">
 <div class="tsd-navigation settings">
 <details class="tsd-index-accordion"><summary class="tsd-accordion-summary">
@@ -87,27 +85,35 @@ occurred when responding to a request.</p>
 <li class="tsd-kind-type-alias"><a href="ClientManifest.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>Client<wbr/>Manifest</a></li>
 <li class="tsd-kind-type-alias"><a href="ContainerType.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>Container<wbr/>Type</a></li>
 <li class="tsd-kind-type-alias"><a href="DuplexHandlerImplementation.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>Duplex<wbr/>Handler<wbr/>Implementation</a></li>
+<li class="tsd-kind-type-alias"><a href="FromError.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>From<wbr/>Error</a></li>
 <li class="tsd-kind-type-alias"><a href="HandlerImplementation.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>Handler<wbr/>Implementation</a></li>
 <li class="tsd-kind-type-alias"><a href="HandlerType.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>Handler<wbr/>Type</a></li>
 <li class="tsd-kind-type-alias"><a href="HandlerTypes.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>Handler<wbr/>Types</a></li>
 <li class="tsd-kind-type-alias"><a href="IdGen.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>Id<wbr/>Gen</a></li>
-<li class="tsd-kind-type-alias"><a href="JSONRPCError.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>JSONRPCError</a></li>
+<li class="tsd-kind-type-alias"><a href="JSONObject.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>JSONObject</a></li>
 <li class="tsd-kind-type-alias"><a href="JSONRPCMessage.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>JSONRPCMessage</a></li>
 <li class="tsd-kind-type-alias"><a href="JSONRPCRequest.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>JSONRPCRequest</a></li>
 <li class="tsd-kind-type-alias"><a href="JSONRPCRequestMessage.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>JSONRPCRequest<wbr/>Message</a></li>
+<li class="tsd-kind-type-alias"><a href="JSONRPCRequestMetadata.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>JSONRPCRequest<wbr/>Metadata</a></li>
 <li class="tsd-kind-type-alias"><a href="JSONRPCRequestNotification.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>JSONRPCRequest<wbr/>Notification</a></li>
+<li class="tsd-kind-type-alias"><a href="JSONRPCRequestParams.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>JSONRPCRequest<wbr/>Params</a></li>
 <li class="tsd-kind-type-alias"><a href="JSONRPCResponse.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>JSONRPCResponse</a></li>
 <li class="current tsd-kind-type-alias"><a href="JSONRPCResponseError.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>JSONRPCResponse<wbr/>Error</a></li>
+<li class="tsd-kind-type-alias"><a href="JSONRPCResponseFailed.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>JSONRPCResponse<wbr/>Failed</a></li>
+<li class="tsd-kind-type-alias"><a href="JSONRPCResponseMetadata.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>JSONRPCResponse<wbr/>Metadata</a></li>
 <li class="tsd-kind-type-alias"><a href="JSONRPCResponseResult.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>JSONRPCResponse<wbr/>Result</a></li>
+<li class="tsd-kind-type-alias"><a href="JSONRPCResponseSuccess.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>JSONRPCResponse<wbr/>Success</a></li>
 <li class="tsd-kind-type-alias"><a href="JSONValue.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>JSONValue</a></li>
 <li class="tsd-kind-type-alias"><a href="MapCallers.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>Map<wbr/>Callers</a></li>
 <li class="tsd-kind-type-alias"><a href="MiddlewareFactory.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>Middleware<wbr/>Factory</a></li>
+<li class="tsd-kind-type-alias"><a href="Opaque.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>Opaque</a></li>
 <li class="tsd-kind-type-alias"><a href="POJO.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>POJO</a></li>
 <li class="tsd-kind-type-alias"><a href="PromiseDeconstructed.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>Promise<wbr/>Deconstructed</a></li>
 <li class="tsd-kind-type-alias"><a href="RawHandlerImplementation.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>Raw<wbr/>Handler<wbr/>Implementation</a></li>
 <li class="tsd-kind-type-alias"><a href="ServerHandlerImplementation.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>Server<wbr/>Handler<wbr/>Implementation</a></li>
 <li class="tsd-kind-type-alias"><a href="ServerManifest.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>Server<wbr/>Manifest</a></li>
 <li class="tsd-kind-type-alias"><a href="StreamFactory.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>Stream<wbr/>Factory</a></li>
+<li class="tsd-kind-type-alias"><a href="ToError.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>To<wbr/>Error</a></li>
 <li class="tsd-kind-type-alias"><a href="UnaryHandlerImplementation.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>Unary<wbr/>Handler<wbr/>Implementation</a></li></ul></nav></div></div>
 <div class="container tsd-generator">
 <p>Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p></div>

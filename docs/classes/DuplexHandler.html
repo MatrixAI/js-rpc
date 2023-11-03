@@ -21,9 +21,9 @@
 <li>
 <h4>Container<span class="tsd-signature-symbol"> extends </span><a href="../types/ContainerType.html" class="tsd-signature-type" data-tsd-kind="Type alias">ContainerType</a> = <a href="../types/ContainerType.html" class="tsd-signature-type" data-tsd-kind="Type alias">ContainerType</a></h4></li>
 <li>
-<h4>Input<span class="tsd-signature-symbol"> extends </span><a href="../types/JSONValue.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONValue</a> = <a href="../types/JSONValue.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONValue</a></h4></li>
+<h4>Input<span class="tsd-signature-symbol"> extends </span><a href="../types/JSONRPCRequestParams.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONRPCRequestParams</a> = <a href="../types/JSONRPCRequestParams.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONRPCRequestParams</a></h4></li>
 <li>
-<h4>Output<span class="tsd-signature-symbol"> extends </span><a href="../types/JSONValue.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONValue</a> = <a href="../types/JSONValue.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONValue</a></h4></li></ul></section> 
+<h4>Output<span class="tsd-signature-symbol"> extends </span><a href="../types/JSONRPCResponseResult.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONRPCResponseResult</a> = <a href="../types/JSONRPCResponseResult.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONRPCResponseResult</a></h4></li></ul></section> 
 <section class="tsd-panel tsd-hierarchy">
 <h4>Hierarchy</h4>
 <ul class="tsd-hierarchy">
@@ -31,7 +31,7 @@
 <ul class="tsd-hierarchy">
 <li><span class="target">DuplexHandler</span></li></ul></li></ul></section><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-rpc/blob/master/src/handlers/DuplexHandler.ts#L6">src/handlers/DuplexHandler.ts:6</a></li></ul></aside>
+<li>Defined in <a href="https://github.com/MatrixAI/js-rpc/blob/master/src/handlers/DuplexHandler.ts#L11">src/handlers/DuplexHandler.ts:11</a></li></ul></aside>
 <section class="tsd-panel-group tsd-index-group">
 <section class="tsd-panel tsd-index-panel">
 <details class="tsd-index-content tsd-index-accordion" open><summary class="tsd-accordion-summary tsd-index-summary">
@@ -65,9 +65,9 @@
 <li>
 <h4>Container<span class="tsd-signature-symbol"> extends </span><a href="../types/ContainerType.html" class="tsd-signature-type" data-tsd-kind="Type alias">ContainerType</a> = <a href="../types/ContainerType.html" class="tsd-signature-type" data-tsd-kind="Type alias">ContainerType</a></h4></li>
 <li>
-<h4>Input<span class="tsd-signature-symbol"> extends </span><a href="../types/JSONValue.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONValue</a> = <a href="../types/JSONValue.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONValue</a></h4></li>
+<h4>Input<span class="tsd-signature-symbol"> extends </span><a href="../types/JSONRPCRequestParams.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONRPCRequestParams</a><span class="tsd-signature-symbol">&lt;</span><a href="../types/JSONObject.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONObject</a><span class="tsd-signature-symbol">, </span><a href="../types/JSONObject.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONObject</a><span class="tsd-signature-symbol">&gt;</span> = <a href="../types/JSONRPCRequestParams.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONRPCRequestParams</a><span class="tsd-signature-symbol">&lt;</span><a href="../types/JSONObject.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONObject</a><span class="tsd-signature-symbol">, </span><a href="../types/JSONObject.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONObject</a><span class="tsd-signature-symbol">&gt;</span></h4></li>
 <li>
-<h4>Output<span class="tsd-signature-symbol"> extends </span><a href="../types/JSONValue.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONValue</a> = <a href="../types/JSONValue.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONValue</a></h4></li></ul></section>
+<h4>Output<span class="tsd-signature-symbol"> extends </span><a href="../types/JSONRPCResponseResult.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONRPCResponseResult</a><span class="tsd-signature-symbol">&lt;</span><a href="../types/JSONObject.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONObject</a><span class="tsd-signature-symbol">, </span><a href="../types/JSONObject.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONObject</a><span class="tsd-signature-symbol">&gt;</span> = <a href="../types/JSONRPCResponseResult.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONRPCResponseResult</a><span class="tsd-signature-symbol">&lt;</span><a href="../types/JSONObject.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONObject</a><span class="tsd-signature-symbol">, </span><a href="../types/JSONObject.html" class="tsd-signature-type" data-tsd-kind="Type alias">JSONObject</a><span class="tsd-signature-symbol">&gt;</span></h4></li></ul></section>
 <div class="tsd-parameters">
 <h4 class="tsd-parameters-title">Parameters</h4>
 <ul class="tsd-parameter-list">
@@ -76,7 +76,7 @@
 <h4 class="tsd-returns-title">Returns <a href="DuplexHandler.html" class="tsd-signature-type" data-tsd-kind="Class">DuplexHandler</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type" data-tsd-kind="Type parameter">Container</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type" data-tsd-kind="Type parameter">Input</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type" data-tsd-kind="Type parameter">Output</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <p>Inherited from <a href="Handler.html">Handler</a>.<a href="Handler.html#constructor">constructor</a></p>
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-rpc/blob/master/src/handlers/Handler.ts#L17">src/handlers/Handler.ts:17</a></li></ul></aside></li></ul></section></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-rpc/blob/master/src/handlers/Handler.ts#L21">src/handlers/Handler.ts:21</a></li></ul></aside></li></ul></section></section>
 <section class="tsd-panel-group tsd-member-group">
 <h2>Properties</h2>
 <section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-protected tsd-is-inherited"><a id="_inputType" class="tsd-anchor"></a>
@@ -84,19 +84,19 @@
 <div class="tsd-signature">_input<wbr/>Type<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type" data-tsd-kind="Type parameter">Input</span></div><aside class="tsd-sources">
 <p>Inherited from <a href="Handler.html">Handler</a>.<a href="Handler.html#_inputType">_inputType</a></p>
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-rpc/blob/master/src/handlers/Handler.ts#L9">src/handlers/Handler.ts:9</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-rpc/blob/master/src/handlers/Handler.ts#L13">src/handlers/Handler.ts:13</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-protected tsd-is-inherited"><a id="_outputType" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><code class="tsd-tag ts-flagProtected">Protected</code> <span>_output<wbr/>Type</span><a href="#_outputType" aria-label="Permalink" class="tsd-anchor-icon"><svg class="icon icon-tabler icon-tabler-link" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-anchor-a"></use><use href="#icon-anchor-b"></use><use href="#icon-anchor-c"></use></svg></a></h3>
 <div class="tsd-signature">_output<wbr/>Type<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type" data-tsd-kind="Type parameter">Output</span></div><aside class="tsd-sources">
 <p>Inherited from <a href="Handler.html">Handler</a>.<a href="Handler.html#_outputType">_outputType</a></p>
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-rpc/blob/master/src/handlers/Handler.ts#L10">src/handlers/Handler.ts:10</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-rpc/blob/master/src/handlers/Handler.ts#L14">src/handlers/Handler.ts:14</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-protected tsd-is-inherited"><a id="container" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><code class="tsd-tag ts-flagProtected">Protected</code> <span>container</span><a href="#container" aria-label="Permalink" class="tsd-anchor-icon"><svg class="icon icon-tabler icon-tabler-link" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-anchor-a"></use><use href="#icon-anchor-b"></use><use href="#icon-anchor-c"></use></svg></a></h3>
 <div class="tsd-signature">container<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type" data-tsd-kind="Type parameter">Container</span></div><aside class="tsd-sources">
 <p>Inherited from <a href="Handler.html">Handler</a>.<a href="Handler.html#container">container</a></p>
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-rpc/blob/master/src/handlers/Handler.ts#L17">src/handlers/Handler.ts:17</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-rpc/blob/master/src/handlers/Handler.ts#L21">src/handlers/Handler.ts:21</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-inherited"><a id="timeout" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><code class="tsd-tag ts-flagOptional">Optional</code> <span>timeout</span><a href="#timeout" aria-label="Permalink" class="tsd-anchor-icon"><svg class="icon icon-tabler icon-tabler-link" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-anchor-a"></use><use href="#icon-anchor-b"></use><use href="#icon-anchor-c"></use></svg></a></h3>
 <div class="tsd-signature">timeout<span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span></div>
@@ -105,7 +105,7 @@ If it is not set then the default timeout time for the <code>RPCServer</code> is
 </div><aside class="tsd-sources">
 <p>Inherited from <a href="Handler.html">Handler</a>.<a href="Handler.html#timeout">timeout</a></p>
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-rpc/blob/master/src/handlers/Handler.ts#L15">src/handlers/Handler.ts:15</a></li></ul></aside></section></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-rpc/blob/master/src/handlers/Handler.ts#L19">src/handlers/Handler.ts:19</a></li></ul></aside></section></section>
 <section class="tsd-panel-group tsd-member-group">
 <h2>Methods</h2>
 <section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class"><a id="handle" class="tsd-anchor"></a>
@@ -141,7 +141,7 @@ error. If you need to handle any clean up it should be handled in a
 <h5>ctx: <span class="tsd-signature-type">ContextTimed</span></h5></li></ul></div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">AsyncIterableIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type" data-tsd-kind="Type parameter">Output</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-rpc/blob/master/src/handlers/DuplexHandler.ts#L16">src/handlers/DuplexHandler.ts:16</a></li></ul></aside></li></ul></section></section></div>
+<li>Defined in <a href="https://github.com/MatrixAI/js-rpc/blob/master/src/handlers/DuplexHandler.ts#L21">src/handlers/DuplexHandler.ts:21</a></li></ul></aside></li></ul></section></section></div>
 <div class="col-4 col-menu menu-sticky-wrap menu-highlight">
 <div class="tsd-navigation settings">
 <details class="tsd-index-accordion"><summary class="tsd-accordion-summary">
