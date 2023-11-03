@@ -3,7 +3,7 @@ import type { ReadableStream } from 'stream/web';
 import type {
   ContainerType,
   JSONRPCRequest,
-  JSONRPCResult,
+  JSONRPCResponseResult,
   JSONValue,
 } from '../types';
 import Handler from './Handler';
@@ -19,7 +19,7 @@ abstract class RawHandler<
     meta: Record<string, JSONValue> | undefined,
     ctx: ContextTimed,
     /* eslint-disable */
-  ): Promise<[JSONRPCResult, ReadableStream<Uint8Array>]> {
+  ): Promise<[JSONRPCResponseResult, ReadableStream<Uint8Array>]> {
     throw new ErrorRPCMethodNotImplemented('This method must be overridden');
   }
 }

@@ -1,8 +1,12 @@
-import type { ContainerType, JSONRPCParams, JSONRPCResult } from '../types';
+import type {
+  ContainerType,
+  JSONRPCRequestParams,
+  JSONRPCResponseResult,
+} from '../types';
 abstract class Handler<
   Container extends ContainerType = ContainerType,
-  Input extends JSONRPCParams = JSONRPCParams,
-  Output extends JSONRPCResult = JSONRPCResult,
+  Input extends JSONRPCRequestParams = JSONRPCRequestParams,
+  Output extends JSONRPCResponseResult = JSONRPCResponseResult,
 > {
   // These are used to distinguish the handlers in the type system.
   // Without these the map types can't tell the types of handlers apart.

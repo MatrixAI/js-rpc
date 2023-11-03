@@ -1,5 +1,5 @@
 import type { Class } from '@matrixai/errors';
-import type { JSONRPCError, JSONValue, POJO } from './types';
+import type { JSONRPCResponseError, JSONValue, POJO } from './types';
 import { AbstractError } from '@matrixai/errors';
 
 class ErrorRPC<T> extends AbstractError<T> {
@@ -71,7 +71,7 @@ abstract class ErrorRPCProtocol<T> extends ErrorRPC<T> {
    * The return type WILL NOT include cause, this will be handled by `fromError`
    * @returns
    */
-  public toJSON(): JSONRPCError {
+  public toJSON(): JSONRPCResponseError {
     return {
       code: this.code,
       message: this.message,
@@ -86,52 +86,52 @@ abstract class ErrorRPCProtocol<T> extends ErrorRPC<T> {
 
 class ErrorRPCParse<T> extends ErrorRPCProtocol<T> {
   static description = 'Failed to parse Buffer stream';
-  code = JSONRPCErrorCode.ParseError;
+  code = JSONRPCResponseErrorCode.ParseError;
 }
 
 class ErrorRPCInvalidParams<T> extends ErrorRPCProtocol<T> {
   static description = 'Invalid paramaters provided to RPC';
-  code = JSONRPCErrorCode.InvalidParams;
+  code = JSONRPCResponseErrorCode.InvalidParams;
 }
 
 class ErrorRPCStopping<T> extends ErrorRPCProtocol<T> {
   static description = 'RPC is stopping';
-  code = JSONRPCErrorCode.RPCStopping;
+  code = JSONRPCResponseErrorCode.RPCStopping;
 }
 
 class ErrorMissingCaller<T> extends ErrorRPCProtocol<T> {
   static description = 'Caller is missing';
-  code = JSONRPCErrorCode.MissingCaller;
+  code = JSONRPCResponseErrorCode.MissingCaller;
 }
 class ErrorMissingHeader<T> extends ErrorRPCProtocol<T> {
   static description = 'Header information is missing';
-  code = JSONRPCErrorCode.MissingHeader;
+  code = JSONRPCResponseErrorCode.MissingHeader;
 }
 
 class ErrorHandlerAborted<T> extends ErrorRPCProtocol<T> {
   static description = 'Handler Aborted Stream';
-  code = JSONRPCErrorCode.HandlerAborted;
+  code = JSONRPCResponseErrorCode.HandlerAborted;
 }
 
 class ErrorRPCMessageLength<T> extends ErrorRPCProtocol<T> {
   static description = 'RPC Message exceeds maximum size';
-  code = JSONRPCErrorCode.RPCMessageLength;
+  code = JSONRPCResponseErrorCode.RPCMessageLength;
 }
 
 class ErrorRPCMissingResponse<T> extends ErrorRPCProtocol<T> {
   static description = 'Stream ended before response';
-  code = JSONRPCErrorCode.RPCMissingResponse;
+  code = JSONRPCResponseErrorCode.RPCMissingResponse;
 }
 
 class ErrorRPCOutputStreamError<T> extends ErrorRPCProtocol<T> {
   static description = 'Output stream failed, unable to send data';
-  code = JSONRPCErrorCode.RPCOutputStreamError;
+  code = JSONRPCResponseErrorCode.RPCOutputStreamError;
 }
 
 class ErrorRPCRemote<T> extends ErrorRPCProtocol<T> {
   static description = 'Remote error from RPC call';
   static message: string = 'The server responded with an error';
-  code = JSONRPCErrorCode.RPCRemote;
+  code = JSONRPCResponseErrorCode.RPCRemote;
   metadata: JSONValue;
 
   constructor(
@@ -150,13 +150,13 @@ class ErrorRPCRemote<T> extends ErrorRPCProtocol<T> {
 
 class ErrorRPCStreamEnded<T> extends ErrorRPCProtocol<T> {
   static description = 'Handled stream has ended';
-  code = JSONRPCErrorCode.RPCStreamEnded;
+  code = JSONRPCResponseErrorCode.RPCStreamEnded;
 }
 
 class ErrorRPCTimedOut<T> extends ErrorRPCProtocol<T> {
   static description = 'RPC handler has timed out';
-  code = JSONRPCErrorCode.RPCTimedOut;
-  public toJSON(): JSONRPCError {
+  code = JSONRPCResponseErrorCode.RPCTimedOut;
+  public toJSON(): JSONRPCResponseError {
     const json = super.toJSON();
     if (typeof json === 'object' && !Array.isArray(json)) {
       (json as POJO).type = this.constructor.name;
@@ -167,33 +167,33 @@ class ErrorRPCTimedOut<T> extends ErrorRPCProtocol<T> {
 
 class ErrorUtilsUndefinedBehaviour<T> extends ErrorRPCProtocol<T> {
   static description = 'You should never see this error';
-  code = JSONRPCErrorCode.MethodNotFound;
+  code = JSONRPCResponseErrorCode.MethodNotFound;
 }
 
 class ErrorRPCMethodNotImplemented<T> extends ErrorRPCProtocol<T> {
   static description =
     'This abstract method must be implemented in a derived class';
-  code = JSONRPCErrorCode.MethodNotFound;
+  code = JSONRPCResponseErrorCode.MethodNotFound;
 }
 
 class ErrorRPCConnectionLocal<T> extends ErrorRPCProtocol<T> {
   static description = 'RPC Connection local error';
-  code = JSONRPCErrorCode.RPCConnectionLocal;
+  code = JSONRPCResponseErrorCode.RPCConnectionLocal;
 }
 
 class ErrorRPCConnectionPeer<T> extends ErrorRPCProtocol<T> {
   static description = 'RPC Connection peer error';
-  code = JSONRPCErrorCode.RPCConnectionPeer;
+  code = JSONRPCResponseErrorCode.RPCConnectionPeer;
 }
 
 class ErrorRPCConnectionKeepAliveTimeOut<T> extends ErrorRPCProtocol<T> {
   static description = 'RPC Connection keep alive timeout';
-  code = JSONRPCErrorCode.RPCConnectionKeepAliveTimeOut;
+  code = JSONRPCResponseErrorCode.RPCConnectionKeepAliveTimeOut;
 }
 
 class ErrorRPCConnectionInternal<T> extends ErrorRPCProtocol<T> {
   static description = 'RPC Connection internal error';
-  code = JSONRPCErrorCode.RPCConnectionInternal;
+  code = JSONRPCResponseErrorCode.RPCConnectionInternal;
 }
 
 class ErrorRPCUnknown<T> extends ErrorRPCProtocol<T> {
@@ -201,7 +201,7 @@ class ErrorRPCUnknown<T> extends ErrorRPCProtocol<T> {
   code = 0;
 }
 
-const enum JSONRPCErrorCode {
+const enum JSONRPCResponseErrorCode {
   ParseError = -32700,
   InvalidRequest = -32600,
   MethodNotFound = -32601,
@@ -225,24 +225,24 @@ const enum JSONRPCErrorCode {
 }
 
 const rpcProtocolErrors = {
-  [JSONRPCErrorCode.RPCRemote]: ErrorRPCRemote,
-  [JSONRPCErrorCode.RPCStopping]: ErrorRPCStopping,
-  [JSONRPCErrorCode.RPCMessageLength]: ErrorRPCMessageLength,
-  [JSONRPCErrorCode.ParseError]: ErrorRPCParse,
-  [JSONRPCErrorCode.InvalidParams]: ErrorRPCInvalidParams,
-  [JSONRPCErrorCode.HandlerNotFound]: ErrorRPCHandlerFailed,
-  [JSONRPCErrorCode.RPCMissingResponse]: ErrorRPCMissingResponse,
-  [JSONRPCErrorCode.RPCOutputStreamError]: ErrorRPCOutputStreamError,
-  [JSONRPCErrorCode.RPCTimedOut]: ErrorRPCTimedOut,
-  [JSONRPCErrorCode.RPCStreamEnded]: ErrorRPCStreamEnded,
-  [JSONRPCErrorCode.RPCConnectionLocal]: ErrorRPCConnectionLocal,
-  [JSONRPCErrorCode.RPCConnectionPeer]: ErrorRPCConnectionPeer,
-  [JSONRPCErrorCode.RPCConnectionKeepAliveTimeOut]:
+  [JSONRPCResponseErrorCode.RPCRemote]: ErrorRPCRemote,
+  [JSONRPCResponseErrorCode.RPCStopping]: ErrorRPCStopping,
+  [JSONRPCResponseErrorCode.RPCMessageLength]: ErrorRPCMessageLength,
+  [JSONRPCResponseErrorCode.ParseError]: ErrorRPCParse,
+  [JSONRPCResponseErrorCode.InvalidParams]: ErrorRPCInvalidParams,
+  [JSONRPCResponseErrorCode.HandlerNotFound]: ErrorRPCHandlerFailed,
+  [JSONRPCResponseErrorCode.RPCMissingResponse]: ErrorRPCMissingResponse,
+  [JSONRPCResponseErrorCode.RPCOutputStreamError]: ErrorRPCOutputStreamError,
+  [JSONRPCResponseErrorCode.RPCTimedOut]: ErrorRPCTimedOut,
+  [JSONRPCResponseErrorCode.RPCStreamEnded]: ErrorRPCStreamEnded,
+  [JSONRPCResponseErrorCode.RPCConnectionLocal]: ErrorRPCConnectionLocal,
+  [JSONRPCResponseErrorCode.RPCConnectionPeer]: ErrorRPCConnectionPeer,
+  [JSONRPCResponseErrorCode.RPCConnectionKeepAliveTimeOut]:
     ErrorRPCConnectionKeepAliveTimeOut,
-  [JSONRPCErrorCode.RPCConnectionInternal]: ErrorRPCConnectionInternal,
-  [JSONRPCErrorCode.MissingHeader]: ErrorMissingHeader,
-  [JSONRPCErrorCode.HandlerAborted]: ErrorRPCHandlerFailed,
-  [JSONRPCErrorCode.MissingCaller]: ErrorMissingCaller,
+  [JSONRPCResponseErrorCode.RPCConnectionInternal]: ErrorRPCConnectionInternal,
+  [JSONRPCResponseErrorCode.MissingHeader]: ErrorMissingHeader,
+  [JSONRPCResponseErrorCode.HandlerAborted]: ErrorRPCHandlerFailed,
+  [JSONRPCResponseErrorCode.MissingCaller]: ErrorMissingCaller,
 };
 
 export {
@@ -273,6 +273,6 @@ export {
   ErrorRPCCallerFailed,
   ErrorMissingCaller,
   ErrorRPCUnknown,
-  JSONRPCErrorCode,
+  JSONRPCResponseErrorCode,
   rpcProtocolErrors,
 };
