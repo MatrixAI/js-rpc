@@ -1,13 +1,12 @@
 import type {
   HandlerType,
-  JSONObject,
   JSONRPCRequestParams,
   JSONRPCResponseResult,
 } from '../types';
 
 abstract class Caller<
-  Input extends JSONObject = JSONRPCRequestParams,
-  Output extends JSONObject = JSONRPCResponseResult,
+  Input extends JSONRPCRequestParams = JSONRPCRequestParams,
+  Output extends JSONRPCResponseResult = JSONRPCResponseResult,
 > {
   protected _inputType: Input;
   protected _outputType: Output;

@@ -86,10 +86,7 @@ function timeoutMiddlewareServer(
   // Flags for tracking if the first message has been processed
   let forwardFirst = true;
   return {
-    forward: new TransformStream<
-      JSONRPCRequest<JSONRPCRequest>,
-      JSONRPCRequest<JSONRPCRequest>
-    >({
+    forward: new TransformStream<JSONRPCRequest, JSONRPCRequest>({
       transform: (chunk, controller) => {
         controller.enqueue(chunk);
         if (forwardFirst) {
@@ -101,10 +98,7 @@ function timeoutMiddlewareServer(
         }
       },
     }),
-    reverse: new TransformStream<
-      JSONRPCResponse<JSONRPCResponse>,
-      JSONRPCResponse<JSONRPCResponse>
-    >({
+    reverse: new TransformStream<JSONRPCResponse, JSONRPCResponse>({
       transform: (chunk, controller) => {
         // Passthrough chunk, no need for server to send ctx.timeout
         controller.enqueue(chunk);
