@@ -16,7 +16,9 @@ type IdGen = () => PromiseLike<string | number | null> | string | number | null;
 /**
  * This is the JSON RPC request object. this is the generic message type used for the RPC.
  */
-type JSONRPCRequestMessage<T extends JSONObject = JSONObject> = {
+type JSONRPCRequestMessage<
+  T extends JSONRPCRequestParams = JSONRPCRequestParams,
+> = {
   /**
    * A String specifying the version of the JSON-RPC protocol. MUST be exactly "2.0"
    */
@@ -31,7 +33,7 @@ type JSONRPCRequestMessage<T extends JSONObject = JSONObject> = {
    * A Structured value that holds the parameter values to be used during the invocation of the method.
    *  This member MAY be omitted.
    */
-  params?: JSONRPCRequestParams<T>;
+  params?: T;
   /**
    * An identifier established by the Client that MUST contain a String, Number, or NULL value if included.
    *  If it is not included it is assumed to be a notification. The value SHOULD normally not be Null [1] and Numbers
@@ -44,7 +46,9 @@ type JSONRPCRequestMessage<T extends JSONObject = JSONObject> = {
  * This is the JSON RPC notification object. this is used for a request that
  * doesn't expect a response.
  */
-type JSONRPCRequestNotification<T extends JSONObject = JSONObject> = {
+type JSONRPCRequestNotification<
+  T extends JSONRPCRequestParams = JSONRPCRequestParams,
+> = {
   /**
    * A String specifying the version of the JSON-RPC protocol. MUST be exactly "2.0"
    */
@@ -59,14 +63,16 @@ type JSONRPCRequestNotification<T extends JSONObject = JSONObject> = {
    * A Structured value that holds the parameter values to be used during the invocation of the method.
    *  This member MAY be omitted.
    */
-  params: JSONRPCRequestParams<T>;
+  params: T;
 };
 
 /**
  * This is the JSON RPC response result object. It contains the response data for a
  * corresponding request.
  */
-type JSONRPCResponseSuccess<T extends JSONObject = JSONObject> = {
+type JSONRPCResponseSuccess<
+  T extends JSONRPCResponseResult = JSONRPCResponseResult,
+> = {
   /**
    * A String specifying the version of the JSON-RPC protocol. MUST be exactly "2.0".
    */
@@ -176,14 +182,14 @@ type JSONRPCResponseError = {
  * This is the JSON RPC Request object. It can be a request message or
  * notification.
  */
-type JSONRPCRequest<T extends JSONObject = JSONObject> =
+type JSONRPCRequest<T extends JSONRPCRequestParams = JSONRPCRequestParams> =
   | JSONRPCRequestMessage<T>
   | JSONRPCRequestNotification<T>;
 
 /**
  * This is a JSON RPC response object. It can be a response result or error.
  */
-type JSONRPCResponse<T extends JSONObject = JSONObject> =
+type JSONRPCResponse<T extends JSONRPCResponseResult = JSONRPCResponseResult> =
   | JSONRPCResponseSuccess<T>
   | JSONRPCResponseFailed;
 
@@ -191,9 +197,11 @@ type JSONRPCResponse<T extends JSONObject = JSONObject> =
  * This is a JSON RPC Message object. This is top level and can be any kind of
  * message.
  */
-type JSONRPCMessage<T extends JSONObject = JSONObject> =
-  | JSONRPCRequest<T>
-  | JSONRPCResponse<T>;
+type JSONRPCMessage<
+  T extends JSONRPCRequestParams | JSONRPCResponseResult =
+    | JSONRPCRequestParams
+    | JSONRPCResponseResult,
+> = JSONRPCRequest<T> | JSONRPCResponse<T>;
 
 // Handler types
 type HandlerImplementation<I, O> = (
@@ -205,27 +213,27 @@ type HandlerImplementation<I, O> = (
 
 type RawHandlerImplementation = HandlerImplementation<
   [JSONRPCRequest, ReadableStream<Uint8Array>],
-  Promise<[JSONObject | undefined, ReadableStream<Uint8Array>]>
+  Promise<[JSONRPCResponseResult | undefined, ReadableStream<Uint8Array>]>
 >;
 
 type DuplexHandlerImplementation<
-  I extends JSONObject = JSONObject,
-  O extends JSONObject = JSONObject,
+  I extends JSONRPCRequestParams = JSONRPCRequestParams,
+  O extends JSONRPCResponseResult = JSONRPCResponseResult,
 > = HandlerImplementation<AsyncIterable<I>, AsyncIterable<O>>;
 
 type ServerHandlerImplementation<
-  I extends JSONObject = JSONObject,
-  O extends JSONObject = JSONObject,
+  I extends JSONRPCRequestParams = JSONRPCRequestParams,
+  O extends JSONRPCResponseResult = JSONRPCResponseResult,
 > = HandlerImplementation<I, AsyncIterable<O>>;
 
 type ClientHandlerImplementation<
-  I extends JSONObject = JSONObject,
-  O extends JSONObject = JSONObject,
+  I extends JSONRPCRequestParams = JSONRPCRequestParams,
+  O extends JSONRPCResponseResult = JSONRPCResponseResult,
 > = HandlerImplementation<AsyncIterable<I>, Promise<O>>;
 
 type UnaryHandlerImplementation<
-  I extends JSONObject = JSONObject,
-  O extends JSONObject = JSONObject,
+  I extends JSONRPCRequestParams = JSONRPCRequestParams,
+  O extends JSONRPCResponseResult = JSONRPCResponseResult,
 > = HandlerImplementation<I, Promise<O>>;
 
 type ContainerType = Record<string, any>;
@@ -275,28 +283,28 @@ type MiddlewareFactory<FR, FW, RR, RW> = (
 // Convenience callers
 
 type UnaryCallerImplementation<
-  I extends JSONObject = JSONObject,
-  O extends JSONObject = JSONObject,
+  I extends JSONRPCRequestParams = JSONRPCRequestParams,
+  O extends JSONRPCResponseResult = JSONRPCResponseResult,
 > = (parameters: I, ctx?: Partial<ContextTimedInput>) => Promise<O>;
 
 type ServerCallerImplementation<
-  I extends JSONObject = JSONObject,
-  O extends JSONObject = JSONObject,
+  I extends JSONRPCRequestParams = JSONRPCRequestParams,
+  O extends JSONRPCResponseResult = JSONRPCResponseResult,
 > = (
   parameters: I,
   ctx?: Partial<ContextTimedInput>,
 ) => Promise<ReadableStream<O>>;
 
 type ClientCallerImplementation<
-  I extends JSONObject = JSONObject,
-  O extends JSONObject = JSONObject,
+  I extends JSONRPCRequestParams = JSONRPCRequestParams,
+  O extends JSONRPCResponseResult = JSONRPCResponseResult,
 > = (
   ctx?: Partial<ContextTimedInput>,
 ) => Promise<{ output: Promise<O>; writable: WritableStream<I> }>;
 
 type DuplexCallerImplementation<
-  I extends JSONObject = JSONObject,
-  O extends JSONObject = JSONObject,
+  I extends JSONRPCRequestParams = JSONRPCRequestParams,
+  O extends JSONRPCResponseResult = JSONRPCResponseResult,
 > = (ctx?: Partial<ContextTimedInput>) => Promise<RPCStream<O, I>>;
 
 type RawCallerImplementation = (
