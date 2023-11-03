@@ -114,23 +114,40 @@ type JSONRPCRequestMetadata = Partial<{
   timeout: number | null;
 }>;
 
-type JSONRPCRequestParams<T extends JSONObject = JSONObject> = {
+/**
+ * `T` is the the params you want to specify.
+ *
+ * `M` is the metadata you want to specify.
+ *
+ * Metadata can also be specified on `T.metadata`
+ */
+type JSONRPCRequestParams<
+  T extends JSONObject = JSONObject,
+  M extends JSONObject = JSONObject,
+> = {
   metadata?: JSONObject &
-    JSONRPCResponseMetadata &
-    Omit<T['metadata'], keyof JSONRPCResponseMetadata>;
+    JSONRPCRequestMetadata &
+    Omit<T['metadata'] & M, keyof JSONRPCRequestMetadata>;
 } & Omit<T, 'metadata'>;
 
 type JSONRPCResponseMetadata = Partial<{
   timeout: number | null;
 }>;
 
+/**
+ * `T` is the the result you want to specify.
+ *
+ * `M` is the metadata you want to specify.
+ *
+ * Metadata can also be specified on `T.metadata`
+ */
 type JSONRPCResponseResult<
   T extends JSONObject = JSONObject,
   M extends JSONObject = JSONObject,
 > = {
   metadata?: JSONObject &
     JSONRPCResponseMetadata &
-    Omit<M, keyof JSONRPCResponseMetadata>;
+    Omit<T['metadata'] & M, keyof JSONRPCResponseMetadata>;
 } & Omit<T, 'metadata'>;
 
 /**
