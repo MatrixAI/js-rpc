@@ -31,7 +31,7 @@ type JSONRPCRequestMessage<T extends JSONObject = JSONObject> = {
    * A Structured value that holds the parameter values to be used during the invocation of the method.
    *  This member MAY be omitted.
    */
-  params?: JSONRPCParams<T>;
+  params?: JSONRPCRequestParams<T>;
   /**
    * An identifier established by the Client that MUST contain a String, Number, or NULL value if included.
    *  If it is not included it is assumed to be a notification. The value SHOULD normally not be Null [1] and Numbers
@@ -59,14 +59,14 @@ type JSONRPCRequestNotification<T extends JSONObject = JSONObject> = {
    * A Structured value that holds the parameter values to be used during the invocation of the method.
    *  This member MAY be omitted.
    */
-  params: JSONRPCParams<T>;
+  params: JSONRPCRequestParams<T>;
 };
 
 /**
  * This is the JSON RPC response result object. It contains the response data for a
  * corresponding request.
  */
-type JSONRPCResponseResult<T extends JSONObject = JSONObject> = {
+type JSONRPCResponseSuccess<T extends JSONObject = JSONObject> = {
   /**
    * A String specifying the version of the JSON-RPC protocol. MUST be exactly "2.0".
    */
@@ -76,7 +76,7 @@ type JSONRPCResponseResult<T extends JSONObject = JSONObject> = {
    *  This member MUST NOT exist if there was an error invoking the method.
    *  The value of this member is determined by the method invoked on the Server.
    */
-  result: JSONRPCResult<T>;
+  result: JSONRPCResponseResult<T>;
   /**
    * This member is REQUIRED.
    *  It MUST be the same as the value of the id member in the Request Object.
@@ -90,7 +90,7 @@ type JSONRPCResponseResult<T extends JSONObject = JSONObject> = {
  * This is the JSON RPC response Error object. It contains any errors that have
  * occurred when responding to a request.
  */
-type JSONRPCResponseError = {
+type JSONRPCResponseFailed = {
   /**
    * A String specifying the version of the JSON-RPC protocol. MUST be exactly "2.0".
    */
@@ -100,7 +100,7 @@ type JSONRPCResponseError = {
    *  This member MUST NOT exist if there was no error triggered during invocation.
    *  The value for this member MUST be an Object as defined in section 5.1.
    */
-  error: JSONRPCError;
+  error: JSONRPCResponseError;
   /**
    * This member is REQUIRED.
    *  It MUST be the same as the value of the id member in the Request Object.
@@ -110,26 +110,50 @@ type JSONRPCResponseError = {
   id: string | number | null;
 };
 
-type JSONRPCParams<T extends JSONObject = JSONObject> = {
-  metadata?: {
-    [Key: string]: JSONValue;
-  } & Partial<{
-    timeout: number | null;
-  }>;
-} & T;
-
-type JSONRPCResult<T extends JSONObject = JSONObject> = {
-  metadata?: {
-    [Key: string]: JSONValue;
-  } & Partial<{
-    timeout: number | null;
-  }>;
-} & T;
+type JSONRPCRequestMetadata = Partial<{
+  timeout: number | null;
+}>;
 
 /**
- * This is a JSON RPC error object, it encodes the error data for the JSONRPCResponseError object.
+ * `T` is the the params you want to specify.
+ *
+ * `M` is the metadata you want to specify.
+ *
+ * Metadata can also be specified on `T.metadata`
  */
-type JSONRPCError = {
+type JSONRPCRequestParams<
+  T extends JSONObject = JSONObject,
+  M extends JSONObject = JSONObject,
+> = {
+  metadata?: JSONObject &
+    JSONRPCRequestMetadata &
+    Omit<T['metadata'] & M, keyof JSONRPCRequestMetadata>;
+} & Omit<T, 'metadata'>;
+
+type JSONRPCResponseMetadata = Partial<{
+  timeout: number | null;
+}>;
+
+/**
+ * `T` is the the result you want to specify.
+ *
+ * `M` is the metadata you want to specify.
+ *
+ * Metadata can also be specified on `T.metadata`
+ */
+type JSONRPCResponseResult<
+  T extends JSONObject = JSONObject,
+  M extends JSONObject = JSONObject,
+> = {
+  metadata?: JSONObject &
+    JSONRPCResponseMetadata &
+    Omit<T['metadata'] & M, keyof JSONRPCResponseMetadata>;
+} & Omit<T, 'metadata'>;
+
+/**
+ * This is a JSON RPC error object, it encodes the error data for the JSONRPCResponseFailed object.
+ */
+type JSONRPCResponseError = {
   /**
    * A Number that indicates the error type that occurred.
    *  This MUST be an integer.
@@ -160,8 +184,8 @@ type JSONRPCRequest<T extends JSONObject = JSONObject> =
  * This is a JSON RPC response object. It can be a response result or error.
  */
 type JSONRPCResponse<T extends JSONObject = JSONObject> =
-  | JSONRPCResponseResult<T>
-  | JSONRPCResponseError;
+  | JSONRPCResponseSuccess<T>
+  | JSONRPCResponseFailed;
 
 /**
  * This is a JSON RPC Message object. This is top level and can be any kind of
@@ -373,11 +397,13 @@ export type {
   IdGen,
   JSONRPCRequestMessage,
   JSONRPCRequestNotification,
+  JSONRPCResponseSuccess,
+  JSONRPCResponseFailed,
+  JSONRPCRequestMetadata,
+  JSONRPCRequestParams,
+  JSONRPCResponseMetadata,
   JSONRPCResponseResult,
   JSONRPCResponseError,
-  JSONRPCParams,
-  JSONRPCResult,
-  JSONRPCError,
   JSONRPCRequest,
   JSONRPCResponse,
   JSONRPCMessage,

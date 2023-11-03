@@ -8,7 +8,7 @@ import type {
   JSONRPCRequest,
   JSONRPCRequestMessage,
   JSONRPCResponse,
-  JSONRPCResponseResult,
+  JSONRPCResponseSuccess,
   JSONValue,
   MapCallers,
   MiddlewareFactory,
@@ -466,7 +466,7 @@ class RPCClient<M extends ClientManifest> {
         // Ignore any errors here, we only care that it ended
         .catch(() => {});
       const tempReader = headTransformStream.readable.getReader();
-      let leadingMessage: JSONRPCResponseResult;
+      let leadingMessage: JSONRPCResponseSuccess;
       try {
         const message = await Promise.race([tempReader.read(), abortProm.p]);
         const messageValue = message.value as JSONRPCResponse;

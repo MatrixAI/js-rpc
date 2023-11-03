@@ -1,10 +1,14 @@
 import type { ContextTimed } from '@matrixai/contexts';
-import type { JSONRPCParams, JSONRPCResult, JSONValue } from '@/types';
+import type {
+  JSONRPCRequestParams,
+  JSONRPCResponseResult,
+  JSONValue,
+} from '@/types';
 import type {
   JSONRPCRequest,
   JSONRPCRequestMessage,
   JSONRPCResponse,
-  JSONRPCResponseResult,
+  JSONRPCResponseSuccess,
   RPCStream,
 } from '@/types';
 import type { IdGen } from '@/types';
@@ -32,7 +36,7 @@ describe(`${RPCClient.name}`, () => {
 
   const methodName = 'testMethod';
   const specificMessageArb = fc
-    .array(rpcTestUtils.jsonRpcResponseResultArb(), {
+    .array(rpcTestUtils.JSONRPCResponseSuccessArb(), {
       minLength: 5,
     })
     .noShrink();
@@ -54,7 +58,7 @@ describe(`${RPCClient.name}`, () => {
         meta: undefined,
         readable: new ReadableStream<Uint8Array>({
           start: (controller) => {
-            const leadingResponse: JSONRPCResponseResult = {
+            const leadingResponse: JSONRPCResponseSuccess = {
               jsonrpc: '2.0',
               result: {},
               id: null,
@@ -115,8 +119,8 @@ describe(`${RPCClient.name}`, () => {
       idGen,
     });
     const callerInterface = await rpcClient.duplexStreamCaller<
-      JSONRPCParams,
-      JSONRPCResult
+      JSONRPCRequestParams,
+      JSONRPCResponseResult
     >(methodName);
     const writable = callerInterface.writable.getWriter();
     for await (const value of callerInterface.readable) {
@@ -161,8 +165,8 @@ describe(`${RPCClient.name}`, () => {
         idGen,
       });
       const callerInterface = await rpcClient.serverStreamCaller<
-        JSONRPCParams,
-        JSONRPCResult
+        JSONRPCRequestParams,
+        JSONRPCResponseResult
       >(methodName, params);
       const values: Array<JSONValue> = [];
       for await (const value of callerInterface) {
@@ -188,7 +192,7 @@ describe(`${RPCClient.name}`, () => {
   testProp(
     'generic client stream caller',
     [
-      rpcTestUtils.jsonRpcResponseResultArb(),
+      rpcTestUtils.JSONRPCResponseSuccessArb(),
       fc.array(rpcTestUtils.safeJsonObjectArb),
     ],
     async (message, params) => {
@@ -208,8 +212,8 @@ describe(`${RPCClient.name}`, () => {
         idGen,
       });
       const { output, writable } = await rpcClient.clientStreamCaller<
-        JSONRPCParams,
-        JSONRPCResult
+        JSONRPCRequestParams,
+        JSONRPCResponseResult
       >(methodName);
       const writer = writable.getWriter();
       for (const param of params) {
@@ -233,7 +237,7 @@ describe(`${RPCClient.name}`, () => {
   );
   testProp(
     'generic unary caller',
-    [rpcTestUtils.jsonRpcResponseResultArb(), rpcTestUtils.safeJsonObjectArb],
+    [rpcTestUtils.JSONRPCResponseSuccessArb(), rpcTestUtils.safeJsonObjectArb],
     async (message, params) => {
       const inputStream = rpcTestUtils.messagesToReadableStream([message]);
       const [outputResult, outputStream] = rpcTestUtils.streamToArray();
@@ -249,10 +253,10 @@ describe(`${RPCClient.name}`, () => {
         logger,
         idGen,
       });
-      const result = await rpcClient.unaryCaller<JSONRPCParams, JSONRPCResult>(
-        methodName,
-        params,
-      );
+      const result = await rpcClient.unaryCaller<
+        JSONRPCRequestParams,
+        JSONRPCResponseResult
+      >(methodName, params);
       expect(result).toStrictEqual(message.result);
       expect((await outputResult)[0]?.toString()).toStrictEqual(
         JSON.stringify({
@@ -267,8 +271,8 @@ describe(`${RPCClient.name}`, () => {
   testProp(
     'generic duplex caller can throw received error message',
     [
-      fc.array(rpcTestUtils.jsonRpcResponseResultArb()),
-      rpcTestUtils.jsonRpcResponseErrorArb(rpcTestUtils.errorArb()),
+      fc.array(rpcTestUtils.JSONRPCResponseSuccessArb()),
+      rpcTestUtils.JSONRPCResponseFailedArb(rpcTestUtils.errorArb()),
     ],
     async (messages, errorMessage) => {
       const inputStream = rpcTestUtils.messagesToReadableStream([
@@ -289,8 +293,8 @@ describe(`${RPCClient.name}`, () => {
         idGen,
       });
       const callerInterface = await rpcClient.duplexStreamCaller<
-        JSONRPCParams,
-        JSONRPCResult
+        JSONRPCRequestParams,
+        JSONRPCResponseResult
       >(methodName);
       await callerInterface.writable.close();
       const callProm = (async () => {
@@ -305,8 +309,8 @@ describe(`${RPCClient.name}`, () => {
   testProp(
     'generic duplex caller can throw received error message with sensitive',
     [
-      fc.array(rpcTestUtils.jsonRpcResponseResultArb()),
-      rpcTestUtils.jsonRpcResponseErrorArb(rpcTestUtils.errorArb()),
+      fc.array(rpcTestUtils.JSONRPCResponseSuccessArb()),
+      rpcTestUtils.JSONRPCResponseFailedArb(rpcTestUtils.errorArb()),
     ],
     async (messages, errorMessage) => {
       const inputStream = rpcTestUtils.messagesToReadableStream([
@@ -328,8 +332,8 @@ describe(`${RPCClient.name}`, () => {
         idGen,
       });
       const callerInterface = await rpcClient.duplexStreamCaller<
-        JSONRPCParams,
-        JSONRPCResult
+        JSONRPCRequestParams,
+        JSONRPCResponseResult
       >(methodName);
       await callerInterface.writable.close();
       const callProm = (async () => {
@@ -344,8 +348,8 @@ describe(`${RPCClient.name}`, () => {
   testProp(
     'generic duplex caller can throw received error message with causes',
     [
-      fc.array(rpcTestUtils.jsonRpcResponseResultArb()),
-      rpcTestUtils.jsonRpcResponseErrorArb(
+      fc.array(rpcTestUtils.JSONRPCResponseSuccessArb()),
+      rpcTestUtils.JSONRPCResponseFailedArb(
         rpcTestUtils.errorArb(rpcTestUtils.errorArb()),
       ),
     ],
@@ -369,8 +373,8 @@ describe(`${RPCClient.name}`, () => {
         idGen,
       });
       const callerInterface = await rpcClient.duplexStreamCaller<
-        JSONRPCParams,
-        JSONRPCResult
+        JSONRPCRequestParams,
+        JSONRPCResponseResult
       >(methodName);
       await callerInterface.writable.close();
       const callProm = (async () => {
@@ -418,8 +422,8 @@ describe(`${RPCClient.name}`, () => {
       });
 
       const callerInterface = await rpcClient.duplexStreamCaller<
-        JSONRPCParams,
-        JSONRPCResult
+        JSONRPCRequestParams,
+        JSONRPCResponseResult
       >(methodName);
       const reader = callerInterface.readable.getReader();
       const writer = callerInterface.writable.getWriter();
@@ -487,8 +491,8 @@ describe(`${RPCClient.name}`, () => {
       });
 
       const callerInterface = await rpcClient.duplexStreamCaller<
-        JSONRPCParams,
-        JSONRPCResult
+        JSONRPCRequestParams,
+        JSONRPCResponseResult
       >(methodName);
       const reader = callerInterface.readable.getReader();
       const writer = callerInterface.writable.getWriter();
@@ -520,7 +524,10 @@ describe(`${RPCClient.name}`, () => {
       };
       const rpcClient = new RPCClient({
         manifest: {
-          server: new ServerCaller<JSONRPCParams, JSONRPCResult>(),
+          server: new ServerCaller<
+            JSONRPCRequestParams,
+            JSONRPCResponseResult
+          >(),
         },
         streamFactory: async () => streamPair,
         logger,
@@ -546,7 +553,7 @@ describe(`${RPCClient.name}`, () => {
   testProp(
     'manifest client call',
     [
-      rpcTestUtils.jsonRpcResponseResultArb(rpcTestUtils.safeJsonObjectArb),
+      rpcTestUtils.JSONRPCResponseSuccessArb(rpcTestUtils.safeJsonObjectArb),
       fc.array(fc.string(), { minLength: 5 }),
     ],
     async (message, params) => {
@@ -561,7 +568,10 @@ describe(`${RPCClient.name}`, () => {
       };
       const rpcClient = new RPCClient({
         manifest: {
-          client: new ClientCaller<JSONRPCParams, JSONRPCResult>(),
+          client: new ClientCaller<
+            JSONRPCRequestParams,
+            JSONRPCResponseResult
+          >(),
         },
         streamFactory: async () => streamPair,
         logger,
@@ -592,7 +602,7 @@ describe(`${RPCClient.name}`, () => {
   );
   testProp(
     'manifest unary call',
-    [rpcTestUtils.jsonRpcResponseResultArb().noShrink(), fc.string()],
+    [rpcTestUtils.JSONRPCResponseSuccessArb().noShrink(), fc.string()],
     async (message, params) => {
       const inputStream = rpcTestUtils.messagesToReadableStream([message]);
       const [outputResult, outputStream] = rpcTestUtils.streamToArray();
@@ -604,7 +614,7 @@ describe(`${RPCClient.name}`, () => {
       };
       const rpcClient = new RPCClient({
         manifest: {
-          unary: new UnaryCaller<JSONRPCParams, JSONRPCResult>(),
+          unary: new UnaryCaller<JSONRPCRequestParams, JSONRPCResponseResult>(),
         },
         streamFactory: async () => streamPair,
         logger,
@@ -639,7 +649,7 @@ describe(`${RPCClient.name}`, () => {
         meta: undefined,
         readable: new ReadableStream<Uint8Array>({
           start: (controller) => {
-            const leadingResponse: JSONRPCResponseResult = {
+            const leadingResponse: JSONRPCResponseSuccess = {
               jsonrpc: '2.0',
               result: { value: null },
               id: null,
@@ -687,7 +697,7 @@ describe(`${RPCClient.name}`, () => {
     'manifest duplex caller',
     [
       fc.array(
-        rpcTestUtils.jsonRpcResponseResultArb(rpcTestUtils.safeJsonObjectArb),
+        rpcTestUtils.JSONRPCResponseSuccessArb(rpcTestUtils.safeJsonObjectArb),
         {
           minLength: 1,
         },
@@ -705,7 +715,7 @@ describe(`${RPCClient.name}`, () => {
       };
       const rpcClient = new RPCClient({
         manifest: {
-          duplex: new DuplexCaller<JSONRPCParams, JSONRPCResponse>(),
+          duplex: new DuplexCaller<JSONRPCRequestParams, JSONRPCResponse>(),
         },
         streamFactory: async () => streamPair,
         logger,
@@ -1141,8 +1151,8 @@ describe(`${RPCClient.name}`, () => {
           idGen,
         });
         const callerInterface = await rpcClient.duplexStreamCaller<
-          JSONRPCParams,
-          JSONRPCResult
+          JSONRPCRequestParams,
+          JSONRPCResponseResult
         >(methodName, { timer: 200 });
 
         const ctx = await ctxProm.p;
@@ -1178,8 +1188,8 @@ describe(`${RPCClient.name}`, () => {
         idGen,
       });
       const callerInterface = await rpcClient.duplexStreamCaller<
-        JSONRPCParams,
-        JSONRPCResult
+        JSONRPCRequestParams,
+        JSONRPCResponseResult
       >(methodName, { timer: new Timer(undefined, 200) });
 
       const ctx = await ctxProm.p;
@@ -1216,12 +1226,12 @@ describe(`${RPCClient.name}`, () => {
           timeoutTime: higherTimeoutTime,
         });
 
-        await rpcClient.duplexStreamCaller<JSONRPCParams, JSONRPCResult>(
-          methodName,
-          {
-            timer: lowerTimeoutTime,
-          },
-        );
+        await rpcClient.duplexStreamCaller<
+          JSONRPCRequestParams,
+          JSONRPCResponseResult
+        >(methodName, {
+          timer: lowerTimeoutTime,
+        });
 
         const ctx = await ctxP;
         expect(ctx.timer.delay).toBe(lowerTimeoutTime);
@@ -1251,12 +1261,12 @@ describe(`${RPCClient.name}`, () => {
           timeoutTime: lowerTimeoutTime,
         });
 
-        await rpcClient.duplexStreamCaller<JSONRPCParams, JSONRPCResult>(
-          methodName,
-          {
-            timer: higherTimeoutTime,
-          },
-        );
+        await rpcClient.duplexStreamCaller<
+          JSONRPCRequestParams,
+          JSONRPCResponseResult
+        >(methodName, {
+          timer: higherTimeoutTime,
+        });
 
         const ctx = await ctxP;
         expect(ctx.timer.delay).toBe(higherTimeoutTime);
@@ -1286,12 +1296,12 @@ describe(`${RPCClient.name}`, () => {
           timeoutTime,
         });
 
-        await rpcClient.duplexStreamCaller<JSONRPCParams, JSONRPCResult>(
-          methodName,
-          {
-            timer: Infinity,
-          },
-        );
+        await rpcClient.duplexStreamCaller<
+          JSONRPCRequestParams,
+          JSONRPCResponseResult
+        >(methodName, {
+          timer: Infinity,
+        });
 
         const ctx = await ctxP;
         expect(ctx.timer.delay).toBe(Infinity);
@@ -1332,8 +1342,8 @@ describe(`${RPCClient.name}`, () => {
           idGen,
         });
         const callerInterface = await rpcClient.duplexStreamCaller<
-          JSONRPCParams,
-          JSONRPCResult
+          JSONRPCRequestParams,
+          JSONRPCResponseResult
         >(methodName);
 
         const ctx = await ctxProm.p;

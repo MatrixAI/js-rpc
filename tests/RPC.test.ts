@@ -1,9 +1,9 @@
 import type {
   ContainerType,
   JSONObject,
-  JSONRPCParams,
+  JSONRPCRequestParams,
   JSONRPCRequest,
-  JSONRPCResult,
+  JSONRPCResponseResult,
 } from '@/types';
 import type { ReadableStream } from 'stream/web';
 import type { JSONValue, IdGen } from '@/types';
@@ -402,8 +402,8 @@ describe('RPC', () => {
 
       class TestMethod extends UnaryHandler {
         public handle = async (
-          input: JSONRPCParams,
-        ): Promise<JSONRPCResult> => {
+          input: JSONRPCRequestParams,
+        ): Promise<JSONRPCResponseResult> => {
           return input;
         };
       }
