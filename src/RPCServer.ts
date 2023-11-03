@@ -3,11 +3,11 @@ import type {
   IdGen,
   ClientHandlerImplementation,
   DuplexHandlerImplementation,
-  JSONRPCError,
+  JSONRPCResponseError,
   JSONRPCRequest,
   JSONRPCResponse,
-  JSONRPCResponseError,
-  JSONRPCResponseResult,
+  JSONRPCResponseFailed,
+  JSONRPCResponseSuccess,
   ServerManifest,
   RawHandlerImplementation,
   ServerHandlerImplementation,
@@ -66,7 +66,7 @@ class RPCServer {
     JSONRPCRequest,
     Uint8Array,
     Uint8Array,
-    JSONRPCResponseResult
+    JSONRPCResponseSuccess
   >;
   // Function to register a callback for timeout
   public registerOnTimeoutCallback(callback: () => void) {
@@ -98,7 +98,7 @@ class RPCServer {
       JSONRPCRequest,
       Uint8Array,
       Uint8Array,
-      JSONRPCResponseResult
+      JSONRPCResponseSuccess
     >;
     timeoutTime?: number;
     logger?: Logger;
@@ -308,7 +308,7 @@ class RPCServer {
           if (ctx.timer.status !== 'settled') {
             ctx.timer.cancel(utils.timeoutCancelledReason);
           }
-          const responseMessage: JSONRPCResponseResult = {
+          const responseMessage: JSONRPCResponseSuccess = {
             jsonrpc: '2.0',
             result: response,
             id,
@@ -328,12 +328,12 @@ class RPCServer {
             controller.enqueue(value);
           } catch (e) {
             try {
-              const rpcError: JSONRPCError = {
-                code: errors.JSONRPCErrorCode.RPCRemote,
+              const rpcError: JSONRPCResponseError = {
+                code: errors.JSONRPCResponseErrorCode.RPCRemote,
                 message: e.message,
                 data: this.fromError(e),
               };
-              const rpcErrorMessage: JSONRPCResponseError = {
+              const rpcErrorMessage: JSONRPCResponseFailed = {
                 jsonrpc: '2.0',
                 error: rpcError,
                 id,
@@ -603,12 +603,12 @@ class RPCServer {
         );
       } catch (e) {
         try {
-          const rpcError: JSONRPCError = {
-            code: errors.JSONRPCErrorCode.RPCRemote,
+          const rpcError: JSONRPCResponseError = {
+            code: errors.JSONRPCResponseErrorCode.RPCRemote,
             message: e.message,
             data: this.fromError(e),
           };
-          const rpcErrorMessage: JSONRPCResponseError = {
+          const rpcErrorMessage: JSONRPCResponseFailed = {
             jsonrpc: '2.0',
             error: rpcError,
             id,
@@ -634,7 +634,7 @@ class RPCServer {
 
       if (leadingResult !== undefined) {
         // Writing leading metadata
-        const leadingMessage: JSONRPCResponseResult = {
+        const leadingMessage: JSONRPCResponseSuccess = {
           jsonrpc: '2.0',
           result: leadingResult,
           id,

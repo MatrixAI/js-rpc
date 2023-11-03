@@ -2,7 +2,7 @@ import type {
   JSONRPCMessage,
   JSONRPCRequest,
   JSONRPCResponse,
-  JSONRPCResponseResult,
+  JSONRPCResponseSuccess,
   MiddlewareFactory,
   JSONValue,
 } from './types';
@@ -188,8 +188,8 @@ function defaultServerMiddlewareWrapper(
       parserBufferByteLimit,
     );
     const outputTransformStream = new TransformStream<
-      JSONRPCResponseResult,
-      JSONRPCResponseResult
+      JSONRPCResponseSuccess,
+      JSONRPCResponseSuccess
     >();
 
     const middleMiddleware = middlewareFactory(ctx, cancel, meta);

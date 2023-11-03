@@ -2,16 +2,16 @@ import type { ContextTimed } from '@matrixai/contexts';
 import type {
   ContainerType,
   JSONValue,
-  JSONRPCParams,
-  JSONRPCResult,
+  JSONRPCRequestParams,
+  JSONRPCResponseResult,
 } from '../types';
 import Handler from './Handler';
 import { ErrorRPCMethodNotImplemented } from '../errors';
 
 abstract class UnaryHandler<
   Container extends ContainerType = ContainerType,
-  Input extends JSONRPCParams = JSONRPCParams,
-  Output extends JSONRPCResult = JSONRPCResult,
+  Input extends JSONRPCRequestParams = JSONRPCRequestParams,
+  Output extends JSONRPCResponseResult = JSONRPCResponseResult,
 > extends Handler<Container, Input, Output> {
   public async handle(
     /* eslint-disable */

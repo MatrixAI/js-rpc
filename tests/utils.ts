@@ -1,12 +1,12 @@
 import type { ReadableWritablePair } from 'stream/web';
 import type { JSONObject, JSONValue } from '@/types';
 import type {
-  JSONRPCError,
+  JSONRPCResponseError,
   JSONRPCMessage,
   JSONRPCRequestNotification,
   JSONRPCRequestMessage,
-  JSONRPCResponseError,
-  JSONRPCResponseResult,
+  JSONRPCResponseFailed,
+  JSONRPCResponseSuccess,
   JSONRPCResponse,
   JSONRPCRequest,
 } from '@/types';
@@ -138,7 +138,7 @@ const jsonRpcRequestArb = (
     )
     .noShrink() as fc.Arbitrary<JSONRPCRequest>;
 
-const jsonRpcResponseResultArb = (
+const JSONRPCResponseSuccessArb = (
   result: fc.Arbitrary<JSONObject> = safeJsonObjectArb,
 ) =>
   fc
@@ -147,14 +147,14 @@ const jsonRpcResponseResultArb = (
       result: result,
       id: idArb,
     })
-    .noShrink() as fc.Arbitrary<JSONRPCResponseResult>;
-const jsonRpcErrorArb = (
+    .noShrink() as fc.Arbitrary<JSONRPCResponseSuccess>;
+const JSONRPCResponseErrorArb = (
   error: fc.Arbitrary<Error> = fc.constant(new Error('test error')),
 ) =>
   fc
     .record(
       {
-        code: fc.constant(rpcErrors.JSONRPCErrorCode.RPCRemote),
+        code: fc.constant(rpcErrors.JSONRPCResponseErrorCode.RPCRemote),
         message: fc.string(),
         data: error.map((e) => fromError(e)),
       },
@@ -162,22 +162,22 @@ const jsonRpcErrorArb = (
         requiredKeys: ['code', 'message', 'data'],
       },
     )
-    .noShrink() as fc.Arbitrary<JSONRPCError>;
+    .noShrink() as fc.Arbitrary<JSONRPCResponseError>;
 
-const jsonRpcResponseErrorArb = (error?: fc.Arbitrary<ErrorRPC<any>>) =>
+const JSONRPCResponseFailedArb = (error?: fc.Arbitrary<ErrorRPC<any>>) =>
   fc
     .record({
       jsonrpc: fc.constant('2.0'),
-      error: jsonRpcErrorArb(error),
+      error: JSONRPCResponseErrorArb(error),
       id: idArb,
     })
-    .noShrink() as fc.Arbitrary<JSONRPCResponseError>;
+    .noShrink() as fc.Arbitrary<JSONRPCResponseFailed>;
 
 const jsonRpcResponseArb = (
   result: fc.Arbitrary<JSONObject> = safeJsonObjectArb,
 ) =>
   fc
-    .oneof(jsonRpcResponseResultArb(result), jsonRpcResponseErrorArb())
+    .oneof(JSONRPCResponseSuccessArb(result), JSONRPCResponseFailedArb())
     .noShrink() as fc.Arbitrary<JSONRPCResponse>;
 
 const jsonRpcMessageArb = (
@@ -292,9 +292,9 @@ export {
   jsonRpcRequestMessageArb,
   jsonRpcRequestNotificationArb,
   jsonRpcRequestArb,
-  jsonRpcResponseResultArb,
-  jsonRpcErrorArb,
-  jsonRpcResponseErrorArb,
+  JSONRPCResponseSuccessArb,
+  JSONRPCResponseErrorArb,
+  JSONRPCResponseFailedArb,
   jsonRpcResponseArb,
   jsonRpcMessageArb,
   snippingPatternArb,
