@@ -277,9 +277,10 @@ class RPCServer {
       // Forward from the client to the server
       // Transparent TransformStream that re-inserts the header message into the
       // stream.
+      const replacer = this.replacer;
       const headerStream = new TransformStream({
         start(controller) {
-          controller.enqueue(Buffer.from(JSON.stringify(header)));
+          controller.enqueue(Buffer.from(JSON.stringify(header, replacer)));
         },
         transform(chunk, controller) {
           controller.enqueue(chunk);
@@ -614,7 +615,7 @@ class RPCServer {
             id,
           };
           await headerWriter.write(
-            Buffer.from(JSON.stringify(rpcErrorMessage)),
+            Buffer.from(JSON.stringify(rpcErrorMessage, this.replacer)),
           );
           await headerWriter.close();
         } catch (e) {
@@ -639,7 +640,9 @@ class RPCServer {
           result: leadingResult,
           id,
         };
-        await headerWriter.write(Buffer.from(JSON.stringify(leadingMessage)));
+        await headerWriter.write(
+          Buffer.from(JSON.stringify(leadingMessage, this.replacer)),
+        );
       }
       headerWriter.releaseLock();
       const outputStreamEndProm = outputStream
