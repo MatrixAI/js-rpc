@@ -165,7 +165,7 @@ build:windows:
     - windows
   before_script:
     - mkdir -Force "$CI_PROJECT_DIR/tmp"
-    - Import-Module $env:ChocolateyInstall\helpers\chocolateyProfile.psm1  # Added line
+    - Import-Module $env:ChocolateyInstall\helpers\chocolateyProfile.psm1
   script:
     - .\scripts\choco-install.ps1
     - refreshenv

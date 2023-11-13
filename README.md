@@ -521,6 +521,3 @@ npm publish --access public
 git push
 git push --tags
 ```
-
-Domains Diagram:
-![diagram_encapuslated.svg](images%2Fdiagram_encapuslated.svg)

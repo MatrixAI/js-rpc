@@ -337,14 +337,14 @@ type ConvertUnaryCaller<T> = T extends UnaryCaller<infer I, infer O>
 type ConvertCaller<T extends Caller> = T extends DuplexCaller
   ? ConvertDuplexCaller<T>
   : T extends ServerCaller
-  ? ConvertServerCaller<T>
-  : T extends ClientCaller
-  ? ConvertClientCaller<T>
-  : T extends UnaryCaller
-  ? ConvertUnaryCaller<T>
-  : T extends RawCaller
-  ? RawCallerImplementation
-  : never;
+    ? ConvertServerCaller<T>
+    : T extends ClientCaller
+      ? ConvertClientCaller<T>
+      : T extends UnaryCaller
+        ? ConvertUnaryCaller<T>
+        : T extends RawCaller
+          ? RawCallerImplementation
+          : never;
 
 /**
  * Contains the handler Classes that defines the handling logic and types for the server handlers.
