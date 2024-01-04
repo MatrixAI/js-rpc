@@ -371,6 +371,7 @@ type JSONObject = { [key: string]: JSONValue };
 type JSONValue =
   | JSONObject
   | Array<JSONValue>
+  | readonly JSONValue[]
   | string
   | number
   | boolean
