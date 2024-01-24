@@ -42,6 +42,7 @@ class RPCClient<M extends ClientManifest> {
   }
   // Method proxies
   public readonly timeoutTime: number;
+  public readonly graceTime: number;
   public readonly methodsProxy = new Proxy(
     {},
     {
@@ -86,6 +87,7 @@ class RPCClient<M extends ClientManifest> {
     streamFactory,
     middlewareFactory = middleware.defaultClientMiddlewareWrapper(),
     timeoutTime = Infinity,
+    graceTime = 1000,
     logger,
     toError = utils.toError,
     idGen = () => null,
@@ -99,6 +101,7 @@ class RPCClient<M extends ClientManifest> {
       Uint8Array
     >;
     timeoutTime?: number;
+    graceTime?: number;
     logger?: Logger;
     idGen?: IdGen;
     toError?: ToError;
@@ -111,6 +114,7 @@ class RPCClient<M extends ClientManifest> {
     this.streamFactory = streamFactory;
     this.middlewareFactory = middlewareFactory;
     this.timeoutTime = timeoutTime;
+    this.graceTime = graceTime;
     this.logger = logger ?? new Logger(this.constructor.name);
     this.toError = toError;
   }
@@ -262,7 +266,9 @@ class RPCClient<M extends ClientManifest> {
     } else {
       timer = ctx.timer;
     }
+    let timerGrace: Timer | undefined;
     const cleanUp = () => {
+      if (timerGrace != null) timerGrace.cancel(timerCleanupReasonSymbol);
       // Clean up the timer and signal
       if (ctx.timer == null) timer.cancel(timerCleanupReasonSymbol);
       if (ctx.signal != null) {
@@ -298,7 +304,14 @@ class RPCClient<M extends ClientManifest> {
       throw e;
     }
     void timer.then(
-      () => {
+      async () => {
+        timerGrace = new Timer({ delay: this.graceTime });
+        try {
+          await timerGrace;
+        } catch (e) {
+          if (e === timerCleanupReasonSymbol) return;
+          throw e;
+        }
         rpcStream.cancel(
           new errors.ErrorRPCTimedOut('RPC has timed out', {
             cause: ctx.signal?.reason,

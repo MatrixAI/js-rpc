@@ -26,6 +26,7 @@ import RPCServer from '@/RPCServer';
 import * as rpcErrors from '@/errors';
 import * as rpcUtilsMiddleware from '@/middleware';
 import { promise, timeoutCancelledReason } from '@/utils';
+import * as utils from '@/utils';
 import * as rpcTestUtils from './utils';
 
 describe(`${RPCClient.name}`, () => {
@@ -1059,8 +1060,11 @@ describe(`${RPCClient.name}`, () => {
         Uint8Array,
         Uint8Array
       >();
+      const { p: reasonP, resolveP: reasonResolveP } = utils.promise<any>();
       const streamPair: RPCStream<Uint8Array, Uint8Array> = {
-        cancel: () => {},
+        cancel: (reason) => {
+          reasonResolveP(reason);
+        },
         meta: undefined,
         writable: forwardPassThroughStream.writable,
         readable: reversePassThroughStream.readable,
@@ -1072,6 +1076,7 @@ describe(`${RPCClient.name}`, () => {
           ctx = ctx_;
           return streamPair;
         },
+        graceTime: 500,
         logger,
         idGen,
       });
@@ -1080,9 +1085,13 @@ describe(`${RPCClient.name}`, () => {
       await rpcClient.duplexStreamCaller('testMethod', {
         timer: 100,
       });
+      const start = Date.now();
       await ctx?.timer;
       expect(ctx?.signal.aborted).toBeTrue();
       expect(ctx?.signal.reason).toBeInstanceOf(rpcErrors.ErrorRPCTimedOut);
+      const reason = await reasonP;
+      expect(Date.now() - start).toBeGreaterThan(500);
+      expect(reason).toBeInstanceOf(rpcErrors.ErrorRPCTimedOut);
     });
     test('duplex caller handles abort awaiting stream', async () => {
       const forwardPassThroughStream = new TransformStream<
