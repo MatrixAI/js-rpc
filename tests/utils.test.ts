@@ -1,25 +1,25 @@
-import { testProp, fc } from '@fast-check/jest';
+import { test, fc } from '@fast-check/jest';
 import * as rpcUtils from '@/utils';
 import 'ix/add/asynciterable-operators/toarray';
 import * as rpcTestUtils from './utils';
 
 describe('utils tests', () => {
-  testProp(
-    'can parse messages',
-    [rpcTestUtils.jsonRpcMessageArb()],
-    async (message) => {
-      rpcUtils.parseJSONRPCMessage(message);
+  test.prop(
+    {
+      message: rpcTestUtils.jsonRpcMessageArb(),
     },
     { numRuns: 1000 },
-  );
-  testProp(
-    'malformed data cases parsing errors',
-    [fc.json()],
-    async (message) => {
-      expect(() =>
-        rpcUtils.parseJSONRPCMessage(Buffer.from(JSON.stringify(message))),
-      ).toThrow();
+  )('can parse messages', async ({ message }) => {
+    rpcUtils.parseJSONRPCMessage(message);
+  });
+  test.prop(
+    {
+      message: fc.json(),
     },
     { numRuns: 1000 },
-  );
+  )('malformed data cases parsing errors', async ({ message }) => {
+    expect(() =>
+      rpcUtils.parseJSONRPCMessage(Buffer.from(JSON.stringify(message))),
+    ).toThrow();
+  });
 });
