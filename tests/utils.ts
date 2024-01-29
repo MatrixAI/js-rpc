@@ -83,7 +83,8 @@ const messagesToReadableStream = (messages: Array<JSONRPCMessage>) => {
  */
 const safeJsonValueArb = fc
   .json()
-  .map((value) => JSON.parse(value.replace('__proto__', 'proto')) as JSONValue);
+  .map((value) => JSON.parse(value.replace('__proto__', 'proto')) as JSONValue)
+  .noShrink();
 
 const safeJsonObjectArb = fc.dictionary(
   fc.string().map((s) => s.replace('__proto__', 'proto')),

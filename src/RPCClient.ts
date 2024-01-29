@@ -25,7 +25,6 @@ import * as utils from './utils';
 const timerCleanupReasonSymbol = Symbol('timerCleanUpReasonSymbol');
 
 class RPCClient<M extends ClientManifest> {
-  protected onTimeoutCallback?: () => void;
   protected idGen: IdGen;
   protected logger: Logger;
   protected streamFactory: StreamFactory;
@@ -37,9 +36,6 @@ class RPCClient<M extends ClientManifest> {
     Uint8Array
   >;
   protected callerTypes: Record<string, HandlerType>;
-  public registerOnTimeoutCallback(callback: () => void) {
-    this.onTimeoutCallback = callback;
-  }
   // Method proxies
   public readonly timeoutTime: number;
   public readonly graceTime: number;
@@ -288,9 +284,6 @@ class RPCClient<M extends ClientManifest> {
     void timer.then(
       () => {
         abortController.abort(timeoutError);
-        if (this.onTimeoutCallback) {
-          this.onTimeoutCallback();
-        }
       },
       () => {}, // Ignore cancellation error
     );
