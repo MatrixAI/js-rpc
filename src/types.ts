@@ -121,7 +121,7 @@ type JSONRPCRequestMetadata = Partial<{
 }>;
 
 /**
- * `T` is the the params you want to specify.
+ * `T` is the params you want to specify.
  *
  * `M` is the metadata you want to specify.
  *
@@ -141,7 +141,7 @@ type JSONRPCResponseMetadata = Partial<{
 }>;
 
 /**
- * `T` is the the result you want to specify.
+ * `T` is the result you want to specify.
  *
  * `M` is the metadata you want to specify.
  *
@@ -251,7 +251,7 @@ interface RPCStream<R, W, M extends POJO = POJO>
 }
 
 /**
- * This is a factory for creating a `RPCStream` when making a RPC call.
+ * This is a factory for creating a `RPCStream` when making an RPC call.
  * The transport mechanism is a black box to the RPC system. So long as it is
  * provided as a RPCStream the RPC system should function. It is assumed that
  * the RPCStream communicates with an `RPCServer`.

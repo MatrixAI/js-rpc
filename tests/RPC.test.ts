@@ -48,7 +48,7 @@ describe('RPC', () => {
       Uint8Array
     >();
 
-    let header: JSONRPCRequest | undefined;
+    let header: JSONRPCRequest | undefined = undefined;
 
     class TestMethod extends RawHandler<ContainerType> {
       public handle = async (
@@ -546,8 +546,8 @@ describe('RPC', () => {
       class TestMethod extends UnaryHandler {
         public handle = async (
           input: JSONRPCRequestParams,
-          _cancel,
-          _meta,
+          _cancel: (reason?: any) => void,
+          _meta: Record<string, JSONValue> | undefined,
           ctx: ContextTimed,
         ): Promise<JSONRPCResponseResult> => {
           const { p, resolveP } = utils.promise<void>();
@@ -648,7 +648,7 @@ describe('RPC', () => {
       idGen,
     });
 
-    // Create a new promise so we can await it multiple times for assertions
+    // Create a new promise, so we can await it multiple times for assertions
     const callProm = rpcClient.methods.testMethod({ value });
 
     // The promise should be rejected
@@ -748,9 +748,9 @@ describe('RPC', () => {
     const timeout = 1;
     class TestMethod extends DuplexHandler {
       public handle = async function* (
-        input: AsyncIterableIterator<JSONObject>,
-        cancel: (reason?: any) => void,
-        meta: Record<string, JSONValue> | undefined,
+        _input: AsyncIterableIterator<JSONObject>,
+        _cancel: (reason?: any) => void,
+        _meta: Record<string, JSONValue> | undefined,
         ctx: ContextTimed,
       ): AsyncIterableIterator<JSONObject> {
         // Check for abort event
@@ -839,9 +839,9 @@ describe('RPC', () => {
     // Define the server's method behavior
     class TestMethod extends DuplexHandler {
       public handle = async function* (
-        input: AsyncIterableIterator<JSONObject>,
-        cancel: (reason?: any) => void,
-        meta: Record<string, JSONValue> | undefined,
+        _input: AsyncIterableIterator<JSONObject>,
+        _cancel: (reason?: any) => void,
+        _meta: Record<string, JSONValue> | undefined,
         ctx: ContextTimed,
       ) {
         ctx.signal.throwIfAborted();
@@ -911,9 +911,9 @@ describe('RPC', () => {
     >();
     class TestMethod extends DuplexHandler {
       public handle = async function* (
-        input: AsyncIterableIterator<JSONObject>,
-        cancel: (reason?: any) => void,
-        meta: Record<string, JSONValue> | undefined,
+        _input: AsyncIterableIterator<JSONObject>,
+        _cancel: (reason?: any) => void,
+        _meta: Record<string, JSONValue> | undefined,
         ctx: ContextTimed,
       ): AsyncIterableIterator<JSONObject> {
         ctx.signal.throwIfAborted();
@@ -979,9 +979,9 @@ describe('RPC', () => {
 
     class TestMethod extends DuplexHandler {
       public handle = async function* (
-        input: AsyncIterableIterator<JSONObject>,
-        cancel: (reason?: any) => void,
-        meta: Record<string, JSONValue> | undefined,
+        _input: AsyncIterableIterator<JSONObject>,
+        _cancel: (reason?: any) => void,
+        _meta: Record<string, JSONValue> | undefined,
         ctx: ContextTimed,
       ) {
         ctx.signal.throwIfAborted();
@@ -1016,7 +1016,7 @@ describe('RPC', () => {
     const writer = callerInterface.writable.getWriter();
     const reader = callerInterface.readable.getReader();
 
-    // Trigger a call that will hang indefinitely or for a long time #TODO
+    // Trigger a call that will hang indefinitely or for a long time
 
     // Write a value to the stream
     await writer.write({ value: inputData });
@@ -1045,7 +1045,7 @@ describe('RPC', () => {
     // Cancel caller timer
     callerTimer.cancel();
 
-    // Expect neither to time out and verify that they can still handle other operations #TODO
+    // Expect neither to time out and verify that they can still handle other operations
     await rpcServer.stop({ force: true });
   });
   test('RPC server times out using client timeout', async () => {
@@ -1057,9 +1057,9 @@ describe('RPC', () => {
     const { p: ctxP, resolveP: resolveCtxP } = utils.promise<ContextTimed>();
     class TestMethod extends UnaryHandler {
       public handle = async (
-        input: JSONObject,
-        cancel: (reason?: any) => void,
-        meta: Record<string, JSONValue> | undefined,
+        _input: JSONObject,
+        _cancel: (reason?: any) => void,
+        _meta: Record<string, JSONValue> | undefined,
         ctx: ContextTimed,
       ): Promise<JSONObject> => {
         const abortProm = utils.promise<never>();
@@ -1121,8 +1121,8 @@ describe('RPC', () => {
       class TestMethod extends UnaryHandler {
         public handle = async (
           input: JSONObject,
-          cancel: (reason?: any) => void,
-          meta: Record<string, JSONValue> | undefined,
+          _cancel: (reason?: any) => void,
+          _meta: Record<string, JSONValue> | undefined,
           ctx: ContextTimed,
         ): Promise<JSONObject> => {
           const abortProm = utils.promise<never>();

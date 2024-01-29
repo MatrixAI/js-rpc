@@ -9,8 +9,9 @@ import type {
   JSONValue,
   RPCStream,
 } from '@/types';
-import type { RPCErrorEvent } from '@/events';
 import type { IdGen } from '@/types';
+import type { PromiseCancellable } from '@matrixai/async-cancellable';
+import type * as rpcEvents from '@/events';
 import { ReadableStream, TransformStream, WritableStream } from 'stream/web';
 import { fc, test } from '@fast-check/jest';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
@@ -116,10 +117,10 @@ describe(`${RPCServer.name}`, () => {
         _meta: Record<string, JSONValue> | undefined,
         _ctx: ContextTimed,
       ): AsyncGenerator<JSONRPCResponseResult> {
-        for await (const val of input) {
-          yield val;
-          break;
-        }
+        // Yield only the first value
+        const result = await input.next();
+        if (!result.done) yield result.value;
+        await input.return(undefined);
       };
     }
     const rpcServer = new RPCServer({
@@ -298,11 +299,11 @@ describe(`${RPCServer.name}`, () => {
       remoteHost: 'hostA',
       remotePort: 12341,
     };
-    let handledMeta;
+    let handledMeta: Record<string, JSONValue> | undefined = undefined;
     class TestMethod extends DuplexHandler {
       public handle = async function* (
         input: AsyncGenerator<JSONRPCRequestParams>,
-        cancel: (reason?: any) => void,
+        _cancel: (reason?: any) => void,
         meta: Record<string, JSONValue> | undefined,
         _ctx: ContextTimed,
       ): AsyncGenerator<JSONRPCResponseResult> {
@@ -340,8 +341,8 @@ describe(`${RPCServer.name}`, () => {
     class TestMethod extends DuplexHandler {
       public handle = async function* (
         input: AsyncGenerator<JSONRPCRequestParams>,
-        cancel: (reason?: any) => void,
-        meta: Record<string, JSONValue> | undefined,
+        _cancel: (reason?: any) => void,
+        _meta: Record<string, JSONValue> | undefined,
         ctx: ContextTimed,
       ): AsyncGenerator<JSONRPCResponseResult> {
         for await (const val of input) {
@@ -361,15 +362,15 @@ describe(`${RPCServer.name}`, () => {
     });
     const [outputResult, outputStream] =
       rpcTestUtils.streamToArray<Uint8Array>();
-    let thing;
+    let activeStream: PromiseCancellable<void> | undefined = undefined;
     const tapStream = rpcTestUtils.tapTransformStream<Uint8Array>(
       async (_, iteration) => {
         if (iteration === 2) {
           // @ts-ignore: kidnap private property
           const activeStreams = rpcServer.activeStreams.values();
-          for (const activeStream of activeStreams) {
-            thing = activeStream;
-            activeStream.cancel(Error('Some error'));
+          for (const activeStream_ of activeStreams) {
+            activeStream = activeStream_;
+            activeStream_.cancel(Error('Some error'));
           }
         }
       },
@@ -383,7 +384,8 @@ describe(`${RPCServer.name}`, () => {
     rpcServer.handleStream(readWriteStream);
     const result = await outputResult;
     const lastMessage = result[result.length - 1];
-    await expect(thing).toResolve();
+    expect(activeStream).toBeDefined();
+    await expect(activeStream!).toResolve();
     expect(lastMessage).toBeDefined();
     expect(() =>
       rpcUtils.parseJSONRPCResponseFailed(JSON.parse(lastMessage.toString())),
@@ -446,13 +448,13 @@ describe(`${RPCServer.name}`, () => {
         testMethod: new TestMethod({}),
       },
     });
-    let resolve, reject;
-    const errorProm = new Promise((resolve_, reject_) => {
-      resolve = resolve_;
-      reject = reject_;
-    });
-    rpcServer.addEventListener('error', (thing: RPCErrorEvent) => {
-      resolve(thing);
+    const {
+      p: errorEventP,
+      resolveP: resolveErrorEventP,
+      rejectP: rejectErrorEventP,
+    } = rpcUtils.promise<rpcEvents.RPCErrorEvent>();
+    rpcServer.addEventListener('error', (event: rpcEvents.RPCErrorEvent) => {
+      resolveErrorEventP(event);
     });
     const [outputResult, outputStream] = rpcTestUtils.streamToArray();
     const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
@@ -464,8 +466,8 @@ describe(`${RPCServer.name}`, () => {
     const rawErrorMessage = (await outputResult)[0]!.toString();
     const errorMessage = JSON.parse(rawErrorMessage);
     expect(errorMessage.error.message).toEqual(error.message);
-    reject();
-    await expect(errorProm).toReject();
+    rejectErrorEventP(Error('Never received error event'));
+    await expect(errorEventP).toReject();
     await rpcServer.stop({ force: true });
   });
   test.prop({
@@ -491,13 +493,13 @@ describe(`${RPCServer.name}`, () => {
           testMethod: new TestMethod({}),
         },
       });
-      let resolve, reject;
-      const errorProm = new Promise((resolve_, reject_) => {
-        resolve = resolve_;
-        reject = reject_;
-      });
-      rpcServer.addEventListener('error', (thing: RPCErrorEvent) => {
-        resolve(thing);
+      const {
+        p: errorEventP,
+        resolveP: resolveErrorEventP,
+        rejectP: rejectErrorEventP,
+      } = rpcUtils.promise<rpcEvents.RPCErrorEvent>();
+      rpcServer.addEventListener('error', (thing: rpcEvents.RPCErrorEvent) => {
+        resolveErrorEventP(thing);
       });
       const [outputResult, outputStream] = rpcTestUtils.streamToArray();
       const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
@@ -509,8 +511,8 @@ describe(`${RPCServer.name}`, () => {
       const rawErrorMessage = (await outputResult)[0]!.toString();
       const errorMessage = JSON.parse(rawErrorMessage);
       expect(errorMessage.error.message).toEqual(error.message);
-      reject();
-      await expect(errorProm).toReject();
+      rejectErrorEventP(Error('Never received error event'));
+      await expect(errorEventP).toReject();
       await rpcServer.stop({ force: true });
     },
   );
@@ -523,7 +525,7 @@ describe(`${RPCServer.name}`, () => {
     const handlerEndedProm = promise();
     class TestMethod extends DuplexHandler {
       public handle = async function* (
-        input,
+        input: AsyncGenerator<JSONRPCRequestParams>,
       ): AsyncGenerator<JSONRPCResponseResult> {
         try {
           for await (const _ of input) {
@@ -542,10 +544,6 @@ describe(`${RPCServer.name}`, () => {
       manifest: {
         testMethod: new TestMethod({}),
       },
-    });
-    let resolve;
-    rpcServer.addEventListener('error', (thing: RPCErrorEvent) => {
-      resolve(thing);
     });
     const passThroughStreamIn = new TransformStream<Uint8Array, Uint8Array>();
     const [outputResult, outputStream] = rpcTestUtils.streamToArray<Buffer>();
@@ -579,15 +577,15 @@ describe(`${RPCServer.name}`, () => {
     { numRuns: 1 },
   )('should emit stream error if output stream fails', async ({ messages }) => {
     const handlerEndedProm = promise();
-    let ctx: ContextTimed | undefined;
+    const ctxProm = promise<ContextTimed>();
     class TestMethod extends DuplexHandler {
       public handle = async function* (
-        input,
-        _cancel,
-        _meta,
-        ctx_,
+        input: AsyncGenerator<JSONRPCRequestParams>,
+        _cancel: (reason?: any) => void,
+        _meta: Record<string, JSONValue> | undefined,
+        ctx: ContextTimed,
       ): AsyncGenerator<JSONRPCResponseResult> {
-        ctx = ctx_;
+        ctxProm.resolveP(ctx);
         // Echo input
         try {
           yield* input;
@@ -605,13 +603,14 @@ describe(`${RPCServer.name}`, () => {
         testMethod: new TestMethod({}),
       },
     });
-    let resolve;
-    const errorProm = new Promise<RPCErrorEvent>((resolve_) => {
-      resolve = resolve_;
-    });
-    rpcServer.addEventListener('error', (thing: RPCErrorEvent) => {
-      resolve(thing);
-    });
+    const { p: errorEventP, resolveP: resolveErrorEventP } =
+      rpcUtils.promise<rpcEvents.RPCErrorEvent>();
+    rpcServer.addEventListener(
+      'error',
+      (rpcErrorEvent: rpcEvents.RPCErrorEvent) => {
+        resolveErrorEventP(rpcErrorEvent);
+      },
+    );
     const passThroughStreamIn = new TransformStream<Uint8Array, Uint8Array>();
     const passThroughStreamOut = new TransformStream<Uint8Array, Uint8Array>();
     const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
@@ -628,21 +627,18 @@ describe(`${RPCServer.name}`, () => {
       await reader.read();
     }
     // Abort stream
-    // const writerReason = Symbol('writerAbort');
     const readerReason = Symbol('readerAbort');
-    // Await writer.abort(writerReason);
     await reader.cancel(readerReason);
     // We should get an error event
-    const event = await errorProm;
+    const event = await errorEventP;
     await writer.close();
-    // Expect(event.detail.cause).toContain(writerReason);
     expect(event.detail).toBeInstanceOf(rpcErrors.ErrorRPCStreamEnded);
     // Check that the handler was cleaned up.
     await expect(handlerEndedProm.p).toResolve();
     // Check that an abort signal happened
-    expect(ctx).toBeDefined();
-    expect(ctx?.signal.aborted).toBeTrue();
-    expect(ctx?.signal.reason).toBe(readerReason);
+    const ctx = await ctxProm.p;
+    expect(ctx.signal.aborted).toBeTrue();
+    expect(ctx.signal.reason).toBe(readerReason);
     await rpcServer.stop({ force: true });
   });
   test.prop({
@@ -850,7 +846,7 @@ describe(`${RPCServer.name}`, () => {
           idGen,
         });
 
-      expect(constructorF).toThrowError(rpcErrors.ErrorRPCInvalidTimeout);
+      expect(constructorF).toThrow(rpcErrors.ErrorRPCInvalidTimeout);
     },
   );
   test.prop({
@@ -865,11 +861,11 @@ describe(`${RPCServer.name}`, () => {
         timeout = timeoutTime;
         public handle = async (
           input: JSONRPCRequestParams,
-          _cancel,
-          _meta,
-          ctx_,
+          _cancel: (reason?: any) => void,
+          _meta: Record<string, JSONValue> | undefined,
+          ctx: ContextTimed,
         ): Promise<JSONRPCResponseResult> => {
-          ctxLongProm.resolveP(ctx_);
+          ctxLongProm.resolveP(ctx);
           await waitProm.p;
           return input;
         };
@@ -895,16 +891,13 @@ describe(`${RPCServer.name}`, () => {
 
     class TestHandler extends RawHandler<ContainerType> {
       public handle = async (
-        _input: [
-          JSONRPCRequest<JSONRPCRequestParams>,
-          ReadableStream<Uint8Array>,
-        ],
+        _input: [JSONRPCRequest, ReadableStream<Uint8Array>],
         _cancel: (reason?: any) => void,
         _meta: Record<string, JSONValue> | undefined,
-        ctx_: ContextTimed,
+        ctx: ContextTimed,
       ): Promise<[JSONRPCResponseResult, ReadableStream<Uint8Array>]> => {
         return new Promise((resolve) => {
-          ctxProm.resolveP(ctx_);
+          ctxProm.resolveP(ctx);
 
           let controller: ReadableStreamController<Uint8Array>;
           const stream = new ReadableStream<Uint8Array>({
@@ -913,7 +906,7 @@ describe(`${RPCServer.name}`, () => {
             },
           });
 
-          ctx_.signal.addEventListener('abort', () => {
+          ctx.signal.addEventListener('abort', () => {
             controller!.error(Error('ending'));
           });
 
@@ -922,7 +915,6 @@ describe(`${RPCServer.name}`, () => {
         });
       };
     }
-
     const rpcServer = new RPCServer({
       timeoutTime: 100,
       logger,
@@ -953,17 +945,11 @@ describe(`${RPCServer.name}`, () => {
       readable: stream,
       writable: outputStream,
     };
-
     rpcServer.handleStream(readWriteStream);
-
     const ctx = await ctxProm.p;
-
     expect(ctx.timer.delay).toEqual(100);
-
     await ctx.timer;
-
     expect(ctx.signal.reason).toBeInstanceOf(rpcErrors.ErrorRPCTimedOut);
-
     await expect(outputResult).toReject();
 
     await rpcServer.stop({ force: true });
@@ -1003,8 +989,8 @@ describe(`${RPCServer.name}`, () => {
     class TestHandler extends DuplexHandler {
       public handle = async function* (
         input: AsyncGenerator<JSONRPCRequestParams<{ value: number }>>,
-        cancel: (reason?: any) => void,
-        meta: Record<string, number> | undefined,
+        _cancel: (reason?: any) => void,
+        _meta: Record<string, number> | undefined,
         ctx: ContextTimed,
       ): AsyncGenerator<JSONRPCResponseResult<{ value: number }>> {
         contextProm.resolveP(ctx);
@@ -1053,16 +1039,13 @@ describe(`${RPCServer.name}`, () => {
     const ctxProm = promise<ContextTimed>();
     class TestHandler extends RawHandler<ContainerType> {
       public handle = async (
-        input: [
-          JSONRPCRequest<JSONRPCRequestParams>,
-          ReadableStream<Uint8Array>,
-        ],
+        input: [JSONRPCRequest, ReadableStream<Uint8Array>],
         _cancel: (reason?: any) => void,
         _meta: Record<string, JSONValue> | undefined,
-        ctx_: ContextTimed,
+        ctx: ContextTimed,
       ): Promise<[JSONRPCResponseResult, ReadableStream<Uint8Array>]> => {
         return new Promise((resolve) => {
-          ctxProm.resolveP(ctx_);
+          ctxProm.resolveP(ctx);
           void (async () => {
             for await (const _ of input[1]) {
               // Do nothing, just consume
@@ -1117,8 +1100,8 @@ describe(`${RPCServer.name}`, () => {
     class TestMethod extends DuplexHandler {
       public handle = async function* (
         input: AsyncGenerator<JSONRPCRequestParams>,
-        cancel: (reason?: any) => void,
-        meta: Record<string, JSONValue> | undefined,
+        _cancel: (reason?: any) => void,
+        _meta: Record<string, JSONValue> | undefined,
         ctx: ContextTimed,
       ): AsyncGenerator<JSONRPCResponseResult> {
         ctxProm.resolveP(ctx);

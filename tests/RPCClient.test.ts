@@ -612,14 +612,11 @@ describe(`${RPCClient.name}`, () => {
       }),
     );
   });
-  test.prop(
-    {
-      headerParams: rpcTestUtils.safeJsonObjectArb,
-      inputData: rpcTestUtils.rawDataArb,
-      outputData: rpcTestUtils.rawDataArb,
-    },
-    { seed: -783452149, path: '0:0:0:0:0:0:0', endOnFailure: true }, // FIXME: remove
-  )('manifest raw caller', async ({ headerParams, inputData, outputData }) => {
+  test.prop({
+    headerParams: rpcTestUtils.safeJsonObjectArb,
+    inputData: rpcTestUtils.rawDataArb,
+    outputData: rpcTestUtils.rawDataArb,
+  })('manifest raw caller', async ({ headerParams, inputData, outputData }) => {
     const [inputResult, inputWritableStream] =
       rpcTestUtils.streamToArray<Uint8Array>();
     const [outputResult, outputWritableStream] =
@@ -743,7 +740,7 @@ describe(`${RPCClient.name}`, () => {
           idGen,
         });
 
-      expect(constructorF).toThrowError(rpcErrors.ErrorRPCInvalidTimeout);
+      expect(constructorF).toThrow(rpcErrors.ErrorRPCInvalidTimeout);
     },
   );
   describe('raw caller', () => {

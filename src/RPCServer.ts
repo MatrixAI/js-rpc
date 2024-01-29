@@ -76,6 +76,7 @@ class RPCServer {
   /**
    * RPCServer Constructor
    *
+   * @param obj
    * @param obj.middlewareFactory - Middleware used to process the rpc messages.
    * The middlewareFactory needs to be a function that creates a pair of
    * transform streams that convert `Uint8Array` to `JSONRPCRequest` on the forward

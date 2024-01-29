@@ -50,16 +50,20 @@ class RPCClient<M extends ClientManifest> {
         if (typeof method === 'symbol') return;
         switch (this.callerTypes[method]) {
           case 'UNARY':
-            return (params, ctx) => this.unaryCaller(method, params, ctx);
+            return (params: JSONObject, ctx: Partial<ContextTimedInput>) =>
+              this.unaryCaller(method, params, ctx);
           case 'SERVER':
-            return (params, ctx) =>
+            return (params: JSONObject, ctx: Partial<ContextTimedInput>) =>
               this.serverStreamCaller(method, params, ctx);
           case 'CLIENT':
-            return (ctx) => this.clientStreamCaller(method, ctx);
+            return (ctx: Partial<ContextTimedInput>) =>
+              this.clientStreamCaller(method, ctx);
           case 'DUPLEX':
-            return (ctx) => this.duplexStreamCaller(method, ctx);
+            return (ctx: Partial<ContextTimedInput>) =>
+              this.duplexStreamCaller(method, ctx);
           case 'RAW':
-            return (header, ctx) => this.rawStreamCaller(method, header, ctx);
+            return (header: JSONObject, ctx: Partial<ContextTimedInput>) =>
+              this.rawStreamCaller(method, header, ctx);
           default:
             return;
         }
@@ -381,7 +385,6 @@ class RPCClient<M extends ClientManifest> {
    * single RPC message that is sent to specify the method for the RPC call.
    * Any metadata of extra parameters is provided here.
    * @param ctx - ContextTimed used for timeouts and cancellation.
-   * @param id - Id is generated only once, and used throughout the stream for the rest of the communication
    */
   public async rawStreamCaller(
     method: string,
