@@ -53,7 +53,6 @@ interface RPCServer extends startStop.StartStop {}
   eventStopped: events.EventRPCServerStopped,
 })
 class RPCServer {
-  protected onTimeoutCallback?: () => void;
   protected idGen: IdGen;
   protected logger: Logger;
   protected handlerMap: Map<string, RawHandlerImplementation> = new Map();
@@ -68,14 +67,11 @@ class RPCServer {
     Uint8Array,
     JSONRPCResponseSuccess
   >;
-  // Function to register a callback for timeout
-  public registerOnTimeoutCallback(callback: () => void) {
-    this.onTimeoutCallback = callback;
-  }
 
   /**
    * RPCServer Constructor
    *
+   * @param obj
    * @param obj.middlewareFactory - Middleware used to process the rpc messages.
    * The middlewareFactory needs to be a function that creates a pair of
    * transform streams that convert `Uint8Array` to `JSONRPCRequest` on the forward
@@ -464,9 +460,6 @@ class RPCServer {
       delay: this.timeoutTime,
       handler: () => {
         abortController.abort(new errors.ErrorRPCTimedOut());
-        if (this.onTimeoutCallback) {
-          this.onTimeoutCallback();
-        }
       },
     });
 

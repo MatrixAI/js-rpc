@@ -25,7 +25,6 @@ import * as utils from './utils';
 const timerCleanupReasonSymbol = Symbol('timerCleanUpReasonSymbol');
 
 class RPCClient<M extends ClientManifest> {
-  protected onTimeoutCallback?: () => void;
   protected idGen: IdGen;
   protected logger: Logger;
   protected streamFactory: StreamFactory;
@@ -37,11 +36,9 @@ class RPCClient<M extends ClientManifest> {
     Uint8Array
   >;
   protected callerTypes: Record<string, HandlerType>;
-  public registerOnTimeoutCallback(callback: () => void) {
-    this.onTimeoutCallback = callback;
-  }
   // Method proxies
   public readonly timeoutTime: number;
+  public readonly graceTime: number;
   public readonly methodsProxy = new Proxy(
     {},
     {
@@ -49,16 +46,20 @@ class RPCClient<M extends ClientManifest> {
         if (typeof method === 'symbol') return;
         switch (this.callerTypes[method]) {
           case 'UNARY':
-            return (params, ctx) => this.unaryCaller(method, params, ctx);
+            return (params: JSONObject, ctx: Partial<ContextTimedInput>) =>
+              this.unaryCaller(method, params, ctx);
           case 'SERVER':
-            return (params, ctx) =>
+            return (params: JSONObject, ctx: Partial<ContextTimedInput>) =>
               this.serverStreamCaller(method, params, ctx);
           case 'CLIENT':
-            return (ctx) => this.clientStreamCaller(method, ctx);
+            return (ctx: Partial<ContextTimedInput>) =>
+              this.clientStreamCaller(method, ctx);
           case 'DUPLEX':
-            return (ctx) => this.duplexStreamCaller(method, ctx);
+            return (ctx: Partial<ContextTimedInput>) =>
+              this.duplexStreamCaller(method, ctx);
           case 'RAW':
-            return (header, ctx) => this.rawStreamCaller(method, header, ctx);
+            return (header: JSONObject, ctx: Partial<ContextTimedInput>) =>
+              this.rawStreamCaller(method, header, ctx);
           default:
             return;
         }
@@ -86,6 +87,7 @@ class RPCClient<M extends ClientManifest> {
     streamFactory,
     middlewareFactory = middleware.defaultClientMiddlewareWrapper(),
     timeoutTime = Infinity,
+    graceTime = 1000,
     logger,
     toError = utils.toError,
     idGen = () => null,
@@ -99,6 +101,7 @@ class RPCClient<M extends ClientManifest> {
       Uint8Array
     >;
     timeoutTime?: number;
+    graceTime?: number;
     logger?: Logger;
     idGen?: IdGen;
     toError?: ToError;
@@ -111,6 +114,7 @@ class RPCClient<M extends ClientManifest> {
     this.streamFactory = streamFactory;
     this.middlewareFactory = middlewareFactory;
     this.timeoutTime = timeoutTime;
+    this.graceTime = graceTime;
     this.logger = logger ?? new Logger(this.constructor.name);
     this.toError = toError;
   }
@@ -262,7 +266,9 @@ class RPCClient<M extends ClientManifest> {
     } else {
       timer = ctx.timer;
     }
+    let timerGrace: Timer | undefined;
     const cleanUp = () => {
+      if (timerGrace != null) timerGrace.cancel(timerCleanupReasonSymbol);
       // Clean up the timer and signal
       if (ctx.timer == null) timer.cancel(timerCleanupReasonSymbol);
       if (ctx.signal != null) {
@@ -278,9 +284,6 @@ class RPCClient<M extends ClientManifest> {
     void timer.then(
       () => {
         abortController.abort(timeoutError);
-        if (this.onTimeoutCallback) {
-          this.onTimeoutCallback();
-        }
       },
       () => {}, // Ignore cancellation error
     );
@@ -298,7 +301,14 @@ class RPCClient<M extends ClientManifest> {
       throw e;
     }
     void timer.then(
-      () => {
+      async () => {
+        timerGrace = new Timer({ delay: this.graceTime });
+        try {
+          await timerGrace;
+        } catch (e) {
+          if (e === timerCleanupReasonSymbol) return;
+          throw e;
+        }
         rpcStream.cancel(
           new errors.ErrorRPCTimedOut('RPC has timed out', {
             cause: ctx.signal?.reason,
@@ -368,7 +378,6 @@ class RPCClient<M extends ClientManifest> {
    * single RPC message that is sent to specify the method for the RPC call.
    * Any metadata of extra parameters is provided here.
    * @param ctx - ContextTimed used for timeouts and cancellation.
-   * @param id - Id is generated only once, and used throughout the stream for the rest of the communication
    */
   public async rawStreamCaller(
     method: string,

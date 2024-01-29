@@ -3,12 +3,12 @@ import type {
   ClientManifest,
   HandlerType,
   JSONObject,
-  JSONRPCResponseError,
   JSONRPCMessage,
   JSONRPCRequest,
   JSONRPCRequestMessage,
   JSONRPCRequestNotification,
   JSONRPCResponse,
+  JSONRPCResponseError,
   JSONRPCResponseFailed,
   JSONRPCResponseSuccess,
   JSONValue,
@@ -22,7 +22,7 @@ import * as errors from './errors';
 
 const timeoutCancelledReason = Symbol('timeoutCancelledReason');
 
-// Importing PK funcs and utils which are essential for RPC
+// Importing PK functions and utils which are essential for RPC
 function isObject(o: unknown): o is object {
   return o !== null && typeof o === 'object';
 }
@@ -222,7 +222,7 @@ function parseJSONRPCMessage<T extends JSONObject>(
  * @throws {TypeError} If the error is an instance of {@link Symbol}, {@link BigInt} or {@link Function}.
  */
 function fromError(error: any): JSONValue {
-  // TODO: Linked-List traversal must be done iteractively rather than recusively to prevent stack overflow.
+  // TODO: Linked-List traversal must be done interactively rather than recursively to prevent stack overflow.
   switch (typeof error) {
     case 'symbol':
     case 'bigint':
@@ -385,10 +385,9 @@ function toError(
           e.cause = toError(errorData.data.cause, clientMetadata, false);
         }
         if (top) {
-          const err = new errors.ErrorRPCRemote(clientMetadata, undefined, {
+          return new errors.ErrorRPCRemote(clientMetadata, undefined, {
             cause: e,
           });
-          return err;
         } else {
           return e;
         }

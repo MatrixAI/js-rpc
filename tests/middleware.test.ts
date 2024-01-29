@@ -1,4 +1,4 @@
-import { fc, testProp } from '@fast-check/jest';
+import { fc, test } from '@fast-check/jest';
 import { AsyncIterableX as AsyncIterable } from 'ix/asynciterable';
 import { Timer } from '@matrixai/timer';
 import * as rpcUtils from '@/utils';
@@ -15,95 +15,103 @@ describe('Middleware tests', () => {
     )
     .noShrink();
 
-  testProp(
-    'can parse json stream',
-    [rpcTestUtils.jsonMessagesArb],
-    async (messages) => {
-      const parsedStream = rpcTestUtils
-        .messagesToReadableStream(messages)
-        .pipeThrough(
-          rpcUtilsMiddleware.binaryToJsonMessageStream(
-            rpcUtils.parseJSONRPCMessage,
-          ),
-        ); // Converting back.
-
-      const asd = await AsyncIterable.as(parsedStream).toArray();
-      expect(asd).toEqual(messages);
+  test.prop(
+    {
+      messages: rpcTestUtils.jsonMessagesArb,
     },
-    { numRuns: 1000 },
-  );
-  testProp(
-    'Message size limit is enforced when parsing',
-    [
-      fc.array(
+    {
+      numRuns: 1000,
+    },
+  )('converting to raw and back to JSON', async ({ messages }) => {
+    const parsedStream = rpcTestUtils
+      .messagesToReadableStream(messages)
+      .pipeThrough(
+        rpcUtilsMiddleware.binaryToJsonMessageStream(
+          rpcUtils.parseJSONRPCMessage,
+        ),
+      ); // Converting back.
+
+    const messagesParsed = await AsyncIterable.as(parsedStream).toArray();
+    expect(messagesParsed).toEqual(messages);
+  });
+  test.prop(
+    {
+      messages: fc.array(
         rpcTestUtils.jsonRpcRequestMessageArb(fc.string({ minLength: 100 })),
         {
           minLength: 1,
         },
       ),
-    ],
-    async (messages) => {
-      const parsedStream = rpcTestUtils
-        .messagesToReadableStream(messages)
-        .pipeThrough(rpcTestUtils.binaryStreamToSnippedStream([10]))
-        .pipeThrough(
-          rpcUtilsMiddleware.binaryToJsonMessageStream(
-            rpcUtils.parseJSONRPCMessage,
-            50,
-          ),
-        );
-
-      const doThing = async () => {
-        for await (const _ of parsedStream) {
-          // No touch, only consume
-        }
-      };
-      await expect(doThing()).rejects.toThrow(rpcErrors.ErrorRPCMessageLength);
     },
     { numRuns: 1000 },
-  );
-  testProp(
-    'can parse json stream with random chunk sizes',
-    [rpcTestUtils.jsonMessagesArb, rpcTestUtils.snippingPatternArb],
-    async (messages, snippattern) => {
-      const parsedStream = rpcTestUtils
-        .messagesToReadableStream(messages)
-        .pipeThrough(rpcTestUtils.binaryStreamToSnippedStream(snippattern)) // Imaginary internet here
-        .pipeThrough(
-          rpcUtilsMiddleware.binaryToJsonMessageStream(
-            rpcUtils.parseJSONRPCMessage,
-          ),
-        ); // Converting back.
-
-      const asd = await AsyncIterable.as(parsedStream).toArray();
-      expect(asd).toStrictEqual(messages);
-    },
-    { numRuns: 1000 },
-  );
-  testProp(
-    'Will error on bad data',
-    [rpcTestUtils.jsonMessagesArb, rpcTestUtils.snippingPatternArb, noiseArb],
-    async (messages, snippattern, noise) => {
-      const parsedStream = rpcTestUtils
-        .messagesToReadableStream(messages)
-        .pipeThrough(rpcTestUtils.binaryStreamToSnippedStream(snippattern)) // Imaginary internet here
-        .pipeThrough(rpcTestUtils.binaryStreamToNoisyStream(noise)) // Adding bad data to the stream
-        .pipeThrough(
-          rpcUtilsMiddleware.binaryToJsonMessageStream(
-            rpcUtils.parseJSONRPCMessage,
-          ),
-        ); // Converting back.
-
-      await expect(AsyncIterable.as(parsedStream).toArray()).rejects.toThrow(
-        rpcErrors.ErrorRPCParse,
+  )('Message size limit is enforced when parsing', async ({ messages }) => {
+    const parsedStream = rpcTestUtils
+      .messagesToReadableStream(messages)
+      .pipeThrough(rpcTestUtils.binaryStreamToSnippedStream([10]))
+      .pipeThrough(
+        rpcUtilsMiddleware.binaryToJsonMessageStream(
+          rpcUtils.parseJSONRPCMessage,
+          50,
+        ),
       );
+
+    const doThing = async () => {
+      for await (const _ of parsedStream) {
+        // No touch, only consume
+      }
+    };
+    await expect(doThing()).rejects.toThrow(rpcErrors.ErrorRPCMessageLength);
+  });
+  test.prop(
+    {
+      messages: rpcTestUtils.jsonMessagesArb,
+      snipPattern: rpcTestUtils.snippingPatternArb,
     },
     { numRuns: 1000 },
+  )(
+    'can parse json stream with random chunk sizes',
+    async ({ messages, snipPattern: snipPattern }) => {
+      const parsedStream = rpcTestUtils
+        .messagesToReadableStream(messages)
+        .pipeThrough(rpcTestUtils.binaryStreamToSnippedStream(snipPattern)) // Imaginary internet here
+        .pipeThrough(
+          rpcUtilsMiddleware.binaryToJsonMessageStream(
+            rpcUtils.parseJSONRPCMessage,
+          ),
+        ); // Converting back.
+
+      const messagesParsed = await AsyncIterable.as(parsedStream).toArray();
+      expect(messagesParsed).toStrictEqual(messages);
+    },
   );
-  testProp(
+  test.prop(
+    {
+      messages: rpcTestUtils.jsonMessagesArb,
+      snipPattern: rpcTestUtils.snippingPatternArb,
+      noise: noiseArb,
+    },
+    { numRuns: 1000 },
+  )('Will error on bad data', async ({ messages, snipPattern, noise }) => {
+    const parsedStream = rpcTestUtils
+      .messagesToReadableStream(messages)
+      .pipeThrough(rpcTestUtils.binaryStreamToSnippedStream(snipPattern)) // Imaginary internet here
+      .pipeThrough(rpcTestUtils.binaryStreamToNoisyStream(noise)) // Adding bad data to the stream
+      .pipeThrough(
+        rpcUtilsMiddleware.binaryToJsonMessageStream(
+          rpcUtils.parseJSONRPCMessage,
+        ),
+      ); // Converting back.
+
+    await expect(AsyncIterable.as(parsedStream).toArray()).rejects.toThrow(
+      rpcErrors.ErrorRPCParse,
+    );
+  });
+  test.prop({
+    messages: rpcTestUtils.jsonMessagesArb,
+    timeout: fc.integer({ min: 0 }),
+  })(
     'timeoutMiddlewareServer should set ctx.timeout if timeout is lower',
-    [rpcTestUtils.jsonMessagesArb, fc.integer({ min: 0 })],
-    async (messages, timeout) => {
+    async ({ messages, timeout }) => {
       if (messages[0].params == null) messages[0].params = {};
       messages[0].params.metadata = { ...messages[0].params.metadata, timeout };
       const abortController = new AbortController();
@@ -126,17 +134,19 @@ describe('Middleware tests', () => {
         ) // Converting back.
         .pipeThrough(timeoutMiddleware.forward);
 
-      const asd = await AsyncIterable.as(parsedStream).toArray();
-      expect(asd).toEqual(messages);
+      const messagesParsed = await AsyncIterable.as(parsedStream).toArray();
+      expect(messagesParsed).toEqual(messages);
       expect(timer.delay).toBe(timeout);
       timer.cancel();
       await timer.catch(() => {});
     },
   );
-  testProp(
+  test.prop({
+    messages: rpcTestUtils.jsonMessagesArb,
+    timeout: fc.integer({ min: 1 }),
+  })(
     'timeoutMiddlewareServer wont set ctx.timeout if timeout is higher',
-    [rpcTestUtils.jsonMessagesArb, fc.integer({ min: 1 })],
-    async (messages, timeout) => {
+    async ({ messages, timeout }) => {
       if (messages[0].params == null) messages[0].params = {};
       messages[0].params.metadata = { ...messages[0].params.metadata, timeout };
       const abortController = new AbortController();
@@ -159,17 +169,18 @@ describe('Middleware tests', () => {
         ) // Converting back.
         .pipeThrough(timeoutMiddleware.forward);
 
-      const asd = await AsyncIterable.as(parsedStream).toArray();
-      expect(asd).toEqual(messages);
+      const messagesParsed = await AsyncIterable.as(parsedStream).toArray();
+      expect(messagesParsed).toEqual(messages);
       expect(timer.delay).toBe(0);
       timer.cancel();
       await timer.catch(() => {});
     },
   );
-  testProp(
+  test.prop({
+    messages: rpcTestUtils.jsonMessagesArb,
+  })(
     'timeoutMiddlewareServer should set ctx.timeout if timeout is infinity/null',
-    [rpcTestUtils.jsonMessagesArb],
-    async (messages) => {
+    async ({ messages }) => {
       if (messages[0].params == null) messages[0].params = {};
       messages[0].params.metadata = {
         ...messages[0].params.metadata,
@@ -199,17 +210,19 @@ describe('Middleware tests', () => {
       if (expectedMessages[0].params?.metadata != null) {
         expectedMessages[0].params.metadata.timeout = null;
       }
-      const asd = await AsyncIterable.as(parsedStream).toArray();
-      expect(asd).toEqual(expectedMessages);
+      const messagesParsed = await AsyncIterable.as(parsedStream).toArray();
+      expect(messagesParsed).toEqual(expectedMessages);
       expect(timer.delay).toBe(Infinity);
       timer.cancel();
       await timer.catch(() => {});
     },
   );
-  testProp(
+  test.prop({
+    messages: rpcTestUtils.jsonMessagesArb,
+    timeout: fc.integer({ min: 0 }),
+  })(
     'timeoutMiddlewareClient can encode ctx.timeout',
-    [rpcTestUtils.jsonMessagesArb, fc.integer({ min: 0 })],
-    async (messages, timeout) => {
+    async ({ messages, timeout }) => {
       const abortController = new AbortController();
       const timer = new Timer(undefined, timeout);
       const ctx = {
@@ -236,8 +249,8 @@ describe('Middleware tests', () => {
         ...expectedMessages[0].params.metadata,
         timeout,
       };
-      const asd = await AsyncIterable.as(parsedStream).toArray();
-      expect(asd).toEqual(expectedMessages);
+      const messagesParsed = await AsyncIterable.as(parsedStream).toArray();
+      expect(messagesParsed).toEqual(expectedMessages);
       expect(timer.delay).toBe(timeout);
       timer.cancel();
       await timer.catch(() => {});
