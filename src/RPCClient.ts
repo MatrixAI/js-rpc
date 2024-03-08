@@ -290,14 +290,26 @@ class RPCClient<M extends ClientManifest> {
 
     // Hooking up agnostic stream side
     let rpcStream: RPCStream<Uint8Array, Uint8Array>;
-    const streamFactoryProm = this.streamFactory({ signal, timer });
+    const streamFactoryProm = this.streamFactory({ signal, timer }).then(
+      (e) => ({ status: 'fulfilled' as const, value: e }),
+      (e) => ({ status: 'rejected' as const, reason: e }),
+    );
     try {
-      rpcStream = await Promise.race([streamFactoryProm, abortRaceProm.p]);
+      const rpcStreamResult = await Promise.race([
+        streamFactoryProm,
+        abortRaceProm.p,
+      ]);
+      if (rpcStreamResult.status === 'rejected') {
+        throw rpcStreamResult.reason;
+      }
+      rpcStream = rpcStreamResult.value;
     } catch (e) {
       cleanUp();
-      void streamFactoryProm.then((stream) =>
-        stream.cancel(errors.ErrorRPCStreamEnded),
-      );
+      void streamFactoryProm.then((streamResult) => {
+        if (streamResult.status === 'fulfilled') {
+          streamResult.value.cancel(errors.ErrorRPCStreamEnded);
+        }
+      });
       throw e;
     }
     void timer.then(

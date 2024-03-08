@@ -1096,9 +1096,11 @@ describe(`${RPCClient.name}`, () => {
       const rejectReason = Symbol('rejectReason');
       abortController.abort(rejectReason);
       // Timing out on stream
-      const stream = await rpcClient.duplexStreamCaller('testMethod', {
-        signal: abortController.signal,
-      });
+      await expect(
+        rpcClient.duplexStreamCaller('testMethod', {
+          signal: abortController.signal,
+        }),
+      ).rejects.toBe(rejectReason);
       const ctx = await ctxProm.p;
       const abortProm = promise<void>();
       if (ctx.signal.aborted) abortProm.resolveP();
@@ -1107,7 +1109,6 @@ describe(`${RPCClient.name}`, () => {
       });
       expect(ctx?.signal.aborted).toBeTrue();
       expect(ctx?.signal.reason).toBe(rejectReason);
-      stream.cancel(Error('asd'));
     });
     test.prop(
       {
@@ -1349,5 +1350,29 @@ describe(`${RPCClient.name}`, () => {
         await outputResult;
       },
     );
+    test('Check that promises returned by streamFactory are handled', async () => {
+      const error = new Error('streamFactory error');
+      const rpcClients = [
+        new RPCClient({
+          manifest: {},
+          streamFactory: async () => {
+            throw error;
+          },
+          logger,
+          idGen,
+        }),
+        new RPCClient({
+          manifest: {},
+          streamFactory: () => Promise.reject(error),
+          logger,
+          idGen,
+        }),
+      ];
+      for (const rpcClient of rpcClients) {
+        await expect(rpcClient.duplexStreamCaller(methodName, {})).rejects.toBe(
+          error,
+        );
+      }
+    });
   });
 });
