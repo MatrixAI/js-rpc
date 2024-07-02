@@ -126,7 +126,6 @@ jobs:
           name: dist
           path: ./dist
       - name: Build
-        env: ${{ matrix.env }}
         run: ${{ matrix.script }}
       - uses: actions/upload-artifact@v4
         with:
