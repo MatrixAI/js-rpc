@@ -1,8 +1,5 @@
 # js-rpc
 
-staging:[![pipeline status](https://gitlab.com/MatrixAI/open-source/js-rpc/badges/staging/pipeline.svg)](https://gitlab.com/MatrixAI/open-source/js-rpc/commits/staging)
-master:[![pipeline status](https://gitlab.com/MatrixAI/open-source/js-rpc/badges/master/pipeline.svg)](https://gitlab.com/MatrixAI/open-source/js-rpc/commits/master)
-
 ## Installation
 
 ```sh
