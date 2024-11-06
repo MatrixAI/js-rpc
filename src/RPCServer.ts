@@ -327,7 +327,7 @@ class RPCServer {
             try {
               const rpcError: JSONRPCResponseError = {
                 code: errors.JSONRPCResponseErrorCode.RPCRemote,
-                message: e.message,
+                message: e.message ?? e.constructor.name,
                 data: this.fromError(e),
               };
               const rpcErrorMessage: JSONRPCResponseFailed = {
@@ -599,7 +599,7 @@ class RPCServer {
         try {
           const rpcError: JSONRPCResponseError = {
             code: errors.JSONRPCResponseErrorCode.RPCRemote,
-            message: e.message,
+            message: e.message ?? e.constructor.name,
             data: this.fromError(e),
           };
           const rpcErrorMessage: JSONRPCResponseFailed = {
