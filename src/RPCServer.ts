@@ -58,7 +58,14 @@ function composeMessage(error: unknown): string {
   if (typeof error === 'object' && error?.constructor?.name != null) {
     return `Non-error object ${error.constructor.name} was thrown`;
   }
-  return `Non-error value ${error} was thrown`;
+  // If an object is not serialisable (for example, Object.create(null)), then
+  // an error would be raised when trying to convert it to a string. In that
+  // case, simply avoid serialising the error.
+  try {
+    return `Non-error value ${error} was thrown`;
+  } catch (e) {
+    return 'Non-error value was thrown'
+  }
 }
 
 /**
