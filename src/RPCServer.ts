@@ -37,6 +37,30 @@ import * as events from './events';
 
 const cleanupReason = Symbol('CleanupReason');
 
+function composeMessage(error: unknown): string {
+  if (
+    typeof error === 'boolean' ||
+    typeof error === 'number' ||
+    typeof error === 'string' ||
+    typeof error === 'bigint' ||
+    typeof error === 'symbol'
+  ) {
+    return `Non-error literal ${String(error)} was thrown`;
+  }
+  if (
+    typeof error === 'object' &&
+    error != null &&
+    'message' in error &&
+    error.message != null
+  ) {
+    return String(error.message);
+  }
+  if (typeof error === 'object' && error?.constructor?.name != null) {
+    return `Non-error object ${error.constructor.name} was thrown`;
+  }
+  return `Non-error value ${error} was thrown`;
+}
+
 /**
  * You must provide a error handler `addEventListener('error')`.
  * Otherwise errors will just be ignored.
@@ -327,7 +351,7 @@ class RPCServer {
             try {
               const rpcError: JSONRPCResponseError = {
                 code: errors.JSONRPCResponseErrorCode.RPCRemote,
-                message: e.message ?? e.constructor.name,
+                message: composeMessage(e),
                 data: this.fromError(e),
               };
               const rpcErrorMessage: JSONRPCResponseFailed = {
@@ -599,7 +623,7 @@ class RPCServer {
         try {
           const rpcError: JSONRPCResponseError = {
             code: errors.JSONRPCResponseErrorCode.RPCRemote,
-            message: e.message ?? e.constructor.name,
+            message: composeMessage(e),
             data: this.fromError(e),
           };
           const rpcErrorMessage: JSONRPCResponseFailed = {
