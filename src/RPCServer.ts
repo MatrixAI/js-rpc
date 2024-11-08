@@ -37,6 +37,39 @@ import * as events from './events';
 
 const cleanupReason = Symbol('CleanupReason');
 
+function composeErrorMessage(error: unknown): string {
+  switch (typeof error) {
+    case 'boolean':
+    case 'number':
+    case 'string':
+    case 'bigint':
+    case 'symbol':
+      return `Non-error literal ${String(error)} was thrown`;
+    case 'object':
+      // Let the fallback handler catch null values.
+      if (error == null) break;
+      // If we have an error message defined, then return that.
+      if ('message' in error && typeof error.message === 'string') {
+        return error.message;
+      }
+      // If present, mention the constructor name in the message.
+      if (error.constructor?.name != null) {
+        return `Non-error object ${error.constructor.name} was thrown`;
+      }
+      // Any other values should be handled by the fallback handler.
+      break;
+  }
+
+  // Handle cases where the error is not serialisable, like objects created
+  // using Object.create(null). Trying to serialise this throws a TypeError.
+  try {
+    return `Non-error value ${String(error)} was thrown`;
+  } catch (e) {
+    if (e instanceof TypeError) return 'Non-error value was thrown';
+    else throw e;
+  }
+}
+
 /**
  * You must provide a error handler `addEventListener('error')`.
  * Otherwise errors will just be ignored.
@@ -327,7 +360,7 @@ class RPCServer {
             try {
               const rpcError: JSONRPCResponseError = {
                 code: errors.JSONRPCResponseErrorCode.RPCRemote,
-                message: e.message,
+                message: composeErrorMessage(e),
                 data: this.fromError(e),
               };
               const rpcErrorMessage: JSONRPCResponseFailed = {
@@ -599,7 +632,7 @@ class RPCServer {
         try {
           const rpcError: JSONRPCResponseError = {
             code: errors.JSONRPCResponseErrorCode.RPCRemote,
-            message: e.message,
+            message: composeErrorMessage(e),
             data: this.fromError(e),
           };
           const rpcErrorMessage: JSONRPCResponseFailed = {
