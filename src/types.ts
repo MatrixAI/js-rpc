@@ -130,11 +130,12 @@ type JSONRPCRequestMetadata = Partial<{
 type JSONRPCRequestParams<
   T extends JSONObject = JSONObject,
   M extends JSONObject = JSONObject,
-> = {
-  metadata?: JSONObject &
-    JSONRPCRequestMetadata &
-    Omit<T['metadata'] & M, keyof JSONRPCRequestMetadata>;
-} & Omit<T, 'metadata'>;
+> = T & {
+  metadata?: JSONRPCResponseMetadata &
+    M &
+    (T extends { metadata: infer U } ? U : JSONObject) &
+    JSONObject;
+};
 
 type JSONRPCResponseMetadata = Partial<{
   timeout: number | null;
@@ -150,11 +151,12 @@ type JSONRPCResponseMetadata = Partial<{
 type JSONRPCResponseResult<
   T extends JSONObject = JSONObject,
   M extends JSONObject = JSONObject,
-> = {
-  metadata?: JSONObject &
-    JSONRPCResponseMetadata &
-    Omit<T['metadata'] & M, keyof JSONRPCResponseMetadata>;
-} & Omit<T, 'metadata'>;
+> = T & {
+  metadata?: JSONRPCResponseMetadata &
+    M &
+    (T extends { metadata: infer U } ? U : JSONObject) &
+    JSONObject;
+};
 
 /**
  * This is a JSON RPC error object, it encodes the error data for the JSONRPCResponseFailed object.
