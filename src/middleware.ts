@@ -62,6 +62,81 @@ function binaryToJsonMessageStream<T extends JSONRPCMessage>(
 }
 
 /**
+ * This function is a factory to create a TransformStream that will
+ * transform a `Uint8Array` stream to a stream containing the JSON header
+ * message and the rest of the data in `Uint8Array` format.
+ * The header message will be validated with the provided messageParser, this
+ * also infers the type of the stream output.
+ * @param messageParser - Validates the JSONRPC messages, so you can select for a
+ *  specific type of message
+ * @param bufferByteLimit - sets the number of bytes buffered before throwing an
+ *  error. This is used to avoid infinitely buffering the input.
+ */
+function binaryToJsonHeaderMessageStream<T extends JSONRPCMessage>(
+  messageParser: (message: unknown) => T,
+  bufferByteLimit: number = 1024 * 1024,
+): TransformStream<Uint8Array, T | Uint8Array> {
+  const parser = new JSONParser({
+    separator: '',
+    paths: ['$'],
+  });
+  let bytesWritten: number = 0;
+  let accumulator = Buffer.alloc(0);
+  let rawStream = false;
+  let parserEnded = false;
+
+  const cleanUp = async () => {
+    // Avoid potential race conditions by allowing parser to end first
+    const waitP = utils.promise();
+    parser.onEnd = () => waitP.resolveP();
+    parser.end();
+    await waitP.p;
+  };
+
+  return new TransformStream<Uint8Array, T | Uint8Array>({
+    flush: async () => {
+      if (!parserEnded) await cleanUp();
+    },
+    start: (controller) => {
+      parser.onValue = async (value) => {
+        // Enqueue the regular JSON message
+        const jsonMessage = messageParser(value.value);
+        controller.enqueue(jsonMessage);
+        // Remove the header message from the accumulated data
+        const headerLength = Buffer.from(
+          JSON.stringify(jsonMessage),
+        ).byteLength;
+        accumulator = accumulator.subarray(headerLength);
+        if (accumulator.length > 0) controller.enqueue(accumulator);
+        // Set system state
+        bytesWritten = 0;
+        rawStream = true;
+        await cleanUp();
+        parserEnded = true;
+      };
+    },
+    transform: (chunk, controller) => {
+      try {
+        bytesWritten += chunk.byteLength;
+        if (rawStream) {
+          // Send raw binary data directly
+          controller.enqueue(chunk);
+        } else {
+          // Prepare the data to be parsed to JSON
+          accumulator = Buffer.concat([accumulator, chunk]);
+          parser.write(chunk);
+        }
+      } catch (e) {
+        throw new rpcErrors.ErrorRPCParse(undefined, { cause: e });
+      }
+      if (bytesWritten > bufferByteLimit) {
+        throw new rpcErrors.ErrorRPCMessageLength();
+      }
+    },
+  });
+}
+
+/**
  * This function is a factory for a TransformStream that will transform
  * JsonRPCMessages into the `Uint8Array` form. This is used for the stream
  * output.
@@ -270,6 +345,7 @@ const defaultClientMiddlewareWrapper = (
 
 export {
   binaryToJsonMessageStream,
+  binaryToJsonHeaderMessageStream,
   jsonMessageToBinaryStream,
   timeoutMiddlewareClient,
   timeoutMiddlewareServer,

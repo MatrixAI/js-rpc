@@ -27,8 +27,8 @@ import UnaryHandler from '@/handlers/UnaryHandler';
 import ClientHandler from '@/handlers/ClientHandler';
 import * as rpcTestUtils from './utils';
 
-describe(`${RPCServer.name}`, () => {
-  const logger = new Logger(`${RPCServer.name} Test`, LogLevel.WARN, [
+describe('RPCServer', () => {
+  const logger = new Logger('RPCServer Test', LogLevel.WARN, [
     new StreamHandler(),
   ]);
   const idGen: IdGen = () => Promise.resolve(null);
@@ -58,423 +58,358 @@ describe(`${RPCServer.name}`, () => {
       data: rpcTestUtils.safeJsonValueArb,
     }),
   );
-  test.prop(
-    {
-      messages: specificMessageArb,
-    },
-    { numRuns: 1 },
-  )('can stream data with raw duplex stream handler', async ({ messages }) => {
-    const stream = rpcTestUtils
-      .messagesToReadableStream(messages)
-      .pipeThrough(rpcTestUtils.binaryStreamToSnippedStream([4, 7, 13, 2, 6]));
-    class TestHandler extends RawHandler<ContainerType> {
-      public handle = async (
-        input: [JSONRPCRequest, ReadableStream<Uint8Array>],
-        _cancel: (reason?: any) => void,
-        _meta: Record<string, JSONValue> | undefined,
-        _ctx: ContextTimed,
-      ): Promise<[JSONRPCResponseResult, ReadableStream<Uint8Array>]> => {
-        for await (const _ of input[1]) {
-          // No touch, only consume
-        }
-        const readableStream = new ReadableStream<Uint8Array>({
-          start: (controller) => {
-            controller.enqueue(Buffer.from('hello world!'));
-            controller.close();
-          },
-        });
-        return Promise.resolve([{}, readableStream]);
-      };
-    }
-
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-    });
-    await rpcServer.start({
-      manifest: {
-        testMethod: new TestHandler({}),
-      },
-    });
-    const [outputResult, outputStream] = rpcTestUtils.streamToArray();
-    const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
-      cancel: () => {},
-      readable: stream,
-      writable: outputStream,
-    };
-    rpcServer.handleStream(readWriteStream);
-    await outputResult;
-    await rpcServer.stop({ force: true });
-  });
-  test.prop({
-    messages: specificMessageArb,
-  })('can stream data with duplex stream handler', async ({ messages }) => {
-    const stream = rpcTestUtils.messagesToReadableStream(messages);
-    class TestMethod extends DuplexHandler {
-      public handle = async function* (
-        input: AsyncGenerator<JSONRPCRequestParams>,
-        _cancel: (reason?: any) => void,
-        _meta: Record<string, JSONValue> | undefined,
-        _ctx: ContextTimed,
-      ): AsyncGenerator<JSONRPCResponseResult> {
-        // Yield only the first value
-        const result = await input.next();
-        if (!result.done) yield result.value;
-        await input.return(undefined);
-      };
-    }
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-    });
-    await rpcServer.start({
-      manifest: {
-        testMethod: new TestMethod({}),
-      },
-    });
-    const [outputResult, outputStream] = rpcTestUtils.streamToArray();
-    const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
-      cancel: () => {},
-      readable: stream,
-      writable: outputStream,
-    };
-    rpcServer.handleStream(readWriteStream);
-    await outputResult;
-    await rpcServer.stop({ force: true });
-  });
-  test.prop({
-    messages: specificMessageArb,
-  })('can stream data with client stream handler', async ({ messages }) => {
-    const stream = rpcTestUtils.messagesToReadableStream(messages);
-    class TestMethod extends ClientHandler {
-      public handle = async (
-        input: AsyncGenerator<JSONRPCRequestParams<{ value: number }>>,
-        _cancel: (reason?: any) => void,
-        _meta: Record<string, JSONValue> | undefined,
-        _ctx: ContextTimed,
-      ): Promise<JSONRPCResponseResult<{ value: number }>> => {
-        let count = 0;
-        for await (const _ of input) {
-          count += 1;
-        }
-        return { value: count };
-      };
-    }
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-    });
-    await rpcServer.start({
-      manifest: {
-        testMethod: new TestMethod({}),
-      },
-    });
-    const [outputResult, outputStream] = rpcTestUtils.streamToArray();
-    const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
-      cancel: () => {},
-      readable: stream,
-      writable: outputStream,
-    };
-    rpcServer.handleStream(readWriteStream);
-    await outputResult;
-    await rpcServer.stop({ force: true });
-  });
-  test.prop({
-    messages: singleNumberMessageArb,
-  })('can stream data with server stream handler', async ({ messages }) => {
-    const stream = rpcTestUtils.messagesToReadableStream(messages);
-    class TestMethod extends ServerHandler<
-      ContainerType,
-      JSONRPCRequestParams,
-      JSONRPCResponseResult
-    > {
-      public handle = async function* (
-        input: JSONRPCRequestParams,
-      ): AsyncGenerator<JSONRPCResponseResult> {
-        const number = (input.value as number) ?? 0;
-        for (let i = 0; i < number; i++) {
-          yield { value: i };
-        }
-      };
-    }
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-    });
-    await rpcServer.start({
-      manifest: {
-        testMethod: new TestMethod({}),
-      },
-    });
-    const [outputResult, outputStream] = rpcTestUtils.streamToArray();
-    const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
-      cancel: () => {},
-      readable: stream,
-      writable: outputStream,
-    };
-    rpcServer.handleStream(readWriteStream);
-    await outputResult;
-    await rpcServer.stop({ force: true });
-  });
-  test.prop({
-    messages: specificMessageArb,
-  })('can stream data with server stream handler', async ({ messages }) => {
-    const stream = rpcTestUtils.messagesToReadableStream(messages);
-    class TestMethod extends UnaryHandler {
-      public handle = async (
-        input: JSONRPCRequestParams,
-      ): Promise<JSONRPCResponseResult> => {
-        return input;
-      };
-    }
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-    });
-    await rpcServer.start({
-      manifest: {
-        testMethod: new TestMethod({}),
-      },
-    });
-    const [outputResult, outputStream] = rpcTestUtils.streamToArray();
-    const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
-      cancel: () => {},
-      readable: stream,
-      writable: outputStream,
-    };
-    rpcServer.handleStream(readWriteStream);
-    await outputResult;
-    await rpcServer.stop({ force: true });
-  });
-  test.prop({
-    messages: specificMessageArb,
-  })('handler is provided with container', async ({ messages }) => {
-    const stream = rpcTestUtils.messagesToReadableStream(messages);
-    const container = {
-      a: Symbol('a'),
-      B: Symbol('b'),
-      C: Symbol('c'),
-    };
-    class TestMethod extends DuplexHandler<typeof container> {
-      public handle = async function* (
-        input: AsyncGenerator<JSONRPCRequestParams>,
-        _cancel: (reason?: any) => void,
-        _meta: Record<string, JSONValue> | undefined,
-        _ctx: ContextTimed,
-      ): AsyncGenerator<JSONRPCResponseResult> {
-        expect(this.container).toBe(container);
-        for await (const val of input) {
-          yield val;
-        }
-      };
-    }
-
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-    });
-    await rpcServer.start({
-      manifest: {
-        testMethod: new TestMethod(container),
-      },
-    });
-    const [outputResult, outputStream] = rpcTestUtils.streamToArray();
-    const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
-      cancel: () => {},
-      readable: stream,
-      writable: outputStream,
-    };
-    rpcServer.handleStream(readWriteStream);
-    await outputResult;
-    await rpcServer.stop({ force: true });
-  });
-  test.prop({
-    messages: specificMessageArb,
-  })('handler is provided with connectionInfo', async ({ messages }) => {
-    const stream = rpcTestUtils.messagesToReadableStream(messages);
-    const meta = {
-      localHost: 'hostA',
-      localPort: 12341,
-      remoteCertificates: [],
-      remoteHost: 'hostA',
-      remotePort: 12341,
-    };
-    let handledMeta: Record<string, JSONValue> | undefined = undefined;
-    class TestMethod extends DuplexHandler {
-      public handle = async function* (
-        input: AsyncGenerator<JSONRPCRequestParams>,
-        _cancel: (reason?: any) => void,
-        meta: Record<string, JSONValue> | undefined,
-        _ctx: ContextTimed,
-      ): AsyncGenerator<JSONRPCResponseResult> {
-        handledMeta = meta;
-        for await (const val of input) {
-          yield val;
-        }
-      };
-    }
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-    });
-    await rpcServer.start({
-      manifest: {
-        testMethod: new TestMethod({}),
-      },
-    });
-    const [outputResult, outputStream] = rpcTestUtils.streamToArray();
-    const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
-      cancel: () => {},
-      meta,
-      readable: stream,
-      writable: outputStream,
-    };
-    rpcServer.handleStream(readWriteStream);
-    await outputResult;
-    await rpcServer.stop({ force: true });
-    expect(handledMeta).toBe(meta);
-  });
-  test.prop({
-    messages: specificMessageArb,
-  })('handler can be aborted', async ({ messages }) => {
-    const stream = rpcTestUtils.messagesToReadableStream(messages);
-    class TestMethod extends DuplexHandler {
-      public handle = async function* (
-        input: AsyncGenerator<JSONRPCRequestParams>,
-        _cancel: (reason?: any) => void,
-        _meta: Record<string, JSONValue> | undefined,
-        ctx: ContextTimed,
-      ): AsyncGenerator<JSONRPCResponseResult> {
-        for await (const val of input) {
-          if (ctx.signal.aborted) throw ctx.signal.reason;
-          yield val;
-        }
-      };
-    }
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-    });
-    await rpcServer.start({
-      manifest: {
-        testMethod: new TestMethod({}),
-      },
-    });
-    const [outputResult, outputStream] =
-      rpcTestUtils.streamToArray<Uint8Array>();
-    let activeStream: PromiseCancellable<void> | undefined = undefined;
-    const tapStream = rpcTestUtils.tapTransformStream<Uint8Array>(
-      async (_, iteration) => {
-        if (iteration === 2) {
-          // @ts-ignore: kidnap private property
-          const activeStreams = rpcServer.activeStreams.values();
-          for (const activeStream_ of activeStreams) {
-            activeStream = activeStream_;
-            activeStream_.cancel(Error('Some error'));
-          }
-        }
-      },
-    );
-    void tapStream.readable.pipeTo(outputStream).catch(() => {});
-    const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
-      cancel: () => {},
-      readable: stream,
-      writable: tapStream.writable,
-    };
-    rpcServer.handleStream(readWriteStream);
-    const result = await outputResult;
-    const lastMessage = result[result.length - 1];
-    expect(activeStream).toBeDefined();
-    await expect(activeStream!).toResolve();
-    expect(lastMessage).toBeDefined();
-    expect(() =>
-      rpcUtils.parseJSONRPCResponseFailed(JSON.parse(lastMessage.toString())),
-    ).not.toThrow();
-    await rpcServer.stop({ force: true });
-  });
-  test.prop({
-    messages: specificMessageArb,
-  })('handler yields nothing', async ({ messages }) => {
-    const stream = rpcTestUtils.messagesToReadableStream(messages);
-    class TestMethod extends DuplexHandler {
-      public handle = async function* (
-        input: AsyncGenerator<JSONRPCRequestParams>,
-        _cancel: (reason?: any) => void,
-        _meta: Record<string, JSONValue> | undefined,
-        _ctx: ContextTimed,
-      ): AsyncGenerator<JSONRPCResponseResult> {
-        for await (const _ of input) {
-          // Do nothing, just consume
-        }
-      };
-    }
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-    });
-    await rpcServer.start({
-      manifest: {
-        testMethod: new TestMethod({}),
-      },
-    });
-    const [outputResult, outputStream] = rpcTestUtils.streamToArray();
-    const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
-      cancel: () => {},
-      readable: stream,
-      writable: outputStream,
-    };
-    rpcServer.handleStream(readWriteStream);
-    await outputResult;
-    // We're just expecting no errors
-    await rpcServer.stop({ force: true });
-  });
-  test.prop({
-    messages: specificMessageArb,
-    error: rpcTestUtils.errorArb(rpcTestUtils.errorArb()),
-  })('should send error message', async ({ messages, error }) => {
-    const stream = rpcTestUtils.messagesToReadableStream(messages);
-    class TestMethod extends DuplexHandler {
-      public handle =
-        async function* (): AsyncGenerator<JSONRPCResponseResult> {
-          throw error;
+  test.prop({ messages: specificMessageArb }, { numRuns: 1 })(
+    'can stream data with raw duplex stream handler',
+    async ({ messages }) => {
+      const stream = rpcTestUtils
+        .messagesToReadableStream(messages)
+        .pipeThrough(
+          rpcTestUtils.binaryStreamToSnippedStream([4, 7, 13, 2, 6]),
+        );
+      class TestHandler extends RawHandler<ContainerType> {
+        public handle = async (
+          input: [JSONRPCRequest, ReadableStream<Uint8Array>],
+          _cancel: (reason?: any) => void,
+          _meta: Record<string, JSONValue> | undefined,
+          _ctx: ContextTimed,
+        ): Promise<[JSONRPCResponseResult, ReadableStream<Uint8Array>]> => {
+          // Consume values
+          for await (const _ of input[1]);
+          const readableStream = new ReadableStream<Uint8Array>({
+            start: (controller) => {
+              controller.enqueue(Buffer.from('hello world!'));
+              controller.close();
+            },
+          });
+          return Promise.resolve([{}, readableStream]);
         };
-    }
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-    });
-    await rpcServer.start({
-      manifest: {
-        testMethod: new TestMethod({}),
-      },
-    });
-    const {
-      p: errorEventP,
-      resolveP: resolveErrorEventP,
-      rejectP: rejectErrorEventP,
-    } = rpcUtils.promise<rpcEvents.RPCErrorEvent>();
-    rpcServer.addEventListener('error', (event: rpcEvents.RPCErrorEvent) => {
-      resolveErrorEventP(event);
-    });
-    const [outputResult, outputStream] = rpcTestUtils.streamToArray();
-    const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
-      cancel: () => {},
-      readable: stream,
-      writable: outputStream,
-    };
-    rpcServer.handleStream(readWriteStream);
-    const rawErrorMessage = (await outputResult)[0]!.toString();
-    const errorMessage = JSON.parse(rawErrorMessage);
-    expect(errorMessage.error.message).toEqual(error.message);
-    rejectErrorEventP(Error('Never received error event'));
-    await expect(errorEventP).toReject();
-    await rpcServer.stop({ force: true });
-  });
+      }
+      const rpcServer = new RPCServer({ logger, idGen });
+      await rpcServer.start({
+        manifest: {
+          testMethod: new TestHandler({}),
+        },
+      });
+      const [outputResult, outputStream] = rpcTestUtils.streamToArray();
+      const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
+        cancel: () => {},
+        readable: stream,
+        writable: outputStream,
+      };
+      rpcServer.handleStream(readWriteStream);
+      await outputResult;
+      await rpcServer.stop({ force: true });
+    },
+  );
+  test.prop({ messages: specificMessageArb })(
+    'can stream data with duplex stream handler',
+    async ({ messages }) => {
+      const stream = rpcTestUtils.messagesToReadableStream(messages);
+      class TestMethod extends DuplexHandler {
+        public handle = async function* (
+          input: AsyncGenerator<JSONRPCRequestParams>,
+          _cancel: (reason?: any) => void,
+          _meta: Record<string, JSONValue> | undefined,
+          _ctx: ContextTimed,
+        ): AsyncGenerator<JSONRPCResponseResult> {
+          // Yield only the first value
+          const result = await input.next();
+          if (!result.done) yield result.value;
+          await input.return(undefined);
+        };
+      }
+      const rpcServer = new RPCServer({ logger, idGen });
+      await rpcServer.start({
+        manifest: {
+          testMethod: new TestMethod({}),
+        },
+      });
+      const [outputResult, outputStream] = rpcTestUtils.streamToArray();
+      const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
+        cancel: () => {},
+        readable: stream,
+        writable: outputStream,
+      };
+      rpcServer.handleStream(readWriteStream);
+      await outputResult;
+      await rpcServer.stop({ force: true });
+    },
+  );
+  test.prop({ messages: specificMessageArb })(
+    'can stream data with client stream handler',
+    async ({ messages }) => {
+      const stream = rpcTestUtils.messagesToReadableStream(messages);
+      class TestMethod extends ClientHandler {
+        public handle = async (
+          input: AsyncGenerator<JSONRPCRequestParams<{ value: number }>>,
+          _cancel: (reason?: any) => void,
+          _meta: Record<string, JSONValue> | undefined,
+          _ctx: ContextTimed,
+        ): Promise<JSONRPCResponseResult<{ value: number }>> => {
+          let count = 0;
+          for await (const _ of input) {
+            count += 1;
+          }
+          return { value: count };
+        };
+      }
+      const rpcServer = new RPCServer({ logger, idGen });
+      await rpcServer.start({
+        manifest: {
+          testMethod: new TestMethod({}),
+        },
+      });
+      const [outputResult, outputStream] = rpcTestUtils.streamToArray();
+      const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
+        cancel: () => {},
+        readable: stream,
+        writable: outputStream,
+      };
+      rpcServer.handleStream(readWriteStream);
+      await outputResult;
+      await rpcServer.stop({ force: true });
+    },
+  );
+  test.prop({ messages: singleNumberMessageArb })(
+    'can stream data with server stream handler',
+    async ({ messages }) => {
+      const stream = rpcTestUtils.messagesToReadableStream(messages);
+      class TestMethod extends ServerHandler<
+        ContainerType,
+        JSONRPCRequestParams,
+        JSONRPCResponseResult
+      > {
+        public handle = async function* (
+          input: JSONRPCRequestParams,
+        ): AsyncGenerator<JSONRPCResponseResult> {
+          const number = (input.value as number) ?? 0;
+          for (let i = 0; i < number; i++) {
+            yield { value: i };
+          }
+        };
+      }
+      const rpcServer = new RPCServer({ logger, idGen });
+      await rpcServer.start({
+        manifest: {
+          testMethod: new TestMethod({}),
+        },
+      });
+      const [outputResult, outputStream] = rpcTestUtils.streamToArray();
+      const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
+        cancel: () => {},
+        readable: stream,
+        writable: outputStream,
+      };
+      rpcServer.handleStream(readWriteStream);
+      await outputResult;
+      await rpcServer.stop({ force: true });
+    },
+  );
+  test.prop({ messages: specificMessageArb })(
+    'can stream data with unary call handler',
+    async ({ messages }) => {
+      const stream = rpcTestUtils.messagesToReadableStream(messages);
+      class TestMethod extends UnaryHandler {
+        public handle = async (
+          input: JSONRPCRequestParams,
+        ): Promise<JSONRPCResponseResult> => {
+          return input;
+        };
+      }
+      const rpcServer = new RPCServer({ logger, idGen });
+      await rpcServer.start({
+        manifest: {
+          testMethod: new TestMethod({}),
+        },
+      });
+      const [outputResult, outputStream] = rpcTestUtils.streamToArray();
+      const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
+        cancel: () => {},
+        readable: stream,
+        writable: outputStream,
+      };
+      rpcServer.handleStream(readWriteStream);
+      await outputResult;
+      await rpcServer.stop({ force: true });
+    },
+  );
+  test.prop({ messages: specificMessageArb })(
+    'handler should be provided with container',
+    async ({ messages }) => {
+      const stream = rpcTestUtils.messagesToReadableStream(messages);
+      const container = {
+        a: Symbol('a'),
+        B: Symbol('b'),
+        C: Symbol('c'),
+      };
+      class TestMethod extends DuplexHandler<typeof container> {
+        public handle = async function* (
+          input: AsyncGenerator<JSONRPCRequestParams>,
+          _cancel: (reason?: any) => void,
+          _meta: Record<string, JSONValue> | undefined,
+          _ctx: ContextTimed,
+        ): AsyncGenerator<JSONRPCResponseResult> {
+          expect(this.container).toBe(container);
+          for await (const val of input) {
+            yield val;
+          }
+        };
+      }
+      const rpcServer = new RPCServer({ logger, idGen });
+      await rpcServer.start({
+        manifest: {
+          testMethod: new TestMethod(container),
+        },
+      });
+      const [outputResult, outputStream] = rpcTestUtils.streamToArray();
+      const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
+        cancel: () => {},
+        readable: stream,
+        writable: outputStream,
+      };
+      rpcServer.handleStream(readWriteStream);
+      await outputResult;
+      await rpcServer.stop({ force: true });
+    },
+  );
+  test.prop({ messages: specificMessageArb })(
+    'handler should be provided with connectionInfo',
+    async ({ messages }) => {
+      const stream = rpcTestUtils.messagesToReadableStream(messages);
+      const meta = {
+        localHost: 'hostA',
+        localPort: 12341,
+        remoteCertificates: [],
+        remoteHost: 'hostA',
+        remotePort: 12341,
+      };
+      let handledMeta: Record<string, JSONValue> | undefined = undefined;
+      class TestMethod extends DuplexHandler {
+        public handle = async function* (
+          input: AsyncGenerator<JSONRPCRequestParams>,
+          _cancel: (reason?: any) => void,
+          meta: Record<string, JSONValue> | undefined,
+          _ctx: ContextTimed,
+        ): AsyncGenerator<JSONRPCResponseResult> {
+          handledMeta = meta;
+          for await (const val of input) {
+            yield val;
+          }
+        };
+      }
+      const rpcServer = new RPCServer({ logger, idGen });
+      await rpcServer.start({
+        manifest: {
+          testMethod: new TestMethod({}),
+        },
+      });
+      const [outputResult, outputStream] = rpcTestUtils.streamToArray();
+      const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
+        cancel: () => {},
+        meta,
+        readable: stream,
+        writable: outputStream,
+      };
+      rpcServer.handleStream(readWriteStream);
+      await outputResult;
+      await rpcServer.stop({ force: true });
+      expect(handledMeta).toBe(meta);
+    },
+  );
+  test.prop({ messages: specificMessageArb })(
+    'handler can be aborted',
+    async ({ messages }) => {
+      const stream = rpcTestUtils.messagesToReadableStream(messages);
+      class TestMethod extends DuplexHandler {
+        public handle = async function* (
+          input: AsyncGenerator<JSONRPCRequestParams>,
+          _cancel: (reason?: any) => void,
+          _meta: Record<string, JSONValue> | undefined,
+          ctx: ContextTimed,
+        ): AsyncGenerator<JSONRPCResponseResult> {
+          for await (const val of input) {
+            if (ctx.signal.aborted) throw ctx.signal.reason;
+            yield val;
+          }
+        };
+      }
+      const rpcServer = new RPCServer({ logger, idGen });
+      await rpcServer.start({
+        manifest: {
+          testMethod: new TestMethod({}),
+        },
+      });
+      const [outputResult, outputStream] =
+        rpcTestUtils.streamToArray<Uint8Array>();
+      let activeStream: PromiseCancellable<void> | undefined = undefined;
+      const tapStream = rpcTestUtils.tapTransformStream<Uint8Array>(
+        async (_, iteration) => {
+          if (iteration === 2) {
+            // @ts-ignore: kidnap private property
+            const activeStreams = rpcServer.activeStreams.values();
+            for (const activeStream_ of activeStreams) {
+              activeStream = activeStream_;
+              activeStream_.cancel(Error('Some error'));
+            }
+          }
+        },
+      );
+      void tapStream.readable.pipeTo(outputStream).catch(() => {});
+      const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
+        cancel: () => {},
+        readable: stream,
+        writable: tapStream.writable,
+      };
+      rpcServer.handleStream(readWriteStream);
+      const result = await outputResult;
+      const lastMessage = result[result.length - 1];
+      expect(activeStream).toBeDefined();
+      await expect(activeStream!).toResolve();
+      expect(lastMessage).toBeDefined();
+      expect(() =>
+        rpcUtils.parseJSONRPCResponseFailed(JSON.parse(lastMessage.toString())),
+      ).not.toThrow();
+      await rpcServer.stop({ force: true });
+    },
+  );
+  test.prop({ messages: specificMessageArb })(
+    'handler can yield nothing',
+    async ({ messages }) => {
+      const stream = rpcTestUtils.messagesToReadableStream(messages);
+      class TestMethod extends DuplexHandler {
+        public handle = async function* (
+          input: AsyncGenerator<JSONRPCRequestParams>,
+          _cancel: (reason?: any) => void,
+          _meta: Record<string, JSONValue> | undefined,
+          _ctx: ContextTimed,
+        ): AsyncGenerator<JSONRPCResponseResult> {
+          // Consume values
+          for await (const _ of input);
+        };
+      }
+      const rpcServer = new RPCServer({ logger, idGen });
+      await rpcServer.start({
+        manifest: {
+          testMethod: new TestMethod({}),
+        },
+      });
+      const [outputResult, outputStream] = rpcTestUtils.streamToArray();
+      const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
+        cancel: () => {},
+        readable: stream,
+        writable: outputStream,
+      };
+      rpcServer.handleStream(readWriteStream);
+      await outputResult;
+      // We're just expecting no errors
+      await rpcServer.stop({ force: true });
+    },
+  );
   test.prop({
     messages: specificMessageArb,
     error: rpcTestUtils.errorArb(rpcTestUtils.errorArb()),
   })(
-    'should send error message with sensitive',
+    'handler should be able to send error messages',
     async ({ messages, error }) => {
       const stream = rpcTestUtils.messagesToReadableStream(messages);
       class TestMethod extends DuplexHandler {
@@ -483,11 +418,7 @@ describe(`${RPCServer.name}`, () => {
             throw error;
           };
       }
-
-      const rpcServer = new RPCServer({
-        logger,
-        idGen,
-      });
+      const rpcServer = new RPCServer({ logger, idGen });
       await rpcServer.start({
         manifest: {
           testMethod: new TestMethod({}),
@@ -498,8 +429,8 @@ describe(`${RPCServer.name}`, () => {
         resolveP: resolveErrorEventP,
         rejectP: rejectErrorEventP,
       } = rpcUtils.promise<rpcEvents.RPCErrorEvent>();
-      rpcServer.addEventListener('error', (thing: rpcEvents.RPCErrorEvent) => {
-        resolveErrorEventP(thing);
+      rpcServer.addEventListener('error', (event: rpcEvents.RPCErrorEvent) => {
+        resolveErrorEventP(event);
       });
       const [outputResult, outputStream] = rpcTestUtils.streamToArray();
       const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
@@ -516,337 +447,327 @@ describe(`${RPCServer.name}`, () => {
       await rpcServer.stop({ force: true });
     },
   );
-  test.prop(
-    {
-      messages: specificMessageArb,
-    },
-    { numRuns: 1 },
-  )('should emit stream error if input stream fails', async ({ messages }) => {
-    const handlerEndedProm = promise();
-    class TestMethod extends DuplexHandler {
-      public handle = async function* (
-        input: AsyncGenerator<JSONRPCRequestParams>,
-      ): AsyncGenerator<JSONRPCResponseResult> {
-        try {
-          for await (const _ of input) {
+  test.prop({ messages: specificMessageArb }, { numRuns: 1 })(
+    'should emit a stream error if the input stream fails',
+    async ({ messages }) => {
+      const handlerEndedProm = promise();
+      class TestMethod extends DuplexHandler {
+        public handle = async function* (
+          input: AsyncGenerator<JSONRPCRequestParams>,
+        ): AsyncGenerator<JSONRPCResponseResult> {
+          try {
             // Consume but don't yield anything
+            for await (const _ of input);
+          } finally {
+            handlerEndedProm.resolveP();
           }
-        } finally {
-          handlerEndedProm.resolveP();
-        }
+        };
+      }
+      const rpcServer = new RPCServer({ logger, idGen });
+      await rpcServer.start({
+        manifest: {
+          testMethod: new TestMethod({}),
+        },
+      });
+      const passThroughStreamIn = new TransformStream<Uint8Array, Uint8Array>();
+      const [outputResult, outputStream] = rpcTestUtils.streamToArray<Buffer>();
+      const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
+        cancel: () => {},
+        readable: passThroughStreamIn.readable,
+        writable: outputStream,
       };
-    }
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-    });
-    await rpcServer.start({
-      manifest: {
-        testMethod: new TestMethod({}),
-      },
-    });
-    const passThroughStreamIn = new TransformStream<Uint8Array, Uint8Array>();
-    const [outputResult, outputStream] = rpcTestUtils.streamToArray<Buffer>();
-    const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
-      cancel: () => {},
-      readable: passThroughStreamIn.readable,
-      writable: outputStream,
-    };
-    rpcServer.handleStream(readWriteStream);
-    const writer = passThroughStreamIn.writable.getWriter();
-    // Write messages
-    for (const message of messages) {
-      await writer.write(Buffer.from(JSON.stringify(message)));
-    }
-    // Abort stream
-    const writerReason = new Error('writerAbort');
-    await writer.abort(writerReason);
-    // We should get an error RPC message
-    await expect(outputResult).toResolve();
-    const errorMessage = JSON.parse((await outputResult)[0].toString());
-    // Parse without error
-    rpcUtils.parseJSONRPCResponseFailed(errorMessage);
-    // Check that the handler was cleaned up.
-    await expect(handlerEndedProm.p).toResolve();
-    await rpcServer.stop({ force: true });
-  });
-  test.prop(
-    {
-      messages: specificMessageArb,
+      rpcServer.handleStream(readWriteStream);
+      const writer = passThroughStreamIn.writable.getWriter();
+      // Write messages
+      for (const message of messages) {
+        await writer.write(Buffer.from(JSON.stringify(message)));
+      }
+      // Abort stream
+      const writerReason = new Error('writerAbort');
+      await writer.abort(writerReason);
+      // We should get an error RPC message
+      await expect(outputResult).toResolve();
+      const errorMessage = JSON.parse((await outputResult)[0].toString());
+      // Parse without error
+      rpcUtils.parseJSONRPCResponseFailed(errorMessage);
+      // Check that the handler was cleaned up.
+      await expect(handlerEndedProm.p).toResolve();
+      await rpcServer.stop({ force: true });
     },
-    { numRuns: 1 },
-  )('should emit stream error if output stream fails', async ({ messages }) => {
-    const handlerEndedProm = promise();
-    const ctxProm = promise<ContextTimed>();
-    class TestMethod extends DuplexHandler {
-      public handle = async function* (
-        input: AsyncGenerator<JSONRPCRequestParams>,
-        _cancel: (reason?: any) => void,
-        _meta: Record<string, JSONValue> | undefined,
-        ctx: ContextTimed,
-      ): AsyncGenerator<JSONRPCResponseResult> {
-        ctxProm.resolveP(ctx);
-        // Echo input
-        try {
-          yield* input;
-        } finally {
-          handlerEndedProm.resolveP();
-        }
+  );
+  test.prop({ messages: specificMessageArb }, { numRuns: 1 })(
+    'should emit a stream error if the output stream fails',
+    async ({ messages }) => {
+      const handlerEndedProm = promise();
+      const ctxProm = promise<ContextTimed>();
+      class TestMethod extends DuplexHandler {
+        public handle = async function* (
+          input: AsyncGenerator<JSONRPCRequestParams>,
+          _cancel: (reason?: any) => void,
+          _meta: Record<string, JSONValue> | undefined,
+          ctx: ContextTimed,
+        ): AsyncGenerator<JSONRPCResponseResult> {
+          ctxProm.resolveP(ctx);
+          // Echo input
+          try {
+            yield* input;
+          } finally {
+            handlerEndedProm.resolveP();
+          }
+        };
+      }
+      const rpcServer = new RPCServer({ logger, idGen });
+      await rpcServer.start({
+        manifest: {
+          testMethod: new TestMethod({}),
+        },
+      });
+      const { p: errorEventP, resolveP: resolveErrorEventP } =
+        rpcUtils.promise<rpcEvents.RPCErrorEvent>();
+      rpcServer.addEventListener(
+        'error',
+        (rpcErrorEvent: rpcEvents.RPCErrorEvent) => {
+          resolveErrorEventP(rpcErrorEvent);
+        },
+      );
+      const passThroughStreamIn = new TransformStream<Uint8Array, Uint8Array>();
+      const passThroughStreamOut = new TransformStream<
+        Uint8Array,
+        Uint8Array
+      >();
+      const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
+        cancel: () => {},
+        readable: passThroughStreamIn.readable,
+        writable: passThroughStreamOut.writable,
       };
-    }
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-    });
-    await rpcServer.start({
-      manifest: {
-        testMethod: new TestMethod({}),
-      },
-    });
-    const { p: errorEventP, resolveP: resolveErrorEventP } =
-      rpcUtils.promise<rpcEvents.RPCErrorEvent>();
-    rpcServer.addEventListener(
-      'error',
-      (rpcErrorEvent: rpcEvents.RPCErrorEvent) => {
-        resolveErrorEventP(rpcErrorEvent);
-      },
-    );
-    const passThroughStreamIn = new TransformStream<Uint8Array, Uint8Array>();
-    const passThroughStreamOut = new TransformStream<Uint8Array, Uint8Array>();
-    const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
-      cancel: () => {},
-      readable: passThroughStreamIn.readable,
-      writable: passThroughStreamOut.writable,
-    };
-    rpcServer.handleStream(readWriteStream);
-    const writer = passThroughStreamIn.writable.getWriter();
-    const reader = passThroughStreamOut.readable.getReader();
-    // Write messages
-    for (const message of messages) {
-      await writer.write(Buffer.from(JSON.stringify(message)));
-      await reader.read();
-    }
-    // Abort stream
-    const readerReason = Symbol('readerAbort');
-    await reader.cancel(readerReason);
-    // We should get an error event
-    const event = await errorEventP;
-    await writer.close();
-    expect(event.detail).toBeInstanceOf(rpcErrors.ErrorRPCStreamEnded);
-    // Check that the handler was cleaned up.
-    await expect(handlerEndedProm.p).toResolve();
-    // Check that an abort signal happened
-    const ctx = await ctxProm.p;
-    expect(ctx.signal.aborted).toBeTrue();
-    expect(ctx.signal.reason).toBe(readerReason);
-    await rpcServer.stop({ force: true });
-  });
-  // Temporarily commenting out to allow the CI to make a release
-  // test.prop({
-  //   messages: specificMessageArb,
-  // })('forward middlewares', async ({ messages }) => {
-  //   const stream = rpcTestUtils.messagesToReadableStream(messages);
-  //   class TestMethod extends DuplexHandler {
-  //     public handle = async function* (
-  //       input: AsyncGenerator<JSONRPCRequestParams>,
-  //       _cancel: (reason?: any) => void,
-  //       _meta: Record<string, JSONValue> | undefined,
-  //       _ctx: ContextTimed,
-  //     ): AsyncGenerator<JSONRPCResponseResult> {
-  //       yield* input;
-  //     };
-  //   }
-  //   const middlewareFactory = rpcUtilsMiddleware.defaultServerMiddlewareWrapper(
-  //     () => {
-  //       return {
-  //         forward: new TransformStream({
-  //           transform: (chunk, controller) => {
-  //             chunk.params = { value: 1 };
-  //             controller.enqueue(chunk);
-  //           },
-  //         }),
-  //         reverse: new TransformStream(),
-  //       };
-  //     },
-  //   );
-  //   const rpcServer = new RPCServer({
-  //     middlewareFactory: middlewareFactory,
-  //     logger,
-  //     idGen,
-  //   });
-  //   await rpcServer.start({
-  //     manifest: {
-  //       testMethod: new TestMethod({}),
-  //     },
-  //   });
-  //   const [outputResult, outputStream] = rpcTestUtils.streamToArray();
-  //   const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
-  //     cancel: () => {},
-  //     readable: stream,
-  //     writable: outputStream,
-  //   };
-  //   rpcServer.handleStream(readWriteStream);
-  //   const out = await outputResult;
-  //   expect(out.map((v) => v!.toString())).toStrictEqual(
-  //     messages.map(() =>
-  //       JSON.stringify({
-  //         jsonrpc: '2.0',
-  //         result: { value: 1 },
-  //         id: null,
-  //       }),
-  //     ),
-  //   );
-  //   await rpcServer.stop({ force: true });
-  // });
-  // test.prop(
-  //   {
-  //     messages: specificMessageArb,
-  //   },
-  //   { numRuns: 1 },
-  // )('reverse middlewares', async ({ messages }) => {
-  //   const stream = rpcTestUtils.messagesToReadableStream(messages);
-  //   class TestMethod extends DuplexHandler {
-  //     public handle = async function* (
-  //       input: AsyncGenerator<JSONRPCRequestParams<{ value: number }>>,
-  //       _cancel: (reason?: any) => void,
-  //       _meta: Record<string, JSONValue> | undefined,
-  //       _ctx: ContextTimed,
-  //     ): AsyncGenerator<JSONRPCResponseResult<{ value: number }>> {
-  //       yield* input;
-  //     };
-  //   }
-  //   const middleware = rpcUtilsMiddleware.defaultServerMiddlewareWrapper(() => {
-  //     return {
-  //       forward: new TransformStream(),
-  //       reverse: new TransformStream({
-  //         transform: (chunk, controller) => {
-  //           if ('result' in chunk) chunk.result = { value: 1 };
-  //           controller.enqueue(chunk);
-  //         },
-  //       }),
-  //     };
-  //   });
-  //   const rpcServer = new RPCServer({
-  //     middlewareFactory: middleware,
-  //     logger,
-  //     idGen,
-  //   });
-  //   await rpcServer.start({
-  //     manifest: {
-  //       testMethod: new TestMethod({}),
-  //     },
-  //   });
-  //   const [outputResult, outputStream] = rpcTestUtils.streamToArray();
-  //   const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
-  //     cancel: () => {},
-  //     readable: stream,
-  //     writable: outputStream,
-  //   };
-  //   rpcServer.handleStream(readWriteStream);
-  //   const out = await outputResult;
-  //   expect(out.map((v) => v!.toString())).toStrictEqual(
-  //     messages.map(() =>
-  //       JSON.stringify({
-  //         jsonrpc: '2.0',
-  //         result: { value: 1 },
-  //         id: null,
-  //       }),
-  //     ),
-  //   );
-  //   await rpcServer.stop({ force: true });
-  // });
+      rpcServer.handleStream(readWriteStream);
+      const writer = passThroughStreamIn.writable.getWriter();
+      const reader = passThroughStreamOut.readable.getReader();
+      // Write messages
+      for (const message of messages) {
+        await writer.write(Buffer.from(JSON.stringify(message)));
+        await reader.read();
+      }
+      // Abort stream
+      const readerReason = Symbol('readerAbort');
+      await reader.cancel(readerReason);
+      // We should get an error event
+      const event = await errorEventP;
+      await writer.close();
+      expect(event.detail).toBeInstanceOf(rpcErrors.ErrorRPCStreamEnded);
+      // Check that the handler was cleaned up.
+      await expect(handlerEndedProm.p).toResolve();
+      // Check that an abort signal happened
+      const ctx = await ctxProm.p;
+      expect(ctx.signal.aborted).toBeTrue();
+      expect(ctx.signal.reason).toBe(readerReason);
+      await rpcServer.stop({ force: true });
+    },
+  );
+  test.prop({ messages: specificMessageArb })(
+    'message should pass through the forward middleware',
+    async ({ messages }) => {
+      const stream = rpcTestUtils.messagesToReadableStream(messages);
+      class TestMethod extends DuplexHandler {
+        public handle = async function* (
+          input: AsyncGenerator<JSONRPCRequestParams>,
+          _cancel: (reason?: any) => void,
+          _meta: Record<string, JSONValue> | undefined,
+          _ctx: ContextTimed,
+        ): AsyncGenerator<JSONRPCResponseResult> {
+          yield* input;
+        };
+      }
+      const middlewareFactory =
+        rpcUtilsMiddleware.defaultServerMiddlewareWrapper(() => {
+          return {
+            forward: new TransformStream({
+              transform: (chunk, controller) => {
+                chunk.params = { value: 1 };
+                controller.enqueue(chunk);
+              },
+            }),
+            reverse: new TransformStream(),
+          };
+        });
+      const rpcServer = new RPCServer({
+        middlewareFactory: middlewareFactory,
+        logger,
+        idGen,
+      });
+      await rpcServer.start({
+        manifest: {
+          testMethod: new TestMethod({}),
+        },
+      });
+      const [outputResult, outputStream] = rpcTestUtils.streamToArray();
+      const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
+        cancel: () => {},
+        readable: stream,
+        writable: outputStream,
+      };
+      rpcServer.handleStream(readWriteStream);
+      const out = await outputResult;
+      expect(out.map((v) => v!.toString())).toStrictEqual(
+        messages.map(() =>
+          JSON.stringify({
+            jsonrpc: '2.0',
+            result: { value: 1 },
+            id: null,
+          }),
+        ),
+      );
+      await rpcServer.stop({ force: true });
+    },
+  );
+  test.prop({ messages: specificMessageArb }, { numRuns: 1 })(
+    'message should pass through the reverse middleware',
+    async ({ messages }) => {
+      const stream = rpcTestUtils.messagesToReadableStream(messages);
+      class TestMethod extends DuplexHandler {
+        public handle = async function* (
+          input: AsyncGenerator<JSONRPCRequestParams<{ value: number }>>,
+          _cancel: (reason?: any) => void,
+          _meta: Record<string, JSONValue> | undefined,
+          _ctx: ContextTimed,
+        ): AsyncGenerator<JSONRPCResponseResult<{ value: number }>> {
+          yield* input;
+        };
+      }
+      const middleware = rpcUtilsMiddleware.defaultServerMiddlewareWrapper(
+        () => {
+          return {
+            forward: new TransformStream(),
+            reverse: new TransformStream({
+              transform: (chunk, controller) => {
+                if ('result' in chunk) chunk.result = { value: 1 };
+                controller.enqueue(chunk);
+              },
+            }),
+          };
+        },
+      );
+      const rpcServer = new RPCServer({
+        middlewareFactory: middleware,
+        logger,
+        idGen,
+      });
+      await rpcServer.start({
+        manifest: {
+          testMethod: new TestMethod({}),
+        },
+      });
+      const [outputResult, outputStream] = rpcTestUtils.streamToArray();
+      const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
+        cancel: () => {},
+        readable: stream,
+        writable: outputStream,
+      };
+      rpcServer.handleStream(readWriteStream);
+      const out = await outputResult;
+      expect(out.map((v) => v!.toString())).toStrictEqual(
+        messages.map(() =>
+          JSON.stringify({
+            jsonrpc: '2.0',
+            result: { value: 1 },
+            id: null,
+          }),
+        ),
+      );
+      await rpcServer.stop({ force: true });
+    },
+  );
   test.prop({
     message: invalidTokenMessageArb,
-  })('forward middleware authentication', async ({ message }) => {
-    const stream = rpcTestUtils.messagesToReadableStream([message]);
-    class TestMethod extends DuplexHandler {
-      public handle = async function* (
-        input: AsyncGenerator<JSONRPCRequestParams>,
-        _cancel: (reason?: any) => void,
-        _meta: Record<string, JSONValue> | undefined,
-        _ctx: ContextTimed,
-      ): AsyncGenerator<JSONRPCResponseResult> {
-        yield* input;
+  })(
+    'message should pass through authentication forward middleware',
+    async ({ message }) => {
+      const stream = rpcTestUtils.messagesToReadableStream([message]);
+      class TestMethod extends DuplexHandler {
+        public handle = async function* (
+          input: AsyncGenerator<JSONRPCRequestParams>,
+          _cancel: (reason?: any) => void,
+          _meta: Record<string, JSONValue> | undefined,
+          _ctx: ContextTimed,
+        ): AsyncGenerator<JSONRPCResponseResult> {
+          yield* input;
+        };
+      }
+      const middleware = rpcUtilsMiddleware.defaultServerMiddlewareWrapper(
+        () => {
+          let first = true;
+          let reverseController: TransformStreamDefaultController<JSONRPCResponse>;
+          return {
+            forward: new TransformStream<
+              JSONRPCRequest<TestType>,
+              JSONRPCRequest<TestType>
+            >({
+              transform: (chunk, controller) => {
+                if (first && chunk.params?.metadata?.token !== validToken) {
+                  reverseController.enqueue(failureMessage);
+                  // Closing streams early
+                  controller.terminate();
+                  reverseController.terminate();
+                }
+                first = false;
+                controller.enqueue(chunk);
+              },
+            }),
+            reverse: new TransformStream({
+              start: (controller) => {
+                // Kidnapping reverse controller
+                reverseController = controller;
+              },
+              transform: (chunk, controller) => {
+                controller.enqueue(chunk);
+              },
+            }),
+          };
+        },
+      );
+      const rpcServer = new RPCServer({
+        middlewareFactory: middleware,
+        logger,
+        idGen,
+      });
+      await rpcServer.start({
+        manifest: {
+          testMethod: new TestMethod({}),
+        },
+      });
+      const [outputResult, outputStream] = rpcTestUtils.streamToArray();
+      const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
+        cancel: () => {},
+        readable: stream,
+        writable: outputStream,
       };
-    }
-    const middleware = rpcUtilsMiddleware.defaultServerMiddlewareWrapper(() => {
-      let first = true;
-      let reverseController: TransformStreamDefaultController<JSONRPCResponse>;
-      return {
-        forward: new TransformStream<
-          JSONRPCRequest<TestType>,
-          JSONRPCRequest<TestType>
-        >({
-          transform: (chunk, controller) => {
-            if (first && chunk.params?.metadata?.token !== validToken) {
-              reverseController.enqueue(failureMessage);
-              // Closing streams early
-              controller.terminate();
-              reverseController.terminate();
-            }
-            first = false;
-            controller.enqueue(chunk);
-          },
-        }),
-        reverse: new TransformStream({
-          start: (controller) => {
-            // Kidnapping reverse controller
-            reverseController = controller;
-          },
-          transform: (chunk, controller) => {
-            controller.enqueue(chunk);
-          },
-        }),
+      type TestType = {
+        metadata: {
+          token: string;
+        };
+        data: JSONValue;
       };
-    });
-    const rpcServer = new RPCServer({
-      middlewareFactory: middleware,
-      logger,
-      idGen,
-    });
-    await rpcServer.start({
-      manifest: {
-        testMethod: new TestMethod({}),
-      },
-    });
-    const [outputResult, outputStream] = rpcTestUtils.streamToArray();
-    const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
-      cancel: () => {},
-      readable: stream,
-      writable: outputStream,
-    };
-    type TestType = {
-      metadata: {
-        token: string;
+      const failureMessage: JSONRPCResponseFailed = {
+        jsonrpc: '2.0',
+        id: null,
+        error: {
+          code: 1,
+          message: 'failure of some kind',
+        },
       };
-      data: JSONValue;
-    };
-    const failureMessage: JSONRPCResponseFailed = {
-      jsonrpc: '2.0',
-      id: null,
-      error: {
-        code: 1,
-        message: 'failure of some kind',
-      },
-    };
-    rpcServer.handleStream(readWriteStream);
-    expect((await outputResult).toString()).toEqual(
-      JSON.stringify(failureMessage),
-    );
-    await rpcServer.stop({ force: true });
-  });
+      rpcServer.handleStream(readWriteStream);
+      expect((await outputResult).toString()).toEqual(
+        JSON.stringify(failureMessage),
+      );
+      await rpcServer.stop({ force: true });
+    },
+  );
   test.prop({
     timeoutTime: fc.integer({ max: -1 }),
   })(
     'constructor should throw when passed a negative timeout',
     async ({ timeoutTime }) => {
-      const constructorF = () =>
-        new RPCServer({
-          timeoutTime,
-          logger,
-          idGen,
-        });
-
+      const constructorF = () => new RPCServer({ timeoutTime, logger, idGen });
       expect(constructorF).toThrow(rpcErrors.ErrorRPCInvalidTimeout);
     },
   );
@@ -857,7 +778,6 @@ describe(`${RPCServer.name}`, () => {
     async ({ timeoutTime }) => {
       const waitProm = promise();
       const ctxLongProm = promise<ContextTimed>();
-
       class TestMethodArbitraryTimeout extends UnaryHandler {
         timeout = timeoutTime;
         public handle = async (
@@ -871,11 +791,7 @@ describe(`${RPCServer.name}`, () => {
           return input;
         };
       }
-      const rpcServer = new RPCServer({
-        logger,
-        idGen,
-      });
-
+      const rpcServer = new RPCServer({ logger, idGen });
       await expect(
         rpcServer.start({
           manifest: {
@@ -885,11 +801,9 @@ describe(`${RPCServer.name}`, () => {
       ).rejects.toBeInstanceOf(rpcErrors.ErrorRPCInvalidHandlerTimeout);
     },
   );
-  test('timeout with default time after handler selected', async () => {
+  test('timeout with default time after a handler is selected', async () => {
     const ctxProm = promise<ContextTimed>();
-
     // Diagnostic log to indicate the start of the test
-
     class TestHandler extends RawHandler<ContainerType> {
       public handle = async (
         _input: [JSONRPCRequest, ReadableStream<Uint8Array>],
@@ -899,34 +813,26 @@ describe(`${RPCServer.name}`, () => {
       ): Promise<[JSONRPCResponseResult, ReadableStream<Uint8Array>]> => {
         return new Promise((resolve) => {
           ctxProm.resolveP(ctx);
-
           let controller: ReadableStreamController<Uint8Array>;
           const stream = new ReadableStream<Uint8Array>({
             start: (controller_) => {
               controller = controller_;
             },
           });
-
           ctx.signal.addEventListener('abort', () => {
             controller!.error(Error('ending'));
           });
-
           // Return something to fulfill the Promise type expectation.
           resolve([{}, stream]);
         });
       };
     }
-    const rpcServer = new RPCServer({
-      timeoutTime: 100,
-      logger,
-      idGen,
-    });
+    const rpcServer = new RPCServer({ logger, idGen, timeoutTime: 100 });
     await rpcServer.start({
       manifest: {
         testMethod: new TestHandler({}),
       },
     });
-
     const [outputResult, outputStream] = rpcTestUtils.streamToArray();
     const stream = rpcTestUtils.messagesToReadableStream([
       {
@@ -940,7 +846,6 @@ describe(`${RPCServer.name}`, () => {
         params: {},
       },
     ]);
-
     const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
       cancel: () => {},
       readable: stream,
@@ -952,26 +857,19 @@ describe(`${RPCServer.name}`, () => {
     await ctx.timer;
     expect(ctx.signal.reason).toBeInstanceOf(rpcErrors.ErrorRPCTimedOut);
     await expect(outputResult).toReject();
-
     await rpcServer.stop({ force: true });
   });
-  test('timeout with default time before handler selected', async () => {
-    const rpcServer = new RPCServer({
-      timeoutTime: 100,
-      logger,
-      idGen,
-    });
+  test('timeout with default time before a handler is selected', async () => {
+    const rpcServer = new RPCServer({ logger, idGen, timeoutTime: 100 });
     await rpcServer.start({
       manifest: {},
     });
     const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
       cancel: () => {},
       readable: new ReadableStream({
-        // Ignore
         cancel: () => {},
       }),
       writable: new WritableStream({
-        // Ignore
         abort: () => {},
       }),
     };
@@ -995,17 +893,12 @@ describe(`${RPCServer.name}`, () => {
         ctx: ContextTimed,
       ): AsyncGenerator<JSONRPCResponseResult<{ value: number }>> {
         contextProm.resolveP(ctx);
-        for await (const _ of input) {
-          // Do nothing
-        }
+        // Do nothing
+        for await (const _ of input);
         yield { value: 1 };
       };
     }
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-      timeoutTime: 1000,
-    });
+    const rpcServer = new RPCServer({ logger, idGen, timeoutTime: 1000 });
     await rpcServer.start({
       manifest: {
         testMethod: new TestHandler({}),
@@ -1048,9 +941,8 @@ describe(`${RPCServer.name}`, () => {
         return new Promise((resolve) => {
           ctxProm.resolveP(ctx);
           void (async () => {
-            for await (const _ of input[1]) {
-              // Do nothing, just consume
-            }
+            // Consume values
+            for await (const _ of input[1]);
           })();
           const readableStream = new ReadableStream<Uint8Array>({
             start: (controller) => {
@@ -1061,10 +953,7 @@ describe(`${RPCServer.name}`, () => {
         });
       };
     }
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-    });
+    const rpcServer = new RPCServer({ logger, idGen });
     await rpcServer.start({
       manifest: {
         testMethod: new TestHandler({}),
@@ -1093,58 +982,59 @@ describe(`${RPCServer.name}`, () => {
     await expect(ctx.timer).toReject();
     await rpcServer.stop({ force: true });
   });
-  test.prop({
-    messages: specificMessageArb,
-  })('middleware can update timeout timer', async ({ messages }) => {
-    const stream = rpcTestUtils.messagesToReadableStream(messages);
-    const ctxProm = promise<ContextTimed>();
-    class TestMethod extends DuplexHandler {
-      public handle = async function* (
-        input: AsyncGenerator<JSONRPCRequestParams>,
-        _cancel: (reason?: any) => void,
-        _meta: Record<string, JSONValue> | undefined,
-        ctx: ContextTimed,
-      ): AsyncGenerator<JSONRPCResponseResult> {
-        ctxProm.resolveP(ctx);
-        yield* input;
-      };
-    }
-    const middlewareFactory = rpcUtilsMiddleware.defaultServerMiddlewareWrapper(
-      (ctx) => {
-        ctx.timer.reset(12345);
-        return {
-          forward: new TransformStream(),
-          reverse: new TransformStream(),
+  test.prop({ messages: specificMessageArb })(
+    'middleware can update timeout timer',
+    async ({ messages }) => {
+      const stream = rpcTestUtils.messagesToReadableStream(messages);
+      const ctxProm = promise<ContextTimed>();
+      class TestMethod extends DuplexHandler {
+        public handle = async function* (
+          input: AsyncGenerator<JSONRPCRequestParams>,
+          _cancel: (reason?: any) => void,
+          _meta: Record<string, JSONValue> | undefined,
+          ctx: ContextTimed,
+        ): AsyncGenerator<JSONRPCResponseResult> {
+          ctxProm.resolveP(ctx);
+          yield* input;
         };
-      },
-    );
-    const rpcServer = new RPCServer({
-      middlewareFactory: middlewareFactory,
-      logger,
-      idGen,
-    });
-    await rpcServer.start({
-      manifest: {
-        testMethod: new TestMethod({}),
-      },
-    });
-    const [outputResult, outputStream] = rpcTestUtils.streamToArray();
-    const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
-      cancel: () => {},
-      readable: stream,
-      writable: outputStream,
-    };
-    rpcServer.handleStream(readWriteStream);
-    await outputResult;
-    const ctx = await ctxProm.p;
-    expect(ctx.timer.delay).toBe(12345);
-  });
+      }
+      const middlewareFactory =
+        rpcUtilsMiddleware.defaultServerMiddlewareWrapper((ctx) => {
+          ctx.timer.reset(12345);
+          return {
+            forward: new TransformStream(),
+            reverse: new TransformStream(),
+          };
+        });
+      const rpcServer = new RPCServer({
+        middlewareFactory: middlewareFactory,
+        logger,
+        idGen,
+      });
+      await rpcServer.start({
+        manifest: {
+          testMethod: new TestMethod({}),
+        },
+      });
+      const [outputResult, outputStream] = rpcTestUtils.streamToArray();
+      const readWriteStream: RPCStream<Uint8Array, Uint8Array> = {
+        cancel: () => {},
+        readable: stream,
+        writable: outputStream,
+      };
+      rpcServer.handleStream(readWriteStream);
+      await outputResult;
+      const ctx = await ctxProm.p;
+      expect(ctx.timer.delay).toBe(12345);
+    },
+  );
+
   describe('timeout priority', () => {
     test.prop({
       messages: specificMessageArb,
       timeouts: rpcTestUtils.timeoutsArb,
     })(
-      'check that handler can override higher timeout of RPCServer',
+      'handlers should be able to override higher timeout of RPCServer',
       async ({ messages, timeouts: [lowerTimeoutTime, higherTimeoutTime] }) => {
         const stream = rpcTestUtils.messagesToReadableStream(messages);
         const { p: ctxP, resolveP: resolveCtxP } = promise<ContextTimed>();
@@ -1162,8 +1052,8 @@ describe(`${RPCServer.name}`, () => {
         }
         const rpcServer = new RPCServer({
           logger,
-          timeoutTime: higherTimeoutTime,
           idGen,
+          timeoutTime: higherTimeoutTime,
         });
         await rpcServer.start({
           manifest: {
@@ -1188,7 +1078,7 @@ describe(`${RPCServer.name}`, () => {
       messages: specificMessageArb,
       timeouts: rpcTestUtils.timeoutsArb,
     })(
-      'check that handler can override lower timeout of RPCServer',
+      'handlers should be able to override lower timeout of RPCServer',
       async ({ messages, timeouts: [lowerTimeoutTime, higherTimeoutTime] }) => {
         const stream = rpcTestUtils.messagesToReadableStream(messages);
         const { p: ctxP, resolveP: resolveCtxP } = promise<ContextTimed>();
@@ -1206,8 +1096,8 @@ describe(`${RPCServer.name}`, () => {
         }
         const rpcServer = new RPCServer({
           logger,
-          timeoutTime: lowerTimeoutTime,
           idGen,
+          timeoutTime: lowerTimeoutTime,
         });
         await rpcServer.start({
           manifest: {
@@ -1233,7 +1123,7 @@ describe(`${RPCServer.name}`, () => {
     messages: specificMessageArb,
     timeoutTime: fc.integer({ min: 0 }),
   })(
-    'check that handler can override lower timeout of RPCServer with Infinity',
+    'handlers should be able to override lower timeout of RPCServer with Infinity',
     async ({ messages, timeoutTime }) => {
       const stream = rpcTestUtils.messagesToReadableStream(messages);
       const { p: ctxP, resolveP: resolveCtxP } = promise<ContextTimed>();
@@ -1249,11 +1139,7 @@ describe(`${RPCServer.name}`, () => {
           yield* input;
         };
       }
-      const rpcServer = new RPCServer({
-        logger,
-        timeoutTime,
-        idGen,
-      });
+      const rpcServer = new RPCServer({ logger, idGen, timeoutTime });
       await rpcServer.start({
         manifest: {
           testMethod: new TestMethod({}),
