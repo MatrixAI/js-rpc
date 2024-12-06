@@ -431,9 +431,8 @@ class RPCServer {
         yield await handler(inputVal, cancel, meta, ctx);
         break;
       }
-      for await (const _ of input) {
-        // Noop so that stream can close after flushing
-      }
+      // Noop so that stream can close after flushing
+      for await (const _ of input);
     };
     this.registerDuplexStreamHandler(method, wrapperDuplex, timeout);
   }
@@ -498,7 +497,7 @@ class RPCServer {
 
     const prom = (async () => {
       const id = await this.idGen();
-      const headTransformStream = middleware.binaryToJsonMessageStream(
+      const transformStream = middleware.binaryToJsonHeaderMessageStream(
         utils.parseJSONRPCRequest,
       );
       // Transparent transform used as a point to cancel the input stream from
@@ -506,43 +505,39 @@ class RPCServer {
         Uint8Array,
         Uint8Array
       >();
-      const inputStream = passthroughTransform.readable;
       const inputStreamEndProm = rpcStream.readable
         .pipeTo(passthroughTransform.writable)
         // Ignore any errors here, we only care that it ended
         .catch(() => {});
-      void inputStream
-        // Allow us to re-use the readable after reading the first message
-        .pipeTo(headTransformStream.writable, {
-          preventClose: true,
-          preventCancel: true,
-        })
-        // Ignore any errors here, we only care that it ended
-        .catch(() => {});
       const cleanUp = async (reason: any) => {
-        await inputStream.cancel(reason);
+        // Release resources
+        await transformStream.readable.cancel(reason);
+        await transformStream.writable.abort(reason);
+        await passthroughTransform.readable.cancel(reason);
         await rpcStream.writable.abort(reason);
         await inputStreamEndProm;
+        // Stop the timer
         timer.cancel(cleanupReason);
         await timer.catch(() => {});
       };
-      // Read a single empty value to consume the first message
-      const reader = headTransformStream.readable.getReader();
+      passthroughTransform.readable
+        .pipeTo(transformStream.writable)
+        .catch(() => {});
+      const reader = transformStream.readable.getReader();
       // Allows timing out when waiting for the first message
       let headerMessage:
-        | ReadableStreamDefaultReadResult<JSONRPCRequest>
-        | undefined
-        | void;
+        | ReadableStreamDefaultReadResult<JSONRPCRequest | Uint8Array>
+        | undefined;
       try {
         headerMessage = await Promise.race([
           reader.read(),
           timer.then(
             () => undefined,
-            () => {},
+            () => undefined,
           ),
         ]);
       } catch (e) {
-        const newErr = new errors.ErrorRPCHandlerFailed(
+        const err = new errors.ErrorRPCHandlerFailed(
           'Stream failed waiting for header',
           { cause: e },
         );
@@ -553,29 +548,29 @@ class RPCServer {
           new events.RPCErrorEvent({
             detail: new errors.ErrorRPCOutputStreamError(
               'Stream failed waiting for header',
-              { cause: newErr },
+              { cause: err },
             ),
           }),
         );
         return;
       }
       // Downgrade back to the raw stream
-      await reader.cancel();
+      reader.releaseLock();
       // There are 2 conditions where we just end here
       //  1. The timeout timer resolves before the first message
       //  2. the stream ends before the first message
       if (headerMessage == null) {
-        const newErr = new errors.ErrorRPCTimedOut(
+        const err = new errors.ErrorRPCTimedOut(
           'Timed out waiting for header',
           { cause: new errors.ErrorRPCStreamEnded() },
         );
-        await cleanUp(newErr);
+        await cleanUp(err);
         this.dispatchEvent(
           new events.RPCErrorEvent({
             detail: new errors.ErrorRPCTimedOut(
               'Timed out waiting for header',
               {
-                cause: newErr,
+                cause: err,
               },
             ),
           }),
@@ -583,8 +578,8 @@ class RPCServer {
         return;
       }
       if (headerMessage.done) {
-        const newErr = new errors.ErrorMissingHeader('Missing header');
-        await cleanUp(newErr);
+        const err = new errors.ErrorMissingHeader('Missing header');
+        await cleanUp(err);
         this.dispatchEvent(
           new events.RPCErrorEvent({
             detail: new errors.ErrorRPCOutputStreamError(),
@@ -592,10 +587,22 @@ class RPCServer {
         );
         return;
       }
+      if (headerMessage.value instanceof Uint8Array) {
+        const err = new errors.ErrorRPCParse('Invalid message type');
+        await cleanUp(err);
+        this.dispatchEvent(
+          new events.RPCErrorEvent({
+            detail: new errors.ErrorRPCParse(),
+          }),
+        );
+        return;
+      }
       const method = headerMessage.value.method;
       const handler = this.handlerMap.get(method);
       if (handler == null) {
-        await cleanUp(new errors.ErrorRPCHandlerFailed('Missing handler'));
+        await cleanUp(
+          new errors.ErrorRPCHandlerFailed(`Missing handler for ${method}`),
+        );
         return;
       }
       if (abortController.signal.aborted) {
@@ -617,13 +624,17 @@ class RPCServer {
           timer.refresh();
         }
       }
-
       this.logger.info(`Handling stream with method (${method})`);
       let handlerResult: [JSONObject | undefined, ReadableStream<Uint8Array>];
       const headerWriter = rpcStream.writable.getWriter();
       try {
+        // The as keyword is used here as the middleware will only return the
+        // first message as a JSONMessage, and others as raw Uint8Arrays.
         handlerResult = await handler(
-          [headerMessage.value, inputStream],
+          [
+            headerMessage.value,
+            transformStream.readable as ReadableStream<Uint8Array>,
+          ],
           rpcStream.cancel,
           rpcStream.meta,
           { signal: abortController.signal, timer },

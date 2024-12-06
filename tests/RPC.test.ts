@@ -31,100 +31,89 @@ import ClientHandler from '@/handlers/ClientHandler';
 import { filterSensitive } from '@/utils';
 import * as rpcTestUtils from './utils';
 
-describe('RPC', () => {
+describe('RPC tests', () => {
   const logger = new Logger(`RPC Test`, LogLevel.WARN, [new StreamHandler()]);
   const idGen: IdGen = () => Promise.resolve(null);
 
-  test.prop(
-    {
-      values: rpcTestUtils.rawDataArb,
-    },
-    {},
-  )('RPC communication with raw stream', async ({ values }) => {
-    const [outputResult, outputWriterStream] =
-      rpcTestUtils.streamToArray<Uint8Array>();
-    const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
-      Uint8Array,
-      Uint8Array
-    >();
-
-    let header: JSONRPCRequest | undefined = undefined;
-
-    class TestMethod extends RawHandler<ContainerType> {
-      public handle = async (
-        input: [JSONRPCRequest<JSONObject>, ReadableStream<Uint8Array>],
-        _cancel: (reason?: any) => void,
-        _meta: Record<string, JSONValue> | undefined,
-      ): Promise<[JSONObject, ReadableStream<Uint8Array>]> => {
-        return new Promise((resolve) => {
-          const [header_, stream] = input;
-          header = header_;
-          resolve([{ value: 'some leading data' }, stream]);
-        });
-      };
-    }
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-    });
-    await rpcServer.start({
-      manifest: {
-        testMethod: new TestMethod({}),
-      },
-    });
-    rpcServer.handleStream({
-      ...serverPair,
-      cancel: () => {},
-    });
-
-    const rpcClient = new RPCClient({
-      manifest: {
-        testMethod: new RawCaller(),
-      },
-      streamFactory: async () => {
-        return {
-          ...clientPair,
-          cancel: () => {},
+  test.prop({ values: rpcTestUtils.rawDataArb }, {})(
+    'the RPC should communicate using raw streams',
+    async ({ values }) => {
+      const [outputResult, outputWriterStream] =
+        rpcTestUtils.streamToArray<Uint8Array>();
+      const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
+        Uint8Array,
+        Uint8Array
+      >();
+      let header: JSONRPCRequest | undefined = undefined;
+      class TestMethod extends RawHandler<ContainerType> {
+        public handle = async (
+          input: [JSONRPCRequest<JSONObject>, ReadableStream<Uint8Array>],
+          _cancel: (reason?: any) => void,
+          _meta: Record<string, JSONValue> | undefined,
+        ): Promise<[JSONObject, ReadableStream<Uint8Array>]> => {
+          return new Promise((resolve) => {
+            const [header_, stream] = input;
+            header = header_;
+            resolve([{ value: 'some leading data' }, stream]);
+          });
         };
-      },
-      logger,
-      idGen,
-    });
-
-    const callerInterface = await rpcClient.methods.testMethod({
-      hello: 'world',
-    });
-    const writer = callerInterface.writable.getWriter();
-    const pipeProm = callerInterface.readable.pipeTo(outputWriterStream);
-    for (const value of values) {
-      await writer.write(value);
-    }
-    await writer.close();
-    const expectedHeader: JSONRPCRequest = {
-      jsonrpc: '2.0',
-      method: 'testMethod',
-      params: { hello: 'world' },
-      id: null,
-    };
-    expect(header).toStrictEqual(expectedHeader);
-    expect(callerInterface.meta?.result).toStrictEqual({
-      value: 'some leading data',
-    });
-    expect(await outputResult).toStrictEqual(values);
-    await pipeProm;
-    await rpcServer.stop({ force: true });
-  });
-  test('RPC communication with raw stream times out waiting for leading message', async () => {
+      }
+      const rpcServer = new RPCServer({ logger, idGen });
+      await rpcServer.start({
+        manifest: {
+          testMethod: new TestMethod({}),
+        },
+      });
+      rpcServer.handleStream({
+        ...serverPair,
+        cancel: () => {},
+      });
+      const rpcClient = new RPCClient({
+        manifest: {
+          testMethod: new RawCaller(),
+        },
+        streamFactory: async () => {
+          return {
+            ...clientPair,
+            cancel: () => {},
+          };
+        },
+        logger,
+        idGen,
+      });
+      const callerInterface = await rpcClient.methods.testMethod({
+        hello: 'world',
+      });
+      const writer = callerInterface.writable.getWriter();
+      const pipeProm = callerInterface.readable.pipeTo(outputWriterStream);
+      for (const value of values) {
+        await writer.write(value);
+      }
+      await writer.close();
+      const expectedHeader: JSONRPCRequest = {
+        jsonrpc: '2.0',
+        method: 'testMethod',
+        params: { hello: 'world' },
+        id: null,
+      };
+      expect(header).toStrictEqual(expectedHeader);
+      expect(callerInterface.meta?.result).toStrictEqual({
+        value: 'some leading data',
+      });
+      expect(await outputResult).toStrictEqual(values);
+      await pipeProm;
+      await rpcServer.stop({ force: true });
+    },
+  );
+  test('the RPC should time out waiting for leading message using raw streams', async () => {
     const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
       Uint8Array,
       Uint8Array
     >();
     void (async () => {
-      for await (const _ of serverPair.readable) {
-        // Just consume
-      }
+      // Consume values
+      for await (const _ of serverPair.readable);
     })();
-
     const rpcClient = new RPCClient({
       manifest: {
         testMethod: new RawCaller(),
@@ -138,22 +127,15 @@ describe('RPC', () => {
       logger,
       idGen,
     });
-
     await expect(
-      rpcClient.methods.testMethod(
-        {
-          hello: 'world',
-        },
-        { timer: 100 },
-      ),
+      rpcClient.methods.testMethod({ hello: 'world' }, { timer: 100 }),
     ).rejects.toThrow(rpcErrors.ErrorRPCTimedOut);
   });
-  test('RPC communication with raw stream, raw handler throws', async () => {
+  test('the RPC should properly catch an error thrown by the handler using raw streams', async () => {
     const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
       Uint8Array,
       Uint8Array
     >();
-
     class TestMethod extends RawHandler<ContainerType> {
       public handle = async (
         _input: [JSONRPCRequest, ReadableStream<Uint8Array>],
@@ -164,11 +146,7 @@ describe('RPC', () => {
         throw new Error('some error');
       };
     }
-
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-    });
+    const rpcServer = new RPCServer({ logger, idGen });
     await rpcServer.start({
       manifest: {
         testMethod: new TestMethod({}),
@@ -178,7 +156,6 @@ describe('RPC', () => {
       ...serverPair,
       cancel: () => {},
     });
-
     const rpcClient = new RPCClient({
       manifest: {
         testMethod: new RawCaller(),
@@ -198,15 +175,12 @@ describe('RPC', () => {
     await expect(callP).rejects.toThrow(rpcErrors.ErrorRPCRemote);
     const result = await callP.catch((e) => e);
     expect(result.cause.message).toBe('some error');
-
     await rpcServer.stop({ force: true });
   });
   test.prop(
-    {
-      values: fc.array(rpcTestUtils.safeJsonObjectArb, { minLength: 1 }),
-    },
+    { values: fc.array(rpcTestUtils.safeJsonObjectArb, { minLength: 1 }) },
     {},
-  )('RPC communication with duplex stream', async ({ values }) => {
+  )('the RPC should communicate using duplex streams', async ({ values }) => {
     const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
       Uint8Array,
       Uint8Array
@@ -221,10 +195,7 @@ describe('RPC', () => {
         yield* input;
       };
     }
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-    });
+    const rpcServer = new RPCServer({ logger, idGen });
     await rpcServer.start({
       manifest: {
         testMethod: new TestMethod({}),
@@ -234,7 +205,6 @@ describe('RPC', () => {
       ...serverPair,
       cancel: () => {},
     });
-
     const rpcClient = new RPCClient({
       manifest: {
         testMethod: new DuplexCaller(),
@@ -248,7 +218,6 @@ describe('RPC', () => {
       logger,
       idGen,
     });
-
     const callerInterface = await rpcClient.methods.testMethod();
     const writer = callerInterface.writable.getWriter();
     const reader = callerInterface.readable.getReader();
@@ -277,7 +246,7 @@ describe('RPC', () => {
     },
     { numRuns: 1 },
   )(
-    'RPC communication with duplex stream responds after timeout',
+    'the RPC should respond after timeout while using duplex stream',
     async ({ values }) => {
       const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
         Uint8Array,
@@ -292,22 +261,14 @@ describe('RPC', () => {
         ): AsyncGenerator<JSONObject> {
           const { p, resolveP } = utils.promise<void>();
           if (ctx.signal.aborted) resolveP();
-          ctx.signal.addEventListener(
-            'abort',
-            () => {
-              resolveP();
-            },
-            { once: true },
-          );
+          ctx.signal.addEventListener('abort', () => resolveP(), {
+            once: true,
+          });
           await p;
           yield* input;
         };
       }
-      const rpcServer = new RPCServer({
-        timeoutTime: 500,
-        logger,
-        idGen,
-      });
+      const rpcServer = new RPCServer({ logger, idGen, timeoutTime: 500 });
       await rpcServer.start({
         manifest: {
           testMethod: new TestMethod({}),
@@ -317,7 +278,6 @@ describe('RPC', () => {
         ...serverPair,
         cancel: () => {},
       });
-
       let aborted = false;
       const rpcClient = new RPCClient({
         manifest: {
@@ -336,7 +296,6 @@ describe('RPC', () => {
         logger,
         idGen,
       });
-
       const callerInterface = await rpcClient.methods.testMethod();
       const writer = callerInterface.writable.getWriter();
       const reader = callerInterface.readable.getReader();
@@ -361,12 +320,11 @@ describe('RPC', () => {
   );
   test.prop({
     value: fc.integer({ min: 1, max: 100 }),
-  })('RPC communication with server stream', async ({ value }) => {
+  })('the RPC should communicate using server streams', async ({ value }) => {
     const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
       Uint8Array,
       Uint8Array
     >();
-
     class TestMethod extends ServerHandler<
       ContainerType,
       { value: number },
@@ -380,11 +338,7 @@ describe('RPC', () => {
         }
       };
     }
-
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-    });
+    const rpcServer = new RPCServer({ logger, idGen });
     await rpcServer.start({
       manifest: {
         testMethod: new TestMethod({}),
@@ -394,7 +348,6 @@ describe('RPC', () => {
       ...serverPair,
       cancel: () => {},
     });
-
     const rpcClient = new RPCClient({
       manifest: {
         testMethod: new ServerCaller<{ value: number }, { value: number }>(),
@@ -408,9 +361,7 @@ describe('RPC', () => {
       logger,
       idGen,
     });
-
     const callerInterface = await rpcClient.methods.testMethod({ value });
-
     const outputs: Array<number> = [];
     for await (const num of callerInterface) {
       outputs.push(num.value);
@@ -420,12 +371,11 @@ describe('RPC', () => {
   });
   test.prop({
     values: fc.array(fc.integer(), { minLength: 1 }).noShrink(),
-  })('RPC communication with client stream', async ({ values }) => {
+  })('the RPC should communicate using client streams', async ({ values }) => {
     const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
       Uint8Array,
       Uint8Array
     >();
-
     class TestMethod extends ClientHandler<
       ContainerType,
       { value: number },
@@ -441,11 +391,7 @@ describe('RPC', () => {
         return { value: acc };
       };
     }
-
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-    });
+    const rpcServer = new RPCServer({ logger, idGen });
     await rpcServer.start({
       manifest: {
         testMethod: new TestMethod({}),
@@ -455,7 +401,6 @@ describe('RPC', () => {
       ...serverPair,
       cancel: () => {},
     });
-
     const rpcClient = new RPCClient({
       manifest: {
         testMethod: new ClientCaller<{ value: number }, { value: number }>(),
@@ -469,7 +414,6 @@ describe('RPC', () => {
       logger,
       idGen,
     });
-
     const { output, writable } = await rpcClient.methods.testMethod();
     const writer = writable.getWriter();
     for (const value of values) {
@@ -482,12 +426,11 @@ describe('RPC', () => {
   });
   test.prop({
     value: rpcTestUtils.safeJsonObjectArb,
-  })('RPC communication with unary call', async ({ value }) => {
+  })('the RPC should communicate using unary calls', async ({ value }) => {
     const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
       Uint8Array,
       Uint8Array
     >();
-
     class TestMethod extends UnaryHandler {
       public handle = async (
         input: JSONRPCRequestParams,
@@ -495,10 +438,7 @@ describe('RPC', () => {
         return input;
       };
     }
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-    });
+    const rpcServer = new RPCServer({ logger, idGen });
     await rpcServer.start({
       manifest: {
         testMethod: new TestMethod({}),
@@ -508,7 +448,6 @@ describe('RPC', () => {
       ...serverPair,
       cancel: () => {},
     });
-
     const rpcClient = new RPCClient({
       manifest: {
         testMethod: new UnaryCaller(),
@@ -522,7 +461,6 @@ describe('RPC', () => {
       logger,
       idGen,
     });
-
     const result = await rpcClient.methods.testMethod(value);
     if (result.metadata != null && result.metadata.timeout === null) {
       result.metadata.timeout = Infinity;
@@ -530,19 +468,13 @@ describe('RPC', () => {
     expect(result).toEqual(value);
     await rpcServer.stop({ force: true });
   });
-  test.prop(
-    {
-      value: rpcTestUtils.safeJsonObjectArb,
-    },
-    { numRuns: 1 },
-  )(
-    'RPC communication with unary call responds after timeout',
+  test.prop({ value: rpcTestUtils.safeJsonObjectArb }, { numRuns: 1 })(
+    'the RPC should respond after time out while using unary calls',
     async ({ value }) => {
       const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
         Uint8Array,
         Uint8Array
       >();
-
       class TestMethod extends UnaryHandler {
         public handle = async (
           input: JSONRPCRequestParams,
@@ -563,11 +495,7 @@ describe('RPC', () => {
           return input;
         };
       }
-      const rpcServer = new RPCServer({
-        timeoutTime: 500,
-        logger,
-        idGen,
-      });
+      const rpcServer = new RPCServer({ logger, idGen, timeoutTime: 500 });
       await rpcServer.start({
         manifest: {
           testMethod: new TestMethod({}),
@@ -577,7 +505,6 @@ describe('RPC', () => {
         ...serverPair,
         cancel: () => {},
       });
-
       let aborted = false;
       const rpcClient = new RPCClient({
         manifest: {
@@ -596,7 +523,6 @@ describe('RPC', () => {
         logger,
         idGen,
       });
-
       const result = await rpcClient.methods.testMethod(value);
       if (result.metadata != null && result.metadata.timeout === null) {
         result.metadata.timeout = Infinity;
@@ -609,12 +535,11 @@ describe('RPC', () => {
   test.prop({
     value: rpcTestUtils.safeJsonValueArb,
     error: rpcTestUtils.errorArb(rpcTestUtils.errorArb()),
-  })('RPC handles and sends errors', async ({ value, error }) => {
+  })('the RPC can handle and send errors', async ({ value, error }) => {
     const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
       Uint8Array,
       Uint8Array
     >();
-
     class TestMethod extends UnaryHandler {
       public handle = async (
         _input: JSONObject,
@@ -625,18 +550,13 @@ describe('RPC', () => {
         throw error;
       };
     }
-
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-    });
+    const rpcServer = new RPCServer({ logger, idGen });
     await rpcServer.start({
       manifest: {
         testMethod: new TestMethod({}),
       },
     });
     rpcServer.handleStream({ ...serverPair, cancel: () => {} });
-
     const rpcClient = new RPCClient({
       manifest: {
         testMethod: new UnaryCaller(),
@@ -647,21 +567,15 @@ describe('RPC', () => {
       logger,
       idGen,
     });
-
-    // Create a new promise, so we can await it multiple times for assertions
+    // Create a new promise, so we can await it multiple times for assertions,
+    // which should be rejected.
     const callProm = rpcClient.methods.testMethod({ value });
-
-    // The promise should be rejected
     const rejection = await callProm.catch((e) => e);
-
-    // The error should have specific properties
     expect(rejection.cause).toBeInstanceOf(error.constructor);
     expect(rejection.cause).toEqual(error);
-
-    // Cleanup
     await rpcServer.stop({ force: true });
   });
-  test('middleware can end stream early', async () => {
+  test('the middleware can end the stream early', async () => {
     const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
       Uint8Array,
       Uint8Array
@@ -733,87 +647,72 @@ describe('RPC', () => {
     await expect(reader.closed).toReject();
     await expect(rpcServer.stop({ force: false })).toResolve();
   });
-  test.prop(
-    {
-      inputData: rpcTestUtils.safeJsonValueArb,
-    },
-    { numRuns: 1 },
-  )('RPC server times out before client', async ({ inputData }) => {
-    const serverTimedOutProm = utils.promise<void>();
-
-    // Setup server and client communication pairs
-    const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
-      Uint8Array,
-      Uint8Array
-    >();
-
-    // Define the server's method behavior
-    class TestMethod extends DuplexHandler {
-      public handle = async function* (
-        _input: AsyncIterableIterator<JSONObject>,
-        _cancel: (reason?: any) => void,
-        _meta: Record<string, JSONValue> | undefined,
-        ctx: ContextTimed,
-      ) {
-        const abortProm = utils.promise<never>();
-        if (ctx.signal.aborted) {
-          abortProm.rejectP(ctx.signal.reason);
-        } else {
-          ctx.signal.addEventListener('abort', () => {
+  test.prop({ inputData: rpcTestUtils.safeJsonValueArb }, { numRuns: 1 })(
+    'the RPC server can time out before client',
+    async ({ inputData }) => {
+      const serverTimedOutProm = utils.promise<void>();
+      // Setup server and client communication pairs
+      const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
+        Uint8Array,
+        Uint8Array
+      >();
+      // Define the server's method behavior
+      class TestMethod extends DuplexHandler {
+        public handle = async function* (
+          _input: AsyncIterableIterator<JSONObject>,
+          _cancel: (reason?: any) => void,
+          _meta: Record<string, JSONValue> | undefined,
+          ctx: ContextTimed,
+        ) {
+          const abortProm = utils.promise<never>();
+          if (ctx.signal.aborted) {
             abortProm.rejectP(ctx.signal.reason);
+          } else {
+            ctx.signal.addEventListener('abort', () => {
+              abortProm.rejectP(ctx.signal.reason);
+            });
+          }
+          await abortProm.p.catch((e) => {
+            serverTimedOutProm.resolveP();
+            throw e;
           });
-        }
-        await abortProm.p.catch((e) => {
-          serverTimedOutProm.resolveP();
-          throw e;
-        });
-      };
-    }
-
-    // Create an instance of the RPC server with a shorter timeout
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-      timeoutTime: 1,
-    });
-    await rpcServer.start({ manifest: { testMethod: new TestMethod({}) } });
-    rpcServer.handleStream({ ...serverPair, cancel: () => {} });
-
-    // Create an instance of the RPC client with a longer timeout
-    const rpcClient = new RPCClient({
-      manifest: { testMethod: new DuplexCaller() },
-      streamFactory: async () => ({ ...clientPair, cancel: () => {} }),
-      logger,
-      idGen,
-    });
-
-    // Get server and client interfaces
-    const callerInterface = await rpcClient.methods.testMethod({
-      timer: 10,
-    });
-    const writer = callerInterface.writable.getWriter();
-    const reader = callerInterface.readable.getReader();
-
-    // We expect server to timeout before the client
-    await expect(writer.write({ value: inputData })).toResolve();
-    await serverTimedOutProm.p;
-    const readP = reader.read();
-    await expect(readP).rejects.toThrow(ErrorRPCRemote);
-    await expect(
-      readP.catch((e) => {
-        throw e.cause;
-      }),
-    ).rejects.toThrow(rpcErrors.ErrorRPCTimedOut);
-
-    // Cleanup
-    await rpcServer.stop({ force: true });
-  });
+        };
+      }
+      // Create an instance of the RPC server with a shorter timeout
+      const rpcServer = new RPCServer({ logger, idGen, timeoutTime: 1 });
+      await rpcServer.start({ manifest: { testMethod: new TestMethod({}) } });
+      rpcServer.handleStream({ ...serverPair, cancel: () => {} });
+      // Create an instance of the RPC client with a longer timeout
+      const rpcClient = new RPCClient({
+        manifest: { testMethod: new DuplexCaller() },
+        streamFactory: async () => ({ ...clientPair, cancel: () => {} }),
+        logger,
+        idGen,
+      });
+      // Get server and client interfaces
+      const callerInterface = await rpcClient.methods.testMethod({ timer: 10 });
+      const writer = callerInterface.writable.getWriter();
+      const reader = callerInterface.readable.getReader();
+      // We expect server to timeout before the client
+      await expect(writer.write({ value: inputData })).toResolve();
+      await serverTimedOutProm.p;
+      const readP = reader.read();
+      await expect(readP).rejects.toThrow(ErrorRPCRemote);
+      await expect(
+        readP.catch((e) => {
+          throw e.cause;
+        }),
+      ).rejects.toThrow(rpcErrors.ErrorRPCTimedOut);
+      // Cleanup
+      await rpcServer.stop({ force: true });
+    },
+  );
   test.prop(
     {
       value: rpcTestUtils.safeJsonValueArb,
     },
     { numRuns: 1 },
-  )('RPC client times out before server', async ({ value }) => {
+  )('the RPC client can time out before the server', async ({ value }) => {
     // Setup server and client communication pairs
     const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
       Uint8Array,
@@ -835,11 +734,7 @@ describe('RPC', () => {
       };
     }
     // Set up a client and server with matching timeout settings
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-      timeoutTime: 400,
-    });
+    const rpcServer = new RPCServer({ logger, idGen, timeoutTime: 400 });
     await rpcServer.start({
       manifest: {
         testMethod: new TestMethod({}),
@@ -849,7 +744,6 @@ describe('RPC', () => {
       ...serverPair,
       cancel: () => {},
     });
-
     const rpcClient = new RPCClient({
       manifest: {
         testMethod: new DuplexCaller(),
@@ -863,102 +757,78 @@ describe('RPC', () => {
       logger,
       idGen,
     });
-    const callerInterface = await rpcClient.methods.testMethod({
-      timer: 300,
-    });
+    const callerInterface = await rpcClient.methods.testMethod({ timer: 300 });
     const writer = callerInterface.writable.getWriter();
     const reader = callerInterface.readable.getReader();
     // Expect the client to time out first
     await expect(writer.write({ value })).toResolve();
     await expect(reader.read()).toReject();
-
     await rpcServer.stop({ force: true });
   });
-  test.prop(
-    {
-      inputData: rpcTestUtils.safeJsonValueArb,
+  test.prop({ inputData: rpcTestUtils.safeJsonValueArb }, { numRuns: 1 })(
+    'the RPC client and server should work with an infinite timeout',
+    async ({ inputData }) => {
+      // Set up a client and server with infinite timeout settings
+      const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
+        Uint8Array,
+        Uint8Array
+      >();
+      class TestMethod extends DuplexHandler {
+        public handle = async function* (
+          _input: AsyncIterableIterator<JSONObject>,
+          _cancel: (reason?: any) => void,
+          _meta: Record<string, JSONValue> | undefined,
+          ctx: ContextTimed,
+        ) {
+          ctx.signal.throwIfAborted();
+          const abortProm = utils.promise<never>();
+          ctx.signal.addEventListener('abort', () => {
+            abortProm.rejectP(ctx.signal.reason);
+          });
+          await abortProm.p;
+        };
+      }
+      const rpcServer = new RPCServer({ logger, idGen, timeoutTime: Infinity });
+      await rpcServer.start({ manifest: { testMethod: new TestMethod({}) } });
+      rpcServer.handleStream({ ...serverPair, cancel: () => {} });
+      const rpcClient = new RPCClient({
+        manifest: { testMethod: new DuplexCaller() },
+        streamFactory: async () => ({ ...clientPair, cancel: () => {} }),
+        logger,
+        idGen,
+      });
+      const callerTimer = new Timer(() => {}, Infinity);
+      const callerInterface = await rpcClient.methods.testMethod({
+        timer: callerTimer,
+      });
+      const writer = callerInterface.writable.getWriter();
+      const reader = callerInterface.readable.getReader();
+      // Trigger a call that will hang indefinitely or for a long time
+      // Write a value to the stream
+      await writer.write({ value: inputData });
+      // Trigger a read that will hang indefinitely
+      const readPromise = reader.read();
+      // Adding a randomized sleep here to check that neither timeout
+      const randomSleepTime = Math.floor(Math.random() * 1000) + 1;
+      // Random time between 1 and 1000 ms
+      await utils.sleep(randomSleepTime);
+      // At this point, writePromise and readPromise should neither be resolved nor rejected
+      // because the server method is hanging.
+      // Check if the promises are neither resolved nor rejected
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject('timeout'), 1000),
+      );
+      // Check if read status is still pending;
+      await expect(Promise.race([readPromise, timeoutPromise])).rejects.toBe(
+        'timeout',
+      );
+      // Cancel caller timer
+      callerTimer.cancel();
+      // Expect neither to time out and verify that they can still handle other operations
+      await rpcServer.stop({ force: true });
     },
-    { numRuns: 1 },
-  )('RPC client and server with infinite timeout', async ({ inputData }) => {
-    // Set up a client and server with infinite timeout settings
-
-    const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
-      Uint8Array,
-      Uint8Array
-    >();
-
-    class TestMethod extends DuplexHandler {
-      public handle = async function* (
-        _input: AsyncIterableIterator<JSONObject>,
-        _cancel: (reason?: any) => void,
-        _meta: Record<string, JSONValue> | undefined,
-        ctx: ContextTimed,
-      ) {
-        ctx.signal.throwIfAborted();
-        const abortProm = utils.promise<never>();
-        ctx.signal.addEventListener('abort', () => {
-          abortProm.rejectP(ctx.signal.reason);
-        });
-        await abortProm.p;
-      };
-    }
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-      timeoutTime: Infinity,
-    });
-    await rpcServer.start({ manifest: { testMethod: new TestMethod({}) } });
-    rpcServer.handleStream({ ...serverPair, cancel: () => {} });
-
-    const rpcClient = new RPCClient({
-      manifest: { testMethod: new DuplexCaller() },
-      streamFactory: async () => ({ ...clientPair, cancel: () => {} }),
-      logger,
-      idGen,
-    });
-
-    const callerTimer = new Timer(() => {}, Infinity);
-
-    const callerInterface = await rpcClient.methods.testMethod({
-      timer: callerTimer,
-    });
-
-    const writer = callerInterface.writable.getWriter();
-    const reader = callerInterface.readable.getReader();
-
-    // Trigger a call that will hang indefinitely or for a long time
-
-    // Write a value to the stream
-    await writer.write({ value: inputData });
-
-    // Trigger a read that will hang indefinitely
-
-    const readPromise = reader.read();
-    // Adding a randomized sleep here to check that neither timeout
-    const randomSleepTime = Math.floor(Math.random() * 1000) + 1;
-    // Random time between 1 and 1,000 ms
-    await utils.sleep(randomSleepTime);
-    // At this point, writePromise and readPromise should neither be resolved nor rejected
-    // because the server method is hanging.
-
-    // Check if the promises are neither resolved nor rejected
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject('timeout'), 1000),
-    );
-
-    // Check if read status is still pending;
-
-    await expect(Promise.race([readPromise, timeoutPromise])).rejects.toBe(
-      'timeout',
-    );
-
-    // Cancel caller timer
-    callerTimer.cancel();
-
-    // Expect neither to time out and verify that they can still handle other operations
-    await rpcServer.stop({ force: true });
-  });
-  test('RPC server times out using client timeout', async () => {
+  );
+  test('the RPC server times out using client timeout', async () => {
     // Setup server and client communication pairs
     const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
       Uint8Array,
@@ -981,11 +851,7 @@ describe('RPC', () => {
       };
     }
     // Set up a client and server with matching timeout settings
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-      timeoutTime: 150,
-    });
+    const rpcServer = new RPCServer({ logger, idGen, timeoutTime: 150 });
     await rpcServer.start({
       manifest: {
         testMethod: new TestMethod({}),
@@ -995,7 +861,6 @@ describe('RPC', () => {
       ...serverPair,
       cancel: () => {},
     });
-
     const rpcClient = new RPCClient({
       manifest: {
         testMethod: new UnaryCaller(),
@@ -1011,16 +876,10 @@ describe('RPC', () => {
     });
     await expect(rpcClient.methods.testMethod({}, { timer: 100 })).toReject();
     await expect(ctxP).resolves.toHaveProperty(['timer', 'delay'], 100);
-
     await rpcServer.stop({ force: true });
   });
-  test.prop(
-    {
-      message: fc.string(),
-    },
-    { numRuns: 1 },
-  )(
-    'RPC client times out and server is able to ignore exception',
+  test.prop({ message: fc.string() }, { numRuns: 1 })(
+    'the RPC server ignores exception when the client times out',
     async ({ message }) => {
       // Setup server and client communication pairs
       const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
@@ -1045,11 +904,7 @@ describe('RPC', () => {
         };
       }
       // Set up a client and server with matching timeout settings
-      const rpcServer = new RPCServer({
-        logger,
-        idGen,
-        timeoutTime: 150,
-      });
+      const rpcServer = new RPCServer({ logger, idGen, timeoutTime: 150 });
       await rpcServer.start({
         manifest: {
           testMethod: new TestMethod({}),
@@ -1059,7 +914,6 @@ describe('RPC', () => {
         ...serverPair,
         cancel: () => {},
       });
-
       const rpcClient = new RPCClient({
         manifest: {
           testMethod: new UnaryCaller(),
@@ -1077,18 +931,16 @@ describe('RPC', () => {
         rpcClient.methods.testMethod({ value: message }, { timer: 100 }),
       ).resolves.toHaveProperty('value', message);
       await expect(ctxP).resolves.toHaveProperty(['timer', 'delay'], 100);
-
       await rpcServer.stop({ force: true });
     },
   );
   test.prop({
     error: rpcTestUtils.errorArb(rpcTestUtils.errorArb()),
-  })('RPC Serializes and Deserializes Error', async ({ error }) => {
+  })('the RPC can serialize and deserialize errors', async ({ error }) => {
     const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
       Uint8Array,
       Uint8Array
     >();
-
     class TestMethod extends UnaryHandler {
       public handle = async (
         _input: JSONObject,
@@ -1099,17 +951,13 @@ describe('RPC', () => {
         throw error;
       };
     }
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-    });
+    const rpcServer = new RPCServer({ logger, idGen });
     await rpcServer.start({
       manifest: {
         testMethod: new TestMethod({}),
       },
     });
     rpcServer.handleStream({ ...serverPair, cancel: () => {} });
-
     const rpcClient = new RPCClient({
       manifest: {
         testMethod: new UnaryCaller(),
@@ -1120,24 +968,21 @@ describe('RPC', () => {
       logger,
       idGen,
     });
-
     const callProm = rpcClient.methods.testMethod({});
     const callError = await callProm.catch((e) => e);
     await expect(callProm).rejects.toThrow(rpcErrors.ErrorRPCRemote);
     expect(callError.cause).toEqual(error);
-
     await rpcServer.stop({ force: true });
   });
   test.prop({
     error: rpcTestUtils.errorArb(rpcTestUtils.errorArb()),
   })(
-    'RPC Serializes and Deserializes Error with Custom Replacer Function',
+    'the RPC can serialize and deserialize errors with a custom replacer',
     async ({ error }) => {
       const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
         Uint8Array,
         Uint8Array
       >();
-
       class TestMethod extends UnaryHandler {
         public handle = async (
           _input: JSONObject,
@@ -1159,7 +1004,6 @@ describe('RPC', () => {
         },
       });
       rpcServer.handleStream({ ...serverPair, cancel: () => {} });
-
       const rpcClient = new RPCClient({
         manifest: {
           testMethod: new UnaryCaller(),
@@ -1170,26 +1014,20 @@ describe('RPC', () => {
         logger,
         idGen,
       });
-
       const callProm = rpcClient.methods.testMethod({});
       const callError = await callProm.catch((e) => e);
-
       await expect(callProm).rejects.toThrow(rpcErrors.ErrorRPCRemote);
       expect(callError.cause).toEqual(error);
-
       await rpcServer.stop({ force: true });
     },
   );
-  test('RPCServer force stop will propagate correct errors', async () => {
+  test('force stopping the RPC server should propagate correct errors', async () => {
     const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
       Uint8Array,
       Uint8Array
     >();
-
     const errorMessage = 'test error';
-
     const testReason = Error(errorMessage);
-
     class TestMethod extends UnaryHandler {
       public handle = async (
         _input: JSONObject,
@@ -1206,18 +1044,13 @@ describe('RPC', () => {
         throw await abortP.p;
       };
     }
-
-    const rpcServer = new RPCServer({
-      logger,
-      idGen,
-    });
+    const rpcServer = new RPCServer({ logger, idGen });
     await rpcServer.start({
       manifest: {
         testMethod: new TestMethod({}),
       },
     });
     rpcServer.handleStream({ ...serverPair, cancel: () => {} });
-
     const rpcClient = new RPCClient({
       manifest: {
         testMethod: new UnaryCaller(),
@@ -1228,9 +1061,7 @@ describe('RPC', () => {
       logger,
       idGen,
     });
-
     const testProm = rpcClient.methods.testMethod({});
-
     await rpcServer.stop({ force: true, reason: testReason });
     const rejection = await testProm.catch((e) => e);
     expect(rejection).toBeInstanceOf(ErrorRPCRemote);
