@@ -512,8 +512,6 @@ class RPCServer {
       const cleanUp = async (reason: any) => {
         // Release resources
         await transformStream.readable.cancel(reason);
-        await transformStream.writable.abort(reason);
-        await passthroughTransform.readable.cancel(reason);
         await rpcStream.writable.abort(reason);
         await inputStreamEndProm;
         // Stop the timer
