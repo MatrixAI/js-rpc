@@ -3,30 +3,30 @@ import type {
   JSONRPCRequestParams,
   JSONRPCResponseResult,
   JSONValue,
-} from '@/types';
+} from '#types.js';
 import type {
   JSONRPCRequest,
   JSONRPCRequestMessage,
   JSONRPCResponse,
   JSONRPCResponseSuccess,
   RPCStream,
-} from '@/types';
-import type { IdGen } from '@/types';
+} from '#types.js';
+import type { IdGen } from '#types.js';
 import { TransformStream, ReadableStream } from 'stream/web';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import { Timer } from '@matrixai/timer';
 import { test, fc } from '@fast-check/jest';
-import RawCaller from '@/callers/RawCaller';
-import DuplexCaller from '@/callers/DuplexCaller';
-import ServerCaller from '@/callers/ServerCaller';
-import ClientCaller from '@/callers/ClientCaller';
-import UnaryCaller from '@/callers/UnaryCaller';
-import RPCClient from '@/RPCClient';
-import * as rpcErrors from '@/errors';
-import * as rpcUtilsMiddleware from '@/middleware';
-import { promise, timeoutCancelledReason } from '@/utils';
-import * as utils from '@/utils';
-import * as rpcTestUtils from './utils';
+import * as rpcTestUtils from './utils.js';
+import RawCaller from '#callers/RawCaller.js';
+import DuplexCaller from '#callers/DuplexCaller.js';
+import ServerCaller from '#callers/ServerCaller.js';
+import ClientCaller from '#callers/ClientCaller.js';
+import UnaryCaller from '#callers/UnaryCaller.js';
+import RPCClient from '#RPCClient.js';
+import * as rpcErrors from '#errors.js';
+import * as rpcUtilsMiddleware from '#middleware.js';
+import { promise, timeoutCancelledReason } from '#utils.js';
+import * as utils from '#utils.js';
 
 describe('RPCClient tests', () => {
   const logger = new Logger('RPCClient Test', LogLevel.WARN, [
@@ -35,11 +35,12 @@ describe('RPCClient tests', () => {
   const idGen: IdGen = () => Promise.resolve(null);
 
   const methodName = 'testMethod';
-  const specificMessageArb = fc
-    .array(rpcTestUtils.JSONRPCResponseSuccessArb(), {
+  const specificMessageArb = fc.array(
+    rpcTestUtils.JSONRPCResponseSuccessArb(),
+    {
       minLength: 5,
-    })
-    .noShrink();
+    },
+  );
 
   test.prop({
     headerParams: rpcTestUtils.safeJsonObjectArb,

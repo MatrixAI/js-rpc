@@ -14,11 +14,11 @@ import type {
   JSONValue,
   PromiseDeconstructed,
   ToError,
-} from './types';
+} from './types.js';
 import { TransformStream } from 'stream/web';
 import { JSONParser } from '@streamparser/json';
 import { AbstractError } from '@matrixai/errors';
-import * as errors from './errors';
+import * as errors from './errors.js';
 
 const timeoutCancelledReason = Symbol('timeoutCancelledReason');
 
@@ -537,8 +537,8 @@ function parseHeadStream<T extends JSONRPCMessage>(
   );
 }
 
-function never(): never {
-  throw new errors.ErrorRPC('This function should never be called');
+function never(message: string): never {
+  throw new errors.ErrorRPCUndefinedBehaviour(message);
 }
 
 export {

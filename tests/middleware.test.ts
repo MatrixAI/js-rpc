@@ -1,19 +1,15 @@
-import 'ix/add/asynciterable-operators/toarray';
 import { fc, test } from '@fast-check/jest';
-import { AsyncIterableX as AsyncIterable } from 'ix/asynciterable';
 import { Timer } from '@matrixai/timer';
-import * as rpcUtils from '@/utils';
-import * as rpcErrors from '@/errors';
-import * as rpcUtilsMiddleware from '@/middleware';
-import * as rpcTestUtils from './utils';
+import * as rpcTestUtils from './utils.js';
+import * as rpcUtils from '#utils.js';
+import * as rpcErrors from '#errors.js';
+import * as rpcUtilsMiddleware from '#middleware.js';
 
 describe('Middleware tests', () => {
-  const noiseArb = fc
-    .array(
-      fc.uint8Array({ minLength: 5 }).map((array) => Buffer.from(array)),
-      { minLength: 5 },
-    )
-    .noShrink();
+  const noiseArb = fc.array(
+    fc.uint8Array({ minLength: 5 }).map((array) => Buffer.from(array)),
+    { minLength: 5 },
+  );
 
   test.prop({ messages: rpcTestUtils.jsonMessagesArb }, { numRuns: 1000 })(
     'converting to raw and back to JSON',
@@ -26,7 +22,7 @@ describe('Middleware tests', () => {
           ),
         ); // Converting back.
 
-      const messagesParsed = await AsyncIterable.as(parsedStream).toArray();
+      const messagesParsed = await rpcTestUtils.toArray(parsedStream);
       expect(messagesParsed).toEqual(messages);
     },
   );
@@ -84,7 +80,7 @@ describe('Middleware tests', () => {
       messages: rpcTestUtils.jsonMessagesArb,
       snipPattern: rpcTestUtils.snippingPatternArb,
     },
-    { numRuns: 1000 },
+    { numRuns: 1000, verbose: true },
   )(
     'can parse json stream with random chunk sizes',
     async ({ messages, snipPattern: snipPattern }) => {
@@ -97,7 +93,7 @@ describe('Middleware tests', () => {
           ),
         ); // Converting back.
 
-      const messagesParsed = await AsyncIterable.as(parsedStream).toArray();
+      const messagesParsed = await rpcTestUtils.toArray(parsedStream);
       expect(messagesParsed).toStrictEqual(messages);
     },
   );
@@ -119,7 +115,7 @@ describe('Middleware tests', () => {
         ),
       ); // Converting back.
 
-    await expect(AsyncIterable.as(parsedStream).toArray()).rejects.toThrow(
+    await expect(rpcTestUtils.toArray(parsedStream)).rejects.toThrow(
       rpcErrors.ErrorRPCParse,
     );
   });
@@ -151,7 +147,7 @@ describe('Middleware tests', () => {
         ) // Converting back.
         .pipeThrough(timeoutMiddleware.forward);
 
-      const messagesParsed = await AsyncIterable.as(parsedStream).toArray();
+      const messagesParsed = await rpcTestUtils.toArray(parsedStream);
       expect(messagesParsed).toEqual(messages);
       expect(timer.delay).toBe(timeout);
       timer.cancel();
@@ -186,7 +182,7 @@ describe('Middleware tests', () => {
         ) // Converting back.
         .pipeThrough(timeoutMiddleware.forward);
 
-      const messagesParsed = await AsyncIterable.as(parsedStream).toArray();
+      const messagesParsed = await rpcTestUtils.toArray(parsedStream);
       expect(messagesParsed).toEqual(messages);
       expect(timer.delay).toBe(0);
       timer.cancel();
@@ -227,7 +223,7 @@ describe('Middleware tests', () => {
       if (expectedMessages[0].params?.metadata != null) {
         expectedMessages[0].params.metadata.timeout = null;
       }
-      const messagesParsed = await AsyncIterable.as(parsedStream).toArray();
+      const messagesParsed = await rpcTestUtils.toArray(parsedStream);
       expect(messagesParsed).toEqual(expectedMessages);
       expect(timer.delay).toBe(Infinity);
       timer.cancel();
@@ -266,7 +262,7 @@ describe('Middleware tests', () => {
         ...expectedMessages[0].params.metadata,
         timeout,
       };
-      const messagesParsed = await AsyncIterable.as(parsedStream).toArray();
+      const messagesParsed = await rpcTestUtils.toArray(parsedStream);
       expect(messagesParsed).toEqual(expectedMessages);
       expect(timer.delay).toBe(timeout);
       timer.cancel();

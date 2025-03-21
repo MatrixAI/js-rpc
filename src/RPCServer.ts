@@ -16,24 +16,21 @@ import type {
   MiddlewareFactory,
   FromError,
   JSONObject,
-} from './types';
+} from './types.js';
 import { ReadableStream, TransformStream } from 'stream/web';
 import Logger from '@matrixai/logger';
 import { PromiseCancellable } from '@matrixai/async-cancellable';
 import { Timer } from '@matrixai/timer';
 import { startStop } from '@matrixai/async-init';
-import { StartStop } from '@matrixai/async-init/dist/StartStop';
-import { RawHandler } from './handlers';
-import {
-  DuplexHandler,
-  ServerHandler,
-  UnaryHandler,
-  ClientHandler,
-} from './handlers';
-import * as utils from './utils';
-import * as errors from './errors';
-import * as middleware from './middleware';
-import * as events from './events';
+import RawHandler from './handlers/RawHandler.js';
+import DuplexHandler from './handlers/DuplexHandler.js';
+import ServerHandler from './handlers/ServerHandler.js';
+import UnaryHandler from './handlers/UnaryHandler.js';
+import ClientHandler from './handlers/ClientHandler.js';
+import * as utils from './utils.js';
+import * as errors from './errors.js';
+import * as middleware from './middleware.js';
+import * as events from './events.js';
 
 const cleanupReason = Symbol('CleanupReason');
 
@@ -79,7 +76,7 @@ function composeErrorMessage(error: unknown): string {
  */
 interface RPCServer extends startStop.StartStop {}
 
-@StartStop({
+@startStop.StartStop({
   eventStart: events.EventRPCServerStart,
   eventStarted: events.EventRPCServerStarted,
   eventStop: events.EventRPCServerStopping,
@@ -197,14 +194,6 @@ class RPCServer {
           );
           continue;
         }
-        if (manifestItem instanceof ClientHandler) {
-          this.registerClientStreamHandler(
-            key,
-            manifestItem.handle,
-            manifestItem.timeout,
-          );
-          continue;
-        }
         if (manifestItem instanceof UnaryHandler) {
           this.registerUnaryHandler(
             key,
@@ -213,7 +202,7 @@ class RPCServer {
           );
           continue;
         }
-        utils.never();
+        utils.never(`manifestItem must be an instance of a Handler`);
       }
     } catch (e) {
       // No need to clean up streams, as streams can only be handled after RPCServer has been started.

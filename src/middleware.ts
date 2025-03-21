@@ -5,12 +5,12 @@ import type {
   JSONRPCResponseSuccess,
   MiddlewareFactory,
   JSONValue,
-} from './types';
+} from './types.js';
 import type { ContextTimed } from '@matrixai/contexts';
 import { TransformStream } from 'stream/web';
 import { JSONParser } from '@streamparser/json';
-import * as utils from './utils';
-import * as rpcErrors from './errors';
+import * as utils from './utils.js';
+import * as rpcErrors from './errors.js';
 
 /**
  * This function is a factory to create a TransformStream that will

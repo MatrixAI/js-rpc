@@ -3,7 +3,7 @@ import type {
   ErrorRPCConnectionPeer,
   ErrorRPCConnectionKeepAliveTimeOut,
   ErrorRPCConnectionInternal,
-} from './errors';
+} from './errors.js';
 import { AbstractEvent } from '@matrixai/events';
 
 abstract class EventRPCClient<T = null> extends AbstractEvent<T> {}

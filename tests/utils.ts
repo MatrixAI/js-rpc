@@ -1,5 +1,5 @@
 import type { ReadableWritablePair } from 'stream/web';
-import type { JSONObject, JSONValue } from '@/types';
+import type { JSONObject, JSONValue } from '#types.js';
 import type {
   JSONRPCResponseError,
   JSONRPCMessage,
@@ -9,14 +9,14 @@ import type {
   JSONRPCResponseSuccess,
   JSONRPCResponse,
   JSONRPCRequest,
-} from '@/types';
-import type { ErrorRPC } from '@/errors';
+} from '#types.js';
+import type { ErrorRPC } from '#errors.js';
 import { ReadableStream, WritableStream, TransformStream } from 'stream/web';
 import { fc } from '@fast-check/jest';
 import { AbstractError } from '@matrixai/errors';
-import * as utils from '@/utils';
-import { fromError } from '@/utils';
-import * as rpcErrors from '@/errors';
+import * as utils from '#utils.js';
+import { fromError } from '#utils.js';
+import * as rpcErrors from '#errors.js';
 
 /**
  * This is used to convert regular chunks into randomly sized chunks based on
@@ -85,12 +85,14 @@ const safeJsonValueArb = fc
   .json()
   .map(
     (value) => JSON.parse(value.replaceAll('__proto__', 'proto')) as JSONValue,
-  )
-  .noShrink();
+  );
 
 const safeJsonObjectArb = fc.dictionary(
   fc.string().map((s) => s.replaceAll('__proto__', 'proto')),
   safeJsonValueArb,
+  {
+    noNullPrototype: true,
+  },
 ) as fc.Arbitrary<JSONObject>;
 
 const idArb = fc.oneof(fc.string(), fc.integer(), fc.constant(null));
@@ -99,106 +101,112 @@ const jsonRpcRequestMessageArb = (
   method: fc.Arbitrary<string> = fc.string(),
   params: fc.Arbitrary<JSONObject> = safeJsonObjectArb,
 ) =>
-  fc
-    .record(
-      {
-        jsonrpc: fc.constant('2.0'),
-        method: method,
-        params: params,
-        id: idArb,
-      },
-      {
-        requiredKeys: ['jsonrpc', 'method', 'id'],
-      },
-    )
-    .noShrink() as fc.Arbitrary<JSONRPCRequestMessage>;
+  fc.record(
+    {
+      jsonrpc: fc.constant('2.0'),
+      method: method,
+      params: params,
+      id: idArb,
+    },
+    {
+      requiredKeys: ['jsonrpc', 'method', 'id'],
+      noNullPrototype: true,
+    },
+  ) as fc.Arbitrary<JSONRPCRequestMessage>;
 
 const jsonRpcRequestNotificationArb = (
   method: fc.Arbitrary<string> = fc.string(),
   params: fc.Arbitrary<JSONValue> = safeJsonValueArb,
 ) =>
-  fc
-    .record(
-      {
-        jsonrpc: fc.constant('2.0'),
-        method: method,
-        params: params,
-      },
-      {
-        requiredKeys: ['jsonrpc', 'method'],
-      },
-    )
-    .noShrink() as fc.Arbitrary<JSONRPCRequestNotification>;
+  fc.record(
+    {
+      jsonrpc: fc.constant('2.0'),
+      method: method,
+      params: params,
+    },
+    {
+      requiredKeys: ['jsonrpc', 'method'],
+      noNullPrototype: true,
+    },
+  ) as fc.Arbitrary<JSONRPCRequestNotification>;
 
 const jsonRpcRequestArb = (
   method: fc.Arbitrary<string> = fc.string(),
   params: fc.Arbitrary<JSONObject> = safeJsonObjectArb,
 ) =>
-  fc
-    .oneof(
-      jsonRpcRequestMessageArb(method, params),
-      jsonRpcRequestNotificationArb(method, params),
-    )
-    .noShrink() as fc.Arbitrary<JSONRPCRequest>;
+  fc.oneof(
+    jsonRpcRequestMessageArb(method, params),
+    jsonRpcRequestNotificationArb(method, params),
+  ) as fc.Arbitrary<JSONRPCRequest>;
 
 const JSONRPCResponseSuccessArb = (
   result: fc.Arbitrary<JSONObject> = safeJsonObjectArb,
 ) =>
-  fc
-    .record({
+  fc.record(
+    {
       jsonrpc: fc.constant('2.0'),
       result: result,
       id: idArb,
-    })
-    .noShrink() as fc.Arbitrary<JSONRPCResponseSuccess>;
+    },
+    {
+      noNullPrototype: true,
+    },
+  ) as fc.Arbitrary<JSONRPCResponseSuccess>;
 const JSONRPCResponseErrorArb = (
   error: fc.Arbitrary<Error> = fc.constant(new Error('test error')),
 ) =>
-  fc
-    .record(
-      {
-        code: fc.constant(rpcErrors.JSONRPCResponseErrorCode.RPCRemote),
-        message: fc.string(),
-        data: error.map((e) => fromError(e)),
-      },
-      {
-        requiredKeys: ['code', 'message', 'data'],
-      },
-    )
-    .noShrink() as fc.Arbitrary<JSONRPCResponseError>;
+  fc.record(
+    {
+      code: fc.constant(rpcErrors.JSONRPCResponseErrorCode.RPCRemote),
+      message: fc.string(),
+      data: error.map((e) => fromError(e)),
+    },
+    {
+      requiredKeys: ['code', 'message', 'data'],
+      noNullPrototype: true,
+    },
+  ) as fc.Arbitrary<JSONRPCResponseError>;
 
 const JSONRPCResponseFailedArb = (error?: fc.Arbitrary<ErrorRPC<any>>) =>
-  fc
-    .record({
+  fc.record(
+    {
       jsonrpc: fc.constant('2.0'),
       error: JSONRPCResponseErrorArb(error),
       id: idArb,
-    })
-    .noShrink() as fc.Arbitrary<JSONRPCResponseFailed>;
+    },
+    {
+      noNullPrototype: true,
+    },
+  ) as fc.Arbitrary<JSONRPCResponseFailed>;
 
 const jsonRpcResponseArb = (
   result: fc.Arbitrary<JSONObject> = safeJsonObjectArb,
 ) =>
-  fc
-    .oneof(JSONRPCResponseSuccessArb(result), JSONRPCResponseFailedArb())
-    .noShrink() as fc.Arbitrary<JSONRPCResponse>;
+  fc.oneof(
+    JSONRPCResponseSuccessArb(result),
+    JSONRPCResponseFailedArb(),
+  ) as fc.Arbitrary<JSONRPCResponse>;
 
 const jsonRpcMessageArb = (
   method: fc.Arbitrary<string> = fc.string(),
   params: fc.Arbitrary<JSONObject> = safeJsonObjectArb,
   result: fc.Arbitrary<JSONObject> = safeJsonObjectArb,
 ) =>
-  fc
-    .oneof(jsonRpcRequestArb(method, params), jsonRpcResponseArb(result))
-    .noShrink() as fc.Arbitrary<JSONRPCMessage>;
+  fc.oneof(
+    jsonRpcRequestArb(method, params),
+    jsonRpcResponseArb(result),
+  ) as fc.Arbitrary<JSONRPCMessage>;
 
-const snippingPatternArb = fc
-  .array(fc.integer({ min: 1, max: 32 }), { minLength: 100, size: 'medium' })
-  .noShrink();
+const snippingPatternArb = fc.noShrink(
+  fc.array(fc.integer({ min: 1, max: 32 }), {
+    minLength: 100,
+    size: 'medium',
+  }),
+);
 
-const jsonMessagesArb = fc
-  .array(jsonRpcRequestMessageArb(), { minLength: 2 })
-  .noShrink();
+const jsonMessagesArb = fc.noShrink(
+  fc.array(jsonRpcRequestMessageArb(), { minLength: 2 }),
+);
 
 const rawDataArb = fc.array(fc.uint8Array({ minLength: 1 }), { minLength: 1 });
 
@@ -286,6 +294,14 @@ const timeoutsArb = fc
     ),
   );
 
+async function toArray<T>(
+  readabelStream: ReadableStream<T>,
+): Promise<Array<T>> {
+  const array: Array<T> = [];
+  for await (const value of readabelStream) array.push(value);
+  return array;
+}
+
 export {
   binaryStreamToSnippedStream,
   binaryStreamToNoisyStream,
@@ -308,4 +324,5 @@ export {
   createTapPairs,
   errorArb,
   timeoutsArb,
+  toArray,
 };

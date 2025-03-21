@@ -4,32 +4,32 @@ import type {
   JSONRPCRequestParams,
   JSONRPCRequest,
   JSONRPCResponseResult,
-} from '@/types';
+} from '#types.js';
 import type { ReadableStream } from 'stream/web';
-import type { JSONValue, IdGen } from '@/types';
+import type { JSONValue, IdGen } from '#types.js';
 import type { ContextTimed } from '@matrixai/contexts';
 import { TransformStream } from 'stream/web';
 import { fc, test } from '@fast-check/jest';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import { Timer } from '@matrixai/timer';
-import RawCaller from '@/callers/RawCaller';
-import DuplexCaller from '@/callers/DuplexCaller';
-import ServerCaller from '@/callers/ServerCaller';
-import ClientCaller from '@/callers/ClientCaller';
-import UnaryCaller from '@/callers/UnaryCaller';
-import * as rpcUtilsMiddleware from '@/middleware';
-import { ErrorRPCRemote } from '@/errors';
-import * as rpcErrors from '@/errors';
-import RPCClient from '@/RPCClient';
-import RPCServer from '@/RPCServer';
-import * as utils from '@/utils';
-import DuplexHandler from '@/handlers/DuplexHandler';
-import RawHandler from '@/handlers/RawHandler';
-import ServerHandler from '@/handlers/ServerHandler';
-import UnaryHandler from '@/handlers/UnaryHandler';
-import ClientHandler from '@/handlers/ClientHandler';
-import { filterSensitive } from '@/utils';
-import * as rpcTestUtils from './utils';
+import * as rpcTestUtils from './utils.js';
+import RawCaller from '#callers/RawCaller.js';
+import DuplexCaller from '#callers/DuplexCaller.js';
+import ServerCaller from '#callers/ServerCaller.js';
+import ClientCaller from '#callers/ClientCaller.js';
+import UnaryCaller from '#callers/UnaryCaller.js';
+import * as rpcUtilsMiddleware from '#middleware.js';
+import { ErrorRPCRemote } from '#errors.js';
+import * as rpcErrors from '#errors.js';
+import RPCClient from '#RPCClient.js';
+import RPCServer from '#RPCServer.js';
+import * as utils from '#utils.js';
+import DuplexHandler from '#handlers/DuplexHandler.js';
+import RawHandler from '#handlers/RawHandler.js';
+import ServerHandler from '#handlers/ServerHandler.js';
+import UnaryHandler from '#handlers/UnaryHandler.js';
+import ClientHandler from '#handlers/ClientHandler.js';
+import { filterSensitive } from '#utils.js';
 
 describe('RPC tests', () => {
   const logger = new Logger(`RPC Test`, LogLevel.WARN, [new StreamHandler()]);
@@ -240,9 +240,7 @@ describe('RPC tests', () => {
   });
   test.prop(
     {
-      values: fc
-        .array(rpcTestUtils.safeJsonObjectArb, { minLength: 1 })
-        .noShrink(),
+      values: fc.array(rpcTestUtils.safeJsonObjectArb, { minLength: 1 }),
     },
     { numRuns: 1 },
   )(
@@ -370,7 +368,7 @@ describe('RPC tests', () => {
     await rpcServer.stop({ force: true });
   });
   test.prop({
-    values: fc.array(fc.integer(), { minLength: 1 }).noShrink(),
+    values: fc.array(fc.integer(), { minLength: 1 }),
   })('the RPC should communicate using client streams', async ({ values }) => {
     const { clientPair, serverPair } = rpcTestUtils.createTapPairs<
       Uint8Array,

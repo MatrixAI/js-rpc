@@ -2,7 +2,7 @@ import type {
   HandlerType,
   JSONRPCRequestParams,
   JSONRPCResponseResult,
-} from '../types';
+} from '../types.js';
 
 abstract class Caller<
   Input extends JSONRPCRequestParams = JSONRPCRequestParams,

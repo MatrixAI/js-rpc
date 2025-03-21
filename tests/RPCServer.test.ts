@@ -8,24 +8,24 @@ import type {
   JSONRPCResponseResult,
   JSONValue,
   RPCStream,
-} from '@/types';
-import type { IdGen } from '@/types';
+} from '#types.js';
+import type { IdGen } from '#types.js';
 import type { PromiseCancellable } from '@matrixai/async-cancellable';
-import type * as rpcEvents from '@/events';
+import type * as rpcEvents from '#events.js';
 import { ReadableStream, TransformStream, WritableStream } from 'stream/web';
 import { fc, test } from '@fast-check/jest';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
-import RPCServer from '@/RPCServer';
-import * as rpcErrors from '@/errors';
-import * as rpcUtils from '@/utils';
-import { promise } from '@/utils';
-import * as rpcUtilsMiddleware from '@/middleware';
-import ServerHandler from '@/handlers/ServerHandler';
-import DuplexHandler from '@/handlers/DuplexHandler';
-import RawHandler from '@/handlers/RawHandler';
-import UnaryHandler from '@/handlers/UnaryHandler';
-import ClientHandler from '@/handlers/ClientHandler';
-import * as rpcTestUtils from './utils';
+import * as rpcTestUtils from './utils.js';
+import RPCServer from '#RPCServer.js';
+import * as rpcErrors from '#errors.js';
+import * as rpcUtils from '#utils.js';
+import { promise } from '#utils.js';
+import * as rpcUtilsMiddleware from '#middleware.js';
+import ServerHandler from '#handlers/ServerHandler.js';
+import DuplexHandler from '#handlers/DuplexHandler.js';
+import RawHandler from '#handlers/RawHandler.js';
+import UnaryHandler from '#handlers/UnaryHandler.js';
+import ClientHandler from '#handlers/ClientHandler.js';
 
 describe('RPCServer', () => {
   const logger = new Logger('RPCServer Test', LogLevel.WARN, [
@@ -33,11 +33,12 @@ describe('RPCServer', () => {
   ]);
   const idGen: IdGen = () => Promise.resolve(null);
   const methodName = 'testMethod';
-  const specificMessageArb = fc
-    .array(rpcTestUtils.jsonRpcRequestMessageArb(fc.constant(methodName)), {
+  const specificMessageArb = fc.array(
+    rpcTestUtils.jsonRpcRequestMessageArb(fc.constant(methodName)),
+    {
       minLength: 5,
-    })
-    .noShrink();
+    },
+  );
   const singleNumberMessageArb = fc.array(
     rpcTestUtils.jsonRpcRequestMessageArb(
       fc.constant(methodName),

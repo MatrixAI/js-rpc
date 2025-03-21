@@ -1,9 +1,13 @@
 import type { Class } from '@matrixai/errors';
-import type { JSONRPCResponseError, JSONValue, POJO } from './types';
+import type { JSONRPCResponseError, JSONValue, POJO } from './types.js';
 import { AbstractError } from '@matrixai/errors';
 
 class ErrorRPC<T> extends AbstractError<T> {
   static description = 'RPC Error';
+}
+
+class ErrorRPCUndefinedBehaviour<T> extends ErrorRPC<T> {
+  static description = 'You should never see this error';
 }
 
 // Server Errors
@@ -247,6 +251,7 @@ const rpcProtocolErrors = {
 
 export {
   ErrorRPC,
+  ErrorRPCUndefinedBehaviour,
   ErrorRPCServer,
   ErrorRPCServerNotRunning,
   ErrorRPCProtocol,
