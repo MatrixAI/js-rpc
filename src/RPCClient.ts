@@ -15,12 +15,12 @@ import type {
   RPCStream,
   StreamFactory,
   ToError,
-} from './types';
+} from './types.js';
 import Logger from '@matrixai/logger';
 import { Timer } from '@matrixai/timer';
-import * as middleware from './middleware';
-import * as errors from './errors';
-import * as utils from './utils';
+import * as middleware from './middleware.js';
+import * as errors from './errors.js';
+import * as utils from './utils.js';
 
 const timerCleanupReasonSymbol = Symbol('timerCleanUpReasonSymbol');
 
@@ -491,7 +491,9 @@ class RPCClient<M extends ClientManifest> {
       try {
         const message = await Promise.race([tempReader.read(), abortProm.p]);
         const messageValue = message.value as JSONRPCResponse;
-        if (message.done) utils.never();
+        if (message.done) {
+          utils.never('a message was expected, received done instead');
+        }
         if ('error' in messageValue) {
           const metadata = {
             ...(rpcStream.meta ?? {}),

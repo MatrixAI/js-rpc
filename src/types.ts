@@ -1,12 +1,12 @@
 import type { ReadableStream, ReadableWritablePair } from 'stream/web';
 import type { ContextTimed, ContextTimedInput } from '@matrixai/contexts';
-import type { Caller } from './callers';
-import type { RawCaller } from './callers';
-import type { DuplexCaller } from './callers';
-import type { ServerCaller } from './callers';
-import type { ClientCaller } from './callers';
-import type { UnaryCaller } from './callers';
-import type Handler from './handlers/Handler';
+import type Caller from './callers/Caller.js';
+import type RawCaller from './callers/RawCaller.js';
+import type DuplexCaller from './callers/DuplexCaller.js';
+import type ServerCaller from './callers/ServerCaller.js';
+import type ClientCaller from './callers/ClientCaller.js';
+import type UnaryCaller from './callers/UnaryCaller.js';
+import type Handler from './handlers/Handler.js';
 
 /**
  * This is the type for the IdGenFunction. It is used to generate the request

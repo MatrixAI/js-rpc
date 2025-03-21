@@ -1,7 +1,6 @@
 import { test, fc } from '@fast-check/jest';
-import * as rpcUtils from '@/utils';
-import 'ix/add/asynciterable-operators/toarray';
-import * as rpcTestUtils from './utils';
+import * as rpcTestUtils from './utils.js';
+import * as rpcUtils from '#utils.js';
 
 describe('utils tests', () => {
   test.prop(

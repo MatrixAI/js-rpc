@@ -3,10 +3,10 @@ import type {
   JSONValue,
   JSONRPCRequestParams,
   JSONRPCResponseResult,
-} from '../types';
+} from '../types.js';
 import type { ContextTimed } from '@matrixai/contexts';
-import Handler from './Handler';
-import { ErrorRPCMethodNotImplemented } from '../errors';
+import Handler from './Handler.js';
+import { ErrorRPCMethodNotImplemented } from '../errors.js';
 
 abstract class DuplexHandler<
   Container extends ContainerType = ContainerType,

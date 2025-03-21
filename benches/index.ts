@@ -2,22 +2,25 @@
 
 import fs from 'fs';
 import path from 'path';
+import url from 'url';
 import si from 'systeminformation';
 
+const dirname = url.fileURLToPath(new URL('.', import.meta.url));
+
 async function main(): Promise<void> {
-  await fs.promises.mkdir(path.join(__dirname, 'results'), { recursive: true });
+  await fs.promises.mkdir(path.join(dirname, 'results'), { recursive: true });
   const resultFilenames = await fs.promises.readdir(
-    path.join(__dirname, 'results'),
+    path.join(dirname, 'results'),
   );
   const metricsFile = await fs.promises.open(
-    path.join(__dirname, 'results', 'metrics.txt'),
+    path.join(dirname, 'results', 'metrics.txt'),
     'w',
   );
   let concatenating = false;
   for (const resultFilename of resultFilenames) {
     if (/.+_metrics\.txt$/.test(resultFilename)) {
       const metricsData = await fs.promises.readFile(
-        path.join(__dirname, 'results', resultFilename),
+        path.join(dirname, 'results', resultFilename),
       );
       if (concatenating) {
         await metricsFile.write('\n');
@@ -33,7 +36,7 @@ async function main(): Promise<void> {
     system: 'model, manufacturer',
   });
   await fs.promises.writeFile(
-    path.join(__dirname, 'results', 'system.json'),
+    path.join(dirname, 'results', 'system.json'),
     JSON.stringify(systemData, null, 2),
   );
 }

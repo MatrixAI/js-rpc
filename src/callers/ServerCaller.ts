@@ -1,5 +1,5 @@
-import type { JSONRPCRequestParams, JSONRPCResponseResult } from '../types';
-import Caller from './Caller';
+import type { JSONRPCRequestParams, JSONRPCResponseResult } from '../types.js';
+import Caller from './Caller.js';
 
 class ServerCaller<
   Input extends JSONRPCRequestParams = JSONRPCRequestParams,

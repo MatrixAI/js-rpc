@@ -5,9 +5,9 @@ import type {
   JSONRPCRequest,
   JSONRPCResponseResult,
   JSONValue,
-} from '../types';
-import Handler from './Handler';
-import { ErrorRPCMethodNotImplemented } from '../errors';
+} from '../types.js';
+import Handler from './Handler.js';
+import { ErrorRPCMethodNotImplemented } from '../errors.js';
 
 abstract class RawHandler<
   Container extends ContainerType = ContainerType,
