@@ -622,7 +622,7 @@ class RPCServer {
             headerMessage.value,
             transformStream.readable as ReadableStream<Uint8Array>,
           ],
-          rpcStream.cancel,
+          (...args) => rpcStream.cancel(...args),
           rpcStream.meta,
           { signal: abortController.signal, timer },
         );

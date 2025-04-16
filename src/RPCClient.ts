@@ -348,7 +348,7 @@ class RPCClient<M extends ClientManifest> {
       utils.clientInputTransformStream<I>(method);
     const middleware = this.middlewareFactory(
       { signal, timer },
-      rpcStream.cancel,
+      (...args) => rpcStream.cancel(...args),
       metadata,
     );
     // This `Promise.allSettled` is used to asynchronously track the state
@@ -372,7 +372,7 @@ class RPCClient<M extends ClientManifest> {
     return {
       readable: outputMessageTransformStream.readable,
       writable: inputMessageTransformStream.writable,
-      cancel: rpcStream.cancel,
+      cancel: (...args) => rpcStream.cancel(...args),
       meta: metadata,
     };
   }
@@ -512,7 +512,7 @@ class RPCClient<M extends ClientManifest> {
       const newRpcStream: RPCStream<Uint8Array, Uint8Array> = {
         writable: rpcStream.writable,
         readable: headTransformStream.readable as ReadableStream<Uint8Array>,
-        cancel: rpcStream.cancel,
+        cancel: (...args) => rpcStream.cancel(...args),
         meta: rpcStream.meta,
       };
       return [leadingMessage.result, newRpcStream];
@@ -532,7 +532,7 @@ class RPCClient<M extends ClientManifest> {
     return {
       writable: rpcStream.writable,
       readable: rpcStream.readable,
-      cancel: rpcStream.cancel,
+      cancel: (...args) => rpcStream.cancel(...args),
       meta: metadata,
     };
   }
