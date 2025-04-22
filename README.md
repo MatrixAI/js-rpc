@@ -26,18 +26,22 @@ const rpcStream = {
 #### Server
 
 ```ts
-import type { JSONRPCParams, JSONRPCResult, JSONValue } from "@matrixai/rpc";
-import { RPCServer, UnaryHandler } from "@matrixai/rpc";
+import type { JSONRPCParams, JSONRPCResult, JSONValue } from '@matrixai/rpc';
+import { RPCServer, UnaryHandler } from '@matrixai/rpc';
 
 // Create a Handler
-class SquaredNumberUnary extends UnaryHandler<ContainerType, JSONRPCParams<{ value: number }>, JSONRPCResult<{ value: number }>> {
+class SquaredNumberUnary extends UnaryHandler<
+  ContainerType,
+  JSONRPCParams<{ value: number }>,
+  JSONRPCResult<{ value: number }>
+> {
   public handle = async (
     input: JSONRPCParams<{ value: number }>,
     cancel: (reason?: any) => void,
     meta: Record<string, JSONValue> | undefined,
     ctx: ContextTimed,
   ): Promise<JSONRPCResult<{ value: number }>> => {
-    return input.value**2;
+    return input.value ** 2;
   };
 }
 
@@ -56,8 +60,8 @@ rpcServer.handleStream(rpcStream);
 #### Client
 
 ```ts
-import type { HandlerTypes } from "@matrixai/rpc";
-import { RPCClient, UnaryCaller } from "@matrixai/rpc";
+import type { HandlerTypes } from '@matrixai/rpc';
+import { RPCClient, UnaryCaller } from '@matrixai/rpc';
 
 // Get the CallerTypes of the handler
 type CallerTypes = HandlerTypes<SquaredNumberUnary>;
@@ -89,16 +93,20 @@ In Unary calls, the client sends a single request to the server and receives a s
 ##### Handler
 
 ```ts
-import type { JSONRPCParams, JSONRPCResult, JSONValue } from "@matrixai/rpc";
-import { UnaryHandler } from "@matrixai/rpc";
-class SquaredNumberUnary extends UnaryHandler<ContainerType, JSONRPCParams<{ value: number }>, JSONRPCResult<{ value: number }>> {
+import type { JSONRPCParams, JSONRPCResult, JSONValue } from '@matrixai/rpc';
+import { UnaryHandler } from '@matrixai/rpc';
+class SquaredNumberUnary extends UnaryHandler<
+  ContainerType,
+  JSONRPCParams<{ value: number }>,
+  JSONRPCResult<{ value: number }>
+> {
   public handle = async (
     input: JSONRPCParams<{ value: number }>,
     cancel: (reason?: any) => void,
     meta: Record<string, JSONValue> | undefined,
     ctx: ContextTimed,
   ): Promise<JSONRPCResult<{ value: number }>> => {
-    return input.value**2;
+    return input.value ** 2;
   };
 }
 ```
@@ -106,8 +114,8 @@ class SquaredNumberUnary extends UnaryHandler<ContainerType, JSONRPCParams<{ val
 ##### Caller
 
 ```ts
-import type { HandlerTypes } from "@matrixai/rpc";
-import { UnaryCaller } from "@matrixai/rpc";
+import type { HandlerTypes } from '@matrixai/rpc';
+import { UnaryCaller } from '@matrixai/rpc';
 type CallerTypes = HandlerTypes<SquaredNumberUnary>;
 const squaredNumber = new UnaryCaller<
   CallerTypes['input'],
@@ -119,7 +127,7 @@ const squaredNumber = new UnaryCaller<
 
 The client initiates a unary RPC call by invoking a method that returns a promise. It passes the required input parameters as arguments to the method. The client then waits for the promise to resolve, receiving the output.
 
-``` ts
+```ts
 await rpcClient.methods.squaredNumber({ value: 3 });
 // returns { value: 9 }
 ```
@@ -133,9 +141,13 @@ In Client Streaming calls, the client can write multiple messages to a single st
 On the server side, the handle function is an asynchronous function that takes an AsyncIterableIterator as input, representing the stream of incoming messages from the client. It returns a promise that resolves to the output that will be sent back to the client.
 
 ```ts
-import type { JSONRPCParams, JSONRPCResult, JSONValue } from "@matrixai/rpc";
-import { ClientHandler } from "@matrixai/rpc";
-class AccumulateClient extends ClientHandler<ContainerType, JSONRPCParams<{ value: number }>, JSONRPCResult<{ value: number }>> {
+import type { JSONRPCParams, JSONRPCResult, JSONValue } from '@matrixai/rpc';
+import { ClientHandler } from '@matrixai/rpc';
+class AccumulateClient extends ClientHandler<
+  ContainerType,
+  JSONRPCParams<{ value: number }>,
+  JSONRPCResult<{ value: number }>
+> {
   public handle = async (
     input: AsyncIterableIterator<JSONRPCParams<{ value: number }>>,
     cancel: (reason?: any) => void,
@@ -154,8 +166,8 @@ class AccumulateClient extends ClientHandler<ContainerType, JSONRPCParams<{ valu
 ##### Caller
 
 ```ts
-import type { HandlerTypes } from "@matrixai/rpc";
-import { ClientCaller } from "@matrixai/rpc";
+import type { HandlerTypes } from '@matrixai/rpc';
+import { ClientCaller } from '@matrixai/rpc';
 type CallerTypes = HandlerTypes<AccumulateClient>;
 const accumulate = new ClientCaller<
   CallerTypes['input'],
@@ -193,9 +205,13 @@ In this example, the client sends a number and the server responds with the squa
 On the server side, the handle function is an asynchronous generator function that takes a single input parameter from the client. It yields multiple messages that will be sent back to the client through the readable stream.
 
 ```ts
-import type { JSONRPCParams, JSONRPCResult, JSONValue } from "@matrixai/rpc";
-import { ServerHandler } from "@matrixai/rpc";
-class CountServer extends ServerHandler<ContainerType, JSONRPCParams<{ value: number }>, JSONRPCResult<{ value: number }>> {
+import type { JSONRPCParams, JSONRPCResult, JSONValue } from '@matrixai/rpc';
+import { ServerHandler } from '@matrixai/rpc';
+class CountServer extends ServerHandler<
+  ContainerType,
+  JSONRPCParams<{ value: number }>,
+  JSONRPCResult<{ value: number }>
+> {
   public handle = async function* (
     input: JSONRPCParams<{ value: number }>,
     cancel: (reason?: any) => void,
@@ -212,13 +228,10 @@ class CountServer extends ServerHandler<ContainerType, JSONRPCParams<{ value: nu
 ##### Caller
 
 ```ts
-import type { HandlerTypes } from "@matrixai/rpc";
-import { ServerCaller } from "@matrixai/rpc";
+import type { HandlerTypes } from '@matrixai/rpc';
+import { ServerCaller } from '@matrixai/rpc';
 type CallerTypes = HandlerTypes<CountServer>;
-const count = new ServerCaller<
-  CallerTypes['input'],
-  CallerTypes['output']
->();
+const count = new ServerCaller<CallerTypes['input'], CallerTypes['output']>();
 ```
 
 ##### Call-Site
@@ -243,14 +256,18 @@ A Duplex Stream enables both the client and the server to read and write message
 ##### Handler
 
 ```ts
-import type { JSONRPCParams, JSONRPCResult, JSONValue } from "@matrixai/rpc";
-import { DuplexHandler } from "@matrixai/rpc";
-class EchoDuplex extends DuplexHandler<ContainerType, JSONRPCParams, JSONRPCResult> {
+import type { JSONRPCParams, JSONRPCResult, JSONValue } from '@matrixai/rpc';
+import { DuplexHandler } from '@matrixai/rpc';
+class EchoDuplex extends DuplexHandler<
+  ContainerType,
+  JSONRPCParams,
+  JSONRPCResult
+> {
   public handle = async function* (
     input: AsyncIterableIterator<JSONRPCParams<{ value: number }>>, // This is a generator.
     cancel: (reason?: any) => void,
     meta: Record<string, JSONValue> | undefined,
-    ctx: ContextTimed
+    ctx: ContextTimed,
   ): AsyncIterableIterator<JSONRPCResult<{ value: number }>> {
     for await (const incomingData of input) {
       yield incomingData;
@@ -262,13 +279,10 @@ class EchoDuplex extends DuplexHandler<ContainerType, JSONRPCParams, JSONRPCResu
 ##### Caller
 
 ```ts
-import type { HandlerTypes } from "@matrixai/rpc";
-import { ServerCaller } from "@matrixai/rpc";
+import type { HandlerTypes } from '@matrixai/rpc';
+import { ServerCaller } from '@matrixai/rpc';
 type CallerTypes = HandlerTypes<EchoDuplex>;
-const echo = new ServerCaller<
-  CallerTypes['input'],
-  CallerTypes['output']
->();
+const echo = new ServerCaller<CallerTypes['input'], CallerTypes['output']>();
 ```
 
 ##### Call-Site
@@ -284,7 +298,7 @@ const reader = readable.getReader();
 const writer = writable.getWriter();
 
 // Write data to the server
-const inputData: JSONObject = { someKey: "someValue" };
+const inputData: JSONObject = { someKey: 'someValue' };
 await writer.write(inputData);
 
 const readResult = await reader.read();
@@ -299,47 +313,53 @@ Raw Streams are designed for low-level handling of RPC calls, enabling granular 
 ##### Handler
 
 ```ts
-import type { JSONRPCRequest, JSONValue } from "@matrixai/rpc";
-import { RawHandler } from "@matrixai/rpc";
+import type { JSONRPCRequest, JSONValue } from '@matrixai/rpc';
+import { RawHandler } from '@matrixai/rpc';
 class FactorialRaw extends RawHandler<ContainerType> {
   public handle = async (
-  [request, inputStream]: [JSONRPCRequest, ReadableStream<Uint8Array>],
-  cancel: (reason?: any) => void,
-  meta: Record<string, JSONValue> | undefined,
-  ctx: ContextTimed
+    [request, inputStream]: [JSONRPCRequest, ReadableStream<Uint8Array>],
+    cancel: (reason?: any) => void,
+    meta: Record<string, JSONValue> | undefined,
+    ctx: ContextTimed,
   ): Promise<[JSONValue, ReadableStream<Uint8Array>]> => {
-  const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+    const { readable, writable } = new TransformStream<
+      Uint8Array,
+      Uint8Array
+    >();
     (async () => {
-        function factorialOf(n: number): number {
-          return n === 0 ? 1 : n * factorialOf(n - 1);
+      function factorialOf(n: number): number {
+        return n === 0 ? 1 : n * factorialOf(n - 1);
+      }
+
+      const reader = inputStream.getReader();
+      const writer = writable.getWriter();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
         }
 
-        const reader = inputStream.getReader();
-        const writer = writable.getWriter();
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) {
-                break;
-            }
+        const num = parseInt(new TextDecoder().decode(value), 10);
+        const factorial = factorialOf(num).toString();
+        const outputBuffer = new TextEncoder().encode(factorial);
 
-            const num = parseInt(new TextDecoder().decode(value), 10);
-            const factorial = factorialOf(num).toString();
-            const outputBuffer = new TextEncoder().encode(factorial);
-
-            writer.write(outputBuffer);
-        }
-        writer.close();
+        writer.write(outputBuffer);
+      }
+      writer.close();
     })();
 
-    return ['Starting factorial computation', readable as ReadableStream<Uint8Array>];
-  }
+    return [
+      'Starting factorial computation',
+      readable as ReadableStream<Uint8Array>,
+    ];
+  };
 }
 ```
 
 ##### Caller
 
 ```ts
-import { RawCaller } from "@matrixai/rpc";
+import { RawCaller } from '@matrixai/rpc';
 const factorial = new RawCaller();
 ```
 
@@ -371,7 +391,7 @@ while (true) {
     process.exit(0);
     break;
   }
-  const factorialResult = new TextDecoder().decode(value).trim();  // Added trim() to remove any extra whitespace
+  const factorialResult = new TextDecoder().decode(value).trim(); // Added trim() to remove any extra whitespace
   console.log(`The factorial is: ${factorialResult}`);
 }
 ```
