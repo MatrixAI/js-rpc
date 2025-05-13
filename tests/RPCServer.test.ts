@@ -878,7 +878,7 @@ describe('RPCServer', () => {
     // With no handler we can only check alive connections through the server
     // @ts-ignore: kidnap protected property
     const activeStreams = rpcServer.activeStreams;
-    for await (const [prom] of activeStreams.entries()) {
+    for (const [prom] of activeStreams.entries()) {
       await prom;
     }
     await rpcServer.stop({ force: true });

@@ -225,7 +225,7 @@ class RPCServer {
 
     // Your existing logic for stopping active streams and other cleanup
     const handlerPs = new Array<PromiseCancellable<void>>();
-    for await (const [activeStream] of this.activeStreams.entries()) {
+    for (const [activeStream] of this.activeStreams.entries()) {
       if (force) activeStream.cancel(reason);
       handlerPs.push(activeStream);
     }
