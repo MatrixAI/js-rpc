@@ -176,12 +176,12 @@ function parseJSONRPCResponse<T extends JSONObject>(
   }
   try {
     return parseJSONRPCResponseSuccess(message);
-  } catch (e) {
+  } catch {
     // Do nothing
   }
   try {
     return parseJSONRPCResponseFailed(message);
-  } catch (e) {
+  } catch {
     // Do nothing
   }
   throw new errors.ErrorRPCParse('structure did not match a `JSONRPCResponse`');
@@ -452,7 +452,6 @@ function clientOutputTransformStream<O extends JSONObject>(
         const e = toError(chunk.error.data, clientMetadata);
         controller.error(e);
       } else {
-        chunk.result;
         controller.enqueue(chunk.result as O);
       }
     },

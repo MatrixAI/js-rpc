@@ -240,7 +240,7 @@ function tapTransformStream<I>(tapCallback: TapCallback<I> = async () => {}) {
     transform: async (chunk, controller) => {
       try {
         await tapCallback(chunk, iteration);
-      } catch (e) {
+      } catch {
         // Ignore errors here
       }
       controller.enqueue(chunk);

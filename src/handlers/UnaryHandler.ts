@@ -19,7 +19,7 @@ abstract class UnaryHandler<
     cancel: (reason?: any) => void,
     meta: Record<string, JSONValue> | undefined,
     ctx: ContextTimed,
-    /* eslint-disable */
+     
   ): Promise<Output> {
     throw new ErrorRPCMethodNotImplemented('This method must be overridden');
   }

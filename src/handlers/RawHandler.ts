@@ -18,7 +18,7 @@ abstract class RawHandler<
     cancel: (reason?: any) => void,
     meta: Record<string, JSONValue> | undefined,
     ctx: ContextTimed,
-    /* eslint-disable */
+     
   ): Promise<[JSONRPCResponseResult, ReadableStream<Uint8Array>]> {
     throw new ErrorRPCMethodNotImplemented('This method must be overridden');
   }
