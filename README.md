@@ -88,7 +88,8 @@ Any of the callers or handlers can be added from the below `Call Types` section.
 
 #### Unary
 
-In Unary calls, the client sends a single request to the server and receives a single response back, much like a regular async function call.
+In Unary calls, the client sends a single request to the server and receives a
+single response back, much like a regular async function call.
 
 ##### Handler
 
@@ -125,7 +126,9 @@ const squaredNumber = new UnaryCaller<
 
 ##### Call-Site
 
-The client initiates a unary RPC call by invoking a method that returns a promise. It passes the required input parameters as arguments to the method. The client then waits for the promise to resolve, receiving the output.
+The client initiates a unary RPC call by invoking a method that returns a
+promise. It passes the required input parameters as arguments to the method. The
+client then waits for the promise to resolve, receiving the output.
 
 ```ts
 await rpcClient.methods.squaredNumber({ value: 3 });
@@ -134,11 +137,18 @@ await rpcClient.methods.squaredNumber({ value: 3 });
 
 #### Client Streaming
 
-In Client Streaming calls, the client can write multiple messages to a single stream, while the server reads from that stream and then returns a single response. This pattern is useful when the client needs to send a sequence of data to the server, after which the server processes the data and replies with a single result. This pattern is good for scenarios like file uploads.
+In Client Streaming calls, the client can write multiple messages to a single
+stream, while the server reads from that stream and then returns a single
+response. This pattern is useful when the client needs to send a sequence of
+data to the server, after which the server processes the data and replies with a
+single result. This pattern is good for scenarios like file uploads.
 
 ##### Handler
 
-On the server side, the handle function is an asynchronous function that takes an AsyncIterableIterator as input, representing the stream of incoming messages from the client. It returns a promise that resolves to the output that will be sent back to the client.
+On the server side, the handle function is an asynchronous function that takes
+an AsyncIterableIterator as input, representing the stream of incoming messages
+from the client. It returns a promise that resolves to the output that will be
+sent back to the client.
 
 ```ts
 import type { JSONRPCParams, JSONRPCResult, JSONValue } from '@matrixai/rpc';
@@ -177,7 +187,9 @@ const accumulate = new ClientCaller<
 
 ##### Call-Site
 
-The client initiates a client streaming RPC call using a method that returns a writable stream and a promise. The client writes to the writable stream and awaits the output promise to get the response.
+The client initiates a client streaming RPC call using a method that returns a
+writable stream and a promise. The client writes to the writable stream and
+awaits the output promise to get the response.
 
 ```ts
 const { output, writable } = await rpcClient.methods.accumulate();
@@ -193,16 +205,19 @@ await output;
 
 #### Server Streaming
 
-In Server Streaming calls,
-the client sends a single request and receives multiple responses in a read-only stream from the server.
-The server can keep pushing messages as long as it needs, allowing real-time updates from the server to the client.
-This is useful for things like monitoring,
-where the server needs to update the client in real-time based on events or data changes.
-In this example, the client sends a number and the server responds with the squares of all numbers up to that number.
+In Server Streaming calls, the client sends a single request and receives
+multiple responses in a read-only stream from the server. The server can keep
+pushing messages as long as it needs, allowing real-time updates from the server
+to the client. This is useful for things like monitoring, where the server needs
+to update the client in real-time based on events or data changes. In this
+example, the client sends a number and the server responds with the squares of
+all numbers up to that number.
 
 ##### Handler
 
-On the server side, the handle function is an asynchronous generator function that takes a single input parameter from the client. It yields multiple messages that will be sent back to the client through the readable stream.
+On the server side, the handle function is an asynchronous generator function
+that takes a single input parameter from the client. It yields multiple messages
+that will be sent back to the client through the readable stream.
 
 ```ts
 import type { JSONRPCParams, JSONRPCResult, JSONValue } from '@matrixai/rpc';
@@ -236,7 +251,9 @@ const count = new ServerCaller<CallerTypes['input'], CallerTypes['output']>();
 
 ##### Call-Site
 
-The client initiates a server streaming RPC call using a method that takes input parameters and returns a readable stream. The client writes a single message and then reads multiple messages from the readable stream.
+The client initiates a server streaming RPC call using a method that takes input
+parameters and returns a readable stream. The client writes a single message and
+then reads multiple messages from the readable stream.
 
 ```ts
 const callerInterface = await rpcClient.methods.count({ value: 5 });
@@ -251,7 +268,10 @@ while (true) {
 
 #### Duplex Stream
 
-A Duplex Stream enables both the client and the server to read and write messages in their respective streams independently of each other. Both parties can read and write multiple messages in any order. It's useful in scenarios that require ongoing communication in both directions, like chat applications.
+A Duplex Stream enables both the client and the server to read and write
+messages in their respective streams independently of each other. Both parties
+can read and write multiple messages in any order. It's useful in scenarios that
+require ongoing communication in both directions, like chat applications.
 
 ##### Handler
 
@@ -287,7 +307,9 @@ const echo = new ServerCaller<CallerTypes['input'], CallerTypes['output']>();
 
 ##### Call-Site
 
-The client initiates a duplex streaming RPC call using a method that returns both a readable and a writable stream. The client can read from the readable stream and write to the writable stream.
+The client initiates a duplex streaming RPC call using a method that returns
+both a readable and a writable stream. The client can read from the readable
+stream and write to the writable stream.
 
 ```ts
 // Initialize the duplex call
@@ -308,7 +330,12 @@ const readResult = await reader.read();
 
 #### Raw Streams
 
-Raw Streams are designed for low-level handling of RPC calls, enabling granular control over data streaming. Unlike other patterns, Raw Streams allow both the server and client to work directly with raw data, providing a more flexible yet complex way to handle communications. This is especially useful when the RPC protocol itself needs customization or when handling different types of data streams within the same connection.
+Raw Streams are designed for low-level handling of RPC calls, enabling granular
+control over data streaming. Unlike other patterns, Raw Streams allow both the
+server and client to work directly with raw data, providing a more flexible yet
+complex way to handle communications. This is especially useful when the RPC
+protocol itself needs customization or when handling different types of data
+streams within the same connection.
 
 ##### Handler
 
@@ -400,25 +427,40 @@ while (true) {
 
 ### Timeouts
 
-Whenever the time between the initial message and the following subsequent message of an RPC call exceeds a defined timeout time, the RPC call will have timed out.
+Whenever the time between the initial message and the following subsequent
+message of an RPC call exceeds a defined timeout time, the RPC call will have
+timed out.
 
-For Unary calls, this is similar to the timeout of a response after sending a request.
+For Unary calls, this is similar to the timeout of a response after sending a
+request.
 
-If the client were to time out, the stream is forcibly closed and `ErrorRPCTimedOut` is thrown from the call.
+If the client were to time out, the stream is forcibly closed and
+`ErrorRPCTimedOut` is thrown from the call.
 
-If the server were to time out, is is advisory. Meaning that the server may choose to optionally eagerly throw `ErrorRPCTimedOut`, or continue processing as normal.
+If the server were to time out, is is advisory. Meaning that the server may
+choose to optionally eagerly throw `ErrorRPCTimedOut`, or continue processing as
+normal.
 
-After the client receives the subsequent message from the server, the timeout timer is cancelled.
+After the client receives the subsequent message from the server, the timeout
+timer is cancelled.
 
-Likewise on the server, the timeout timer is cancelled after the first message is sent to the client.
+Likewise on the server, the timeout timer is cancelled after the first message
+is sent to the client.
 
-This means that the timeout for Streaming calls acts as a Proof of Life, and after it is established, the timeout no longer applies. This allows for long-running Streaming calls.
+This means that the timeout for Streaming calls acts as a Proof of Life, and
+after it is established, the timeout no longer applies. This allows for
+long-running Streaming calls.
 
-Note that when supplying a `Timer` instance to the call-site in `RPCClient`, the timeout timer will not be cancelled. As it is expected for the library to not mutate the passed-in `Timer`, and for the user to expect that receiving a messsage will have meaned that the timer no longer matters.
+Note that when supplying a `Timer` instance to the call-site in `RPCClient`, the
+timeout timer will not be cancelled. As it is expected for the library to not
+mutate the passed-in `Timer`, and for the user to expect that receiving a
+messsage will have meaned that the timer no longer matters.
 
 #### Throwing Timeouts Server-Side
 
-By default, a timeout will not cause an RPC call to automatically throw, this must be manually done by the handler when it receives the abort signal from `ctx.signal`. An example of this is like so:
+By default, a timeout will not cause an RPC call to automatically throw, this
+must be manually done by the handler when it receives the abort signal from
+`ctx.signal`. An example of this is like so:
 
 ```ts
 class TestMethod extends UnaryHandler {
@@ -440,9 +482,12 @@ class TestMethod extends UnaryHandler {
 
 #### Priority of Timeout Options
 
-A `timeoutTime` can be passed both to the constructors of `RPCServer` and `RPCClient`. This is the default `timeoutTime` for all callers/handlers.
+A `timeoutTime` can be passed both to the constructors of `RPCServer` and
+`RPCClient`. This is the default `timeoutTime` for all callers/handlers.
 
-In the case of `RPCServer`, a `timeout` can be specified when extending any `Handler` class. This will override the default `timeoutTime` set on `RPCServer` for that handler only.
+In the case of `RPCServer`, a `timeout` can be specified when extending any
+`Handler` class. This will override the default `timeoutTime` set on `RPCServer`
+for that handler only.
 
 ```ts
 class TestMethodArbitraryTimeout extends UnaryHandler {
@@ -458,28 +503,40 @@ class TestMethodArbitraryTimeout extends UnaryHandler {
 }
 ```
 
-In the case of `RPCClient`, a `ctx` with the property `timer` can be supplied with a `Timer` instance or `number` when making making an RPC call. This will override the default `timeoutTime` set on `RPCClient` for that call only.
+In the case of `RPCClient`, a `ctx` with the property `timer` can be supplied
+with a `Timer` instance or `number` when making making an RPC call. This will
+override the default `timeoutTime` set on `RPCClient` for that call only.
 
 ```ts
 await rpcClient.methods.testMethod({}, { timer: 100 });
 await rpcClient.methods.testMethod({}, { timer: new Timer(undefined, 100) });
 ```
 
-However, it's important to note that any of these timeouts may ultimately be overridden by the shortest timeout of the server and client combined using the timeout middleware below.
+However, it's important to note that any of these timeouts may ultimately be
+overridden by the shortest timeout of the server and client combined using the
+timeout middleware below.
 
 #### Timeout Middleware
 
-The `timeoutMiddleware` sets an RPCServer's timeout based on the lowest timeout between the Client and the Server. This is so that handlers can eagerly time out and stop processing as soon as it is known that the client has timed out.
+The `timeoutMiddleware` sets an RPCServer's timeout based on the lowest timeout
+between the Client and the Server. This is so that handlers can eagerly time out
+and stop processing as soon as it is known that the client has timed out.
 
-This case can be seen in the first diagram, where the server is able to stop the processing of the handler, and close the associated stream of the RPC call based on the shorter timeout sent by the client:
+This case can be seen in the first diagram, where the server is able to stop the
+processing of the handler, and close the associated stream of the RPC call based
+on the shorter timeout sent by the client:
 
 ![RPCServer sets timeout based on RPCClient](images/timeoutMiddlewareClientTimeout.svg)
 
-Where the `RPCClient` sends a timeout that is longer than that set on the `RPCServer`, it will be rejected. This is as the timeout of the client should never be expected to exceed that of the server, so that the server's timeout is an absolute limit.
+Where the `RPCClient` sends a timeout that is longer than that set on the
+`RPCServer`, it will be rejected. This is as the timeout of the client should
+never be expected to exceed that of the server, so that the server's timeout is
+an absolute limit.
 
 ![RPCServer rejects longer timeout sent by RPCClient](images/timeoutMiddlewareServerTimeout.svg)
 
-The `timeoutMiddleware` is enabled by default, and uses the `.metadata.timeout` property on a JSON-RPC request object for the client to send it's timeout.
+The `timeoutMiddleware` is enabled by default, and uses the `.metadata.timeout`
+property on a JSON-RPC request object for the client to send it's timeout.
 
 ## Development
 
