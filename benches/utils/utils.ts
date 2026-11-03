@@ -3,7 +3,7 @@ import path from 'node:path';
 import url from 'node:url';
 import b from 'benny';
 import { codeBlock } from 'common-tags';
-import packageJson from '../../package.json' assert { type: 'json' };
+import packageJson from '../../package.json' with { type: 'json' };
 
 const benchesPath = path.dirname(
   path.dirname(url.fileURLToPath(import.meta.url)),

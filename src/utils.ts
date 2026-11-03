@@ -15,7 +15,7 @@ import type {
   PromiseDeconstructed,
   ToError,
 } from './types.js';
-import { TransformStream } from 'stream/web';
+import { TransformStream } from 'node:stream/web';
 import { JSONParser } from '@streamparser/json';
 import { AbstractError } from '@matrixai/errors';
 import * as errors from './errors.js';

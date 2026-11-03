@@ -1,4 +1,4 @@
-import type { ReadableStream, WritableStream } from 'stream/web';
+import type { ReadableStream, WritableStream } from 'node:stream/web';
 import type { ContextTimedInput } from '@matrixai/contexts';
 import type {
   ClientManifest,

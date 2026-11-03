@@ -1,4 +1,4 @@
-import type { ReadableStream, ReadableWritablePair } from 'stream/web';
+import type { ReadableStream, ReadableWritablePair } from 'node:stream/web';
 import type { ContextTimed, ContextTimedInput } from '@matrixai/contexts';
 import type Caller from './callers/Caller.js';
 import type RawCaller from './callers/RawCaller.js';
@@ -185,15 +185,13 @@ type JSONRPCResponseError = {
  * notification.
  */
 type JSONRPCRequest<T extends JSONRPCRequestParams = JSONRPCRequestParams> =
-  | JSONRPCRequestMessage<T>
-  | JSONRPCRequestNotification<T>;
+  JSONRPCRequestMessage<T> | JSONRPCRequestNotification<T>;
 
 /**
  * This is a JSON RPC response object. It can be a response result or error.
  */
 type JSONRPCResponse<T extends JSONRPCResponseResult = JSONRPCResponseResult> =
-  | JSONRPCResponseSuccess<T>
-  | JSONRPCResponseFailed;
+  JSONRPCResponseSuccess<T> | JSONRPCResponseFailed;
 
 /**
  * This is a JSON RPC Message object. This is top level and can be any kind of
@@ -201,8 +199,7 @@ type JSONRPCResponse<T extends JSONRPCResponseResult = JSONRPCResponseResult> =
  */
 type JSONRPCMessage<
   T extends JSONRPCRequestParams | JSONRPCResponseResult =
-    | JSONRPCRequestParams
-    | JSONRPCResponseResult,
+    JSONRPCRequestParams | JSONRPCResponseResult,
 > = JSONRPCRequest<T> | JSONRPCResponse<T>;
 
 // Handler types
@@ -246,8 +243,10 @@ type ContainerType = Record<string, any>;
  * mainly used as the return type for the `StreamFactory`. But the interface
  * can be propagated across the RPC system.
  */
-interface RPCStream<R, W, M extends POJO = POJO>
-  extends ReadableWritablePair<R, W> {
+interface RPCStream<R, W, M extends POJO = POJO> extends ReadableWritablePair<
+  R,
+  W
+> {
   cancel: (reason?: any) => void;
   meta?: M;
 }
@@ -320,21 +319,25 @@ type RawCallerImplementation = (
   >
 >;
 
-type ConvertDuplexCaller<T> = T extends DuplexCaller<infer I, infer O>
-  ? DuplexCallerImplementation<I, O>
-  : never;
+type ConvertDuplexCaller<T> =
+  T extends DuplexCaller<infer I, infer O>
+    ? DuplexCallerImplementation<I, O>
+    : never;
 
-type ConvertServerCaller<T> = T extends ServerCaller<infer I, infer O>
-  ? ServerCallerImplementation<I, O>
-  : never;
+type ConvertServerCaller<T> =
+  T extends ServerCaller<infer I, infer O>
+    ? ServerCallerImplementation<I, O>
+    : never;
 
-type ConvertClientCaller<T> = T extends ClientCaller<infer I, infer O>
-  ? ClientCallerImplementation<I, O>
-  : never;
+type ConvertClientCaller<T> =
+  T extends ClientCaller<infer I, infer O>
+    ? ClientCallerImplementation<I, O>
+    : never;
 
-type ConvertUnaryCaller<T> = T extends UnaryCaller<infer I, infer O>
-  ? UnaryCallerImplementation<I, O>
-  : never;
+type ConvertUnaryCaller<T> =
+  T extends UnaryCaller<infer I, infer O>
+    ? UnaryCallerImplementation<I, O>
+    : never;
 
 type ConvertCaller<T extends Caller> = T extends DuplexCaller
   ? ConvertDuplexCaller<T>
@@ -388,17 +391,14 @@ type PromiseDeconstructed<T> = {
   rejectP: (reason?: any) => void;
 };
 
-type HandlerTypes<T> = T extends Handler<
-  infer Container,
-  infer Input,
-  infer Output
->
-  ? {
-      container: Container;
-      input: Input;
-      output: Output;
-    }
-  : never;
+type HandlerTypes<T> =
+  T extends Handler<infer Container, infer Input, infer Output>
+    ? {
+        container: Container;
+        input: Input;
+        output: Output;
+      }
+    : never;
 
 type FromError = (error: any) => JSONValue;
 

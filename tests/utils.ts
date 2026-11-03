@@ -1,4 +1,4 @@
-import type { ReadableWritablePair } from 'stream/web';
+import type { ReadableWritablePair } from 'node:stream/web';
 import type { JSONObject, JSONValue } from '#types.js';
 import type {
   JSONRPCResponseError,
@@ -11,7 +11,11 @@ import type {
   JSONRPCRequest,
 } from '#types.js';
 import type { ErrorRPC } from '#errors.js';
-import { ReadableStream, WritableStream, TransformStream } from 'stream/web';
+import {
+  ReadableStream,
+  WritableStream,
+  TransformStream,
+} from 'node:stream/web';
 import { fc } from '@fast-check/jest';
 import { AbstractError } from '@matrixai/errors';
 import * as utils from '#utils.js';

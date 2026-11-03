@@ -12,7 +12,7 @@ import type {
   RPCStream,
 } from '#types.js';
 import type { IdGen } from '#types.js';
-import { TransformStream, ReadableStream } from 'stream/web';
+import { TransformStream, ReadableStream } from 'node:stream/web';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import { Timer } from '@matrixai/timer';
 import { test, fc } from '@fast-check/jest';

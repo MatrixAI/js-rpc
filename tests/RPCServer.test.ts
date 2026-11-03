@@ -12,7 +12,11 @@ import type {
 import type { IdGen } from '#types.js';
 import type { PromiseCancellable } from '@matrixai/async-cancellable';
 import type * as rpcEvents from '#events.js';
-import { ReadableStream, TransformStream, WritableStream } from 'stream/web';
+import {
+  ReadableStream,
+  TransformStream,
+  WritableStream,
+} from 'node:stream/web';
 import { fc, test } from '@fast-check/jest';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import * as rpcTestUtils from './utils.js';

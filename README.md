@@ -540,58 +540,38 @@ property on a JSON-RPC request object for the client to send it's timeout.
 
 ## Development
 
-Run `nix-shell`, and once you're inside, you can use:
+Use Node.js 24 or newer. Run `npm ci --ignore-scripts` explicitly after entering
+this repository's development environment with `nix develop --no-pure-eval` or
+approved direnv activation. Activation does not install dependencies or load
+credentials.
 
-```sh
-# install (or reinstall packages from package.json)
-npm install
-# build the dist
-npm run build
-# run the repl (this allows you to import from ./src)
-npm run tsx
-# run the tests
-npm run test
-# lint the source code
-npm run lint
-# automatically fix the source
-npm run lintfix
-```
+- Build with `npm run build` and check types with `npm run typecheck`.
+- Run `npm test -- --runInBand`; the wrapper compiles before Jest/SWC.
+- Run `npm run lintfix` or `nix fmt` for formatting; use `npm run lint` for
+  nonmutating verification.
+- MatrixAI lint is provided by the Nix package set, not an npm dependency or a
+  separate lint flake input. The development shell, formatter, and hermetic lint
+  check share the same configured toolchain.
+- Run `npm run check:package` for archive allowlists, canonical manifests,
+  public module imports, and declaration consumers. `npm run check:portable`
+  audits the declared source import boundary; it does not establish browser
+  compatibility of this package or its transitive dependencies.
+- Run `npm run check` for the aggregate local gate, or `nix flake check` for
+  independent hermetic verification and lint reports.
+- Prepared artifacts are available through `nix build '.#npm-package'` and
+  `nix build '.#npm-package-unpacked'`.
 
-### Docs Generation
+Documentation is handwritten Markdown. Publishing, tagging, and committing
+require separate approval; no publication workflow runs automatically.
 
-```sh
-npm run docs
-```
+## Migration status
 
-See the docs at: https://matrixai.github.io/js-rpc/
+The tooling migration currently retains the old implementation while the
+semantic redesign is deferred. This is not a backward-compatibility requirement
+for the replacement API. Existing legacy decorators are a temporary migration
+exception, not the final standard-decorator architecture. The context protocol,
+lifecycle, timing, and stream-completion changes remain separate design work.
 
-### Publishing
-
-Publishing is handled automatically by the staging pipeline.
-
-Prerelease:
-
-```sh
-# npm login
-npm version prepatch --preid alpha # premajor/preminor/prepatch
-git push --follow-tags
-```
-
-Release:
-
-```sh
-# npm login
-npm version patch # major/minor/patch
-git push --follow-tags
-```
-
-Manually:
-
-```sh
-# npm login
-npm version patch # major/minor/patch
-npm run build
-npm publish --access public
-git push
-git push --tags
-```
+Repository guidance is in [AGENTS.md](AGENTS.md); the selected standards profile
+is [library-js](.matrixai/repo-profile.yml). Standards are acquired as a shallow
+private submodule and profile-selected skills are materialized locally.

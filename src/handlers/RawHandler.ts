@@ -1,5 +1,5 @@
 import type { ContextTimed } from '@matrixai/contexts';
-import type { ReadableStream } from 'stream/web';
+import type { ReadableStream } from 'node:stream/web';
 import type {
   ContainerType,
   JSONRPCRequest,

@@ -1,4 +1,4 @@
-import type { ReadableStreamDefaultReadResult } from 'stream/web';
+import type { ReadableStreamReadResult } from 'node:stream/web';
 import type {
   IdGen,
   ClientHandlerImplementation,
@@ -17,7 +17,7 @@ import type {
   FromError,
   JSONObject,
 } from './types.js';
-import { ReadableStream, TransformStream } from 'stream/web';
+import { ReadableStream, TransformStream } from 'node:stream/web';
 import Logger from '@matrixai/logger';
 import { PromiseCancellable } from '@matrixai/async-cancellable';
 import { Timer } from '@matrixai/timer';
@@ -513,8 +513,7 @@ class RPCServer {
       const reader = transformStream.readable.getReader();
       // Allows timing out when waiting for the first message
       let headerMessage:
-        | ReadableStreamDefaultReadResult<JSONRPCRequest | Uint8Array>
-        | undefined;
+        ReadableStreamReadResult<JSONRPCRequest | Uint8Array> | undefined;
       try {
         headerMessage = await Promise.race([
           reader.read(),

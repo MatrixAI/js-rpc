@@ -7,7 +7,7 @@ import type {
   JSONValue,
 } from './types.js';
 import type { ContextTimed } from '@matrixai/contexts';
-import { TransformStream } from 'stream/web';
+import { TransformStream } from 'node:stream/web';
 import { JSONParser } from '@streamparser/json';
 import * as utils from './utils.js';
 import * as rpcErrors from './errors.js';

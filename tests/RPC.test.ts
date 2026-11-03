@@ -5,10 +5,10 @@ import type {
   JSONRPCRequest,
   JSONRPCResponseResult,
 } from '#types.js';
-import type { ReadableStream } from 'stream/web';
+import type { ReadableStream } from 'node:stream/web';
 import type { JSONValue, IdGen } from '#types.js';
 import type { ContextTimed } from '@matrixai/contexts';
-import { TransformStream } from 'stream/web';
+import { TransformStream } from 'node:stream/web';
 import { fc, test } from '@fast-check/jest';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import { Timer } from '@matrixai/timer';
@@ -1026,6 +1026,7 @@ describe('RPC tests', () => {
     >();
     const errorMessage = 'test error';
     const testReason = Error(errorMessage);
+    const handlerStarted = utils.promise<void>();
     class TestMethod extends UnaryHandler {
       public handle = async (
         _input: JSONObject,
@@ -1039,6 +1040,7 @@ describe('RPC tests', () => {
           () => abortP.resolveP(ctx.signal.reason),
           { once: true },
         );
+        handlerStarted.resolveP();
         throw await abortP.p;
       };
     }
@@ -1060,6 +1062,7 @@ describe('RPC tests', () => {
       idGen,
     });
     const testProm = rpcClient.methods.testMethod({});
+    await handlerStarted.p;
     await rpcServer.stop({ force: true, reason: testReason });
     const rejection = await testProm.catch((e) => e);
     expect(rejection).toBeInstanceOf(ErrorRPCRemote);

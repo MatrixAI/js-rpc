@@ -1,6 +1,10 @@
 import path from 'node:path';
 import url from 'node:url';
-import tsconfigJSON from './tsconfig.json' assert { type: "json" };
+import fs from 'node:fs';
+
+const tsconfigJSON = JSON.parse(
+  fs.readFileSync(new URL('./tsconfig.json', import.meta.url), 'utf8'),
+);
 
 const projectPath = path.dirname(url.fileURLToPath(import.meta.url));
 
@@ -24,6 +28,7 @@ const globals = {
 
 const config = {
   testEnvironment: 'node',
+  testTimeout: globals.defaultTimeout,
   verbose: true,
   collectCoverage: false,
   cacheDirectory: '<rootDir>/tmp/jest',
@@ -34,6 +39,7 @@ const config = {
     "^.+\\.(t|j)sx?$": [
       "@swc/jest",
       {
+        module: { type: "es6" },
         jsc: {
           parser: {
             syntax: "typescript",
@@ -43,6 +49,7 @@ const config = {
           },
           target: tsconfigJSON.compilerOptions.target.toLowerCase(),
           keepClassNames: true,
+          transform: { legacyDecorator: true },
         },
       }
     ],
